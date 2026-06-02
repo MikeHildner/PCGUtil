@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PcgUtil.Core/PcgUtil.Core.csproj" />
+    <Project Path="src/PcgUtil.Web/PcgUtil.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PcgUtil.Core.Tests/PcgUtil.Core.Tests.csproj" />
+  </Folder>
+</Solution>

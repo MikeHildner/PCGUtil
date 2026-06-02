@@ -1,0 +1,25 @@
+@using PcgUtil.Core
+
+@* Renders one chunk and (recursively) its children as a collapsible tree node. *@
+<details open="@Open" class="pcg-node">
+    <summary>
+        <code>@Chunk.Id</code>
+        <span class="text-body-secondary">@PcgChunkInfo.Describe(Chunk.Id)</span>
+        <span class="badge text-bg-light">@Format.Bytes(Chunk.Size)</span>
+        <span class="text-body-secondary small">@Format.Hex(Chunk.Offset)</span>
+    </summary>
+    @if (Chunk.HasChildren)
+    {
+        <ul class="pcg-children">
+            @foreach (var child in Chunk.Children)
+            {
+                <li><ChunkNode Chunk="child" Open="false" /></li>
+            }
+        </ul>
+    }
+</details>
+
+@code {
+    [Parameter, EditorRequired] public PcgChunk Chunk { get; set; } = default!;
+    [Parameter] public bool Open { get; set; }
+}

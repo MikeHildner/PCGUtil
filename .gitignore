@@ -1,0 +1,25 @@
+## .NET build output
+bin/
+obj/
+artifacts/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+## Test results
+TestResults/
+*.trx
+
+## OS cruft
+.DS_Store
+Thumbs.db
+
+## Per-machine Claude Code settings
+.claude/settings.local.json
+
+## Large sample data (kept out of the repo)
+files/

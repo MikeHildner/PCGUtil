@@ -1,0 +1,331 @@
+@page "/"
+@rendermode InteractiveServer
+@using System.Text
+@using PcgUtil.Core
+@inject IJSRuntime JS
+@inject ILogger<Home> Logger
+
+<PageTitle>PCG Util</PageTitle>
+
+<h1 class="mb-3">PCG Util</h1>
+
+<p class="text-body-secondary">
+    Upload a <code>.PCG</code> file to inspect its chunk structure and embedded names
+    (Set Lists, Programs, Combis, Drum Kits, Wave Sequences, Global). The file is parsed in
+    server memory and is not saved to disk.
+</p>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <label class="form-label fw-semibold">Choose a .PCG file</label>
+        <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="form-control" />
+        @if (_loading)
+        {
+            <div class="mt-2 text-body-secondary">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                Reading and parsing @_fileName …
+            </div>
+        }
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger mt-3 mb-0">@_error</div>
+        }
+    </div>
+</div>
+
+@if (_pcg is not null)
+{
+    <ul class="nav nav-tabs mb-3">
+        @foreach (var tab in Enum.GetValues<View>())
+        {
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_view == tab ? "active" : null)"
+                        @onclick="() => _view = tab">
+                    @TabLabel(tab)
+                </button>
+            </li>
+        }
+    </ul>
+
+    @switch (_view)
+    {
+        case View.Overview:
+        {
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-lg-3">
+                    <div class="border rounded p-3 h-100">
+                        <div class="text-body-secondary small">File</div>
+                        <div class="fw-semibold text-truncate" title="@_fileName">@_fileName</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="border rounded p-3 h-100">
+                        <div class="text-body-secondary small">Size</div>
+                        <div class="fw-semibold">@Format.Bytes(_pcg.Length)</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="border rounded p-3 h-100">
+                        <div class="text-body-secondary small">Signature</div>
+                        <div class="fw-semibold">@_pcg.Magic</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="border rounded p-3 h-100">
+                        <div class="text-body-secondary small">Total chunks</div>
+                        <div class="fw-semibold">@_pcg.EnumerateChunks().Count()</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="h5">Top-level sections</h2>
+            <table class="table table-sm table-striped align-middle">
+                <thead>
+                    <tr><th>Chunk</th><th>Contents</th><th class="text-end">Size</th><th class="text-end">Banks</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var section in TopLevelSections())
+                    {
+                        <tr>
+                            <td><code>@section.Id</code></td>
+                            <td>@PcgChunkInfo.Describe(section.Id)</td>
+                            <td class="text-end">@Format.Bytes(section.Size)</td>
+                            <td class="text-end">@(section.HasChildren ? section.Children.Count.ToString() : "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            break;
+        }
+
+        case View.SetLists:
+        {
+            <p class="text-body-secondary">
+                @_setListNames.Count distinct name-like strings found in the Set List section
+                (<code>SLS1</code>) — set-list names plus the song/slot names within them.
+            </p>
+            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" @onclick="ExportSetListNames">
+                Export CSV
+            </button>
+            <div class="row g-1">
+                @foreach (var name in _setListNames)
+                {
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <div class="text-truncate" title="@name">@name</div>
+                    </div>
+                }
+            </div>
+            break;
+        }
+
+        case View.Strings:
+        {
+            var filtered = FilteredStrings.ToList();
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-5">
+                    <label class="form-label small mb-1">Chunk</label>
+                    <select class="form-select form-select-sm" @onchange="OnChunkChanged">
+                        @for (var i = 0; i < _chunkChoices.Count; i++)
+                        {
+                            var (chunk, depth) = _chunkChoices[i];
+                            <option value="@i" selected="@(ReferenceEquals(chunk, _selectedChunk))">
+                                @(new string(' ', depth * 3))@chunk.Id — @PcgChunkInfo.Describe(chunk.Id) (@Format.Bytes(chunk.Size))
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small mb-1">Min length</label>
+                    <input type="number" min="1" max="64" class="form-control form-control-sm"
+                           value="@_minLen" @onchange="OnMinLenChanged" />
+                </div>
+                <div class="col-6 col-md-4">
+                    <label class="form-label small mb-1">Search</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="filter…"
+                           @bind="_search" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="text-body-secondary small">
+                    @filtered.Count string(s)@(filtered.Count > MaxRows ? $" — showing first {MaxRows}" : "")
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportStringsCsv">CSV</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportStringsJson">JSON</button>
+                </div>
+            </div>
+
+            <table class="table table-sm table-hover font-monospace small">
+                <thead><tr><th style="width:9rem">Offset</th><th>Text</th></tr></thead>
+                <tbody>
+                    @foreach (var s in filtered.Take(MaxRows))
+                    {
+                        <tr>
+                            <td class="text-body-secondary">@Format.Hex(s.Offset)</td>
+                            <td>@s.Value</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            break;
+        }
+
+        case View.Tree:
+        {
+            <p class="text-body-secondary">Full chunk hierarchy — click a row to expand or collapse.</p>
+            @foreach (var top in _pcg.TopLevel)
+            {
+                <ChunkNode Chunk="top" Open="true" />
+            }
+            break;
+        }
+    }
+}
+
+@code {
+    enum View { Overview, SetLists, Strings, Tree }
+
+    const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
+    const int MaxRows = 1000;                    // cap rendered string rows
+
+    PcgFile? _pcg;
+    string? _fileName;
+    string? _error;
+    bool _loading;
+    View _view = View.Overview;
+
+    List<(PcgChunk Chunk, int Depth)> _chunkChoices = new();
+    PcgChunk? _selectedChunk;
+    int _minLen = 3;
+    string _search = string.Empty;
+    List<PcgString> _stringsForChunk = new();
+    List<string> _setListNames = new();
+
+    IEnumerable<PcgString> FilteredStrings =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _stringsForChunk
+            : _stringsForChunk.Where(s => s.Value.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _pcg = null;
+        _fileName = e.File.Name;
+        _loading = true;
+        try
+        {
+            using var ms = new MemoryStream();
+            await using (var stream = e.File.OpenReadStream(MaxFileSize))
+            {
+                await stream.CopyToAsync(ms);
+            }
+
+            _pcg = PcgReader.Parse(ms.ToArray());
+            _view = View.Overview;
+            BuildDerivedViews();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not parse '{_fileName}': {ex.Message}";
+            Logger.LogWarning(ex, "Failed to parse PCG {File}", _fileName);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    void BuildDerivedViews()
+    {
+        if (_pcg is null) return;
+
+        _chunkChoices = _pcg.Flatten().ToList();
+        _selectedChunk = _pcg.FindFirst("SDB1") ?? _pcg.FindFirst("SLS1") ?? _pcg.TopLevel.FirstOrDefault();
+        RefreshStrings();
+
+        var setLists = _pcg.FindFirst("SLS1");
+        _setListNames = setLists is null
+            ? new List<string>()
+            : PcgStrings.Extract(_pcg.Data, setLists, minLength: 3)
+                .Select(s => s.Value)
+                .Where(v => v.Length <= 32 && v.Any(char.IsLetter))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+    }
+
+    void RefreshStrings()
+    {
+        _stringsForChunk = _pcg is null || _selectedChunk is null
+            ? new List<PcgString>()
+            : PcgStrings.Extract(_pcg.Data, _selectedChunk, _minLen).ToList();
+    }
+
+    void OnChunkChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0 && idx < _chunkChoices.Count)
+        {
+            _selectedChunk = _chunkChoices[idx].Chunk;
+            RefreshStrings();
+        }
+    }
+
+    void OnMinLenChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+        {
+            _minLen = Math.Clamp(v, 1, 64);
+            RefreshStrings();
+        }
+    }
+
+    IEnumerable<PcgChunk> TopLevelSections()
+    {
+        if (_pcg is null) return Enumerable.Empty<PcgChunk>();
+        return _pcg.TopLevel.Count == 1 && _pcg.TopLevel[0].HasChildren
+            ? _pcg.TopLevel[0].Children
+            : _pcg.TopLevel;
+    }
+
+    static string TabLabel(View v) => v switch
+    {
+        View.Overview => "Overview",
+        View.SetLists => "Set Lists",
+        View.Strings => "Strings",
+        View.Tree => "Chunk tree",
+        _ => v.ToString(),
+    };
+
+    string SelectedChunkName => _selectedChunk?.Id ?? "pcg";
+
+    async Task ExportStringsCsv()
+    {
+        var sb = new StringBuilder();
+        sb.Append("offset,text\n");
+        foreach (var s in FilteredStrings)
+            sb.Append("0x").Append(s.Offset.ToString("X")).Append(",\"")
+              .Append(s.Value.Replace("\"", "\"\"")).Append("\"\n");
+        await Download($"{SelectedChunkName}-strings.csv", "text/csv", sb.ToString());
+    }
+
+    async Task ExportStringsJson()
+    {
+        var items = FilteredStrings
+            .Select(s => new { offset = s.Offset, hex = "0x" + s.Offset.ToString("X"), text = s.Value });
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            items, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        await Download($"{SelectedChunkName}-strings.json", "application/json", json);
+    }
+
+    async Task ExportSetListNames()
+    {
+        var sb = new StringBuilder();
+        sb.Append("name\n");
+        foreach (var name in _setListNames)
+            sb.Append('"').Append(name.Replace("\"", "\"\"")).Append("\"\n");
+        await Download("set-list-names.csv", "text/csv", sb.ToString());
+    }
+
+    async Task Download(string fileName, string mime, string content) =>
+        await JS.InvokeVoidAsync("pcgDownload", fileName, mime, content);
+}
