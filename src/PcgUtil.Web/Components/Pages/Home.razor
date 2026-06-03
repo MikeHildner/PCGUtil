@@ -100,21 +100,62 @@
 
         case View.SetLists:
         {
-            <p class="text-body-secondary">
-                @_setListNames.Count distinct name-like strings found in the Set List section
-                (<code>SLS1</code>) — set-list names plus the song/slot names within them.
-            </p>
-            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" @onclick="ExportSetListNames">
-                Export CSV
-            </button>
-            <div class="row g-1">
-                @foreach (var name in _setListNames)
-                {
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="text-truncate" title="@name">@name</div>
+            if (_setLists.Count == 0)
+            {
+                <p class="text-body-secondary">No Set Lists found (this file has no <code>SBK1</code> chunk).</p>
+            }
+            else
+            {
+                var sl = _setLists[_selectedSetList];
+                var slots = (_showEmptySlots ? sl.Slots : sl.NamedSlots).ToList();
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label small mb-1">Set List</label>
+                        <select class="form-select form-select-sm" @onchange="OnSetListChanged">
+                            @for (var i = 0; i < _setLists.Count; i++)
+                            {
+                                var item = _setLists[i];
+                                var songs = item.NamedSlots.Count();
+                                <option value="@i" selected="@(i == _selectedSetList)">
+                                    @i.ToString("D3") — @item.DisplayName (@songs song@(songs == 1 ? "" : "s"))
+                                </option>
+                            }
+                        </select>
                     </div>
-                }
-            </div>
+                    <div class="col-md-4">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="showEmpty" @bind="_showEmptySlots" />
+                            <label class="form-check-label small" for="showEmpty">Show empty slots</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 mb-0">@sl.DisplayName</h2>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCurrentSetListCsv">Export this</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportAllSetListsCsv">Export all</button>
+                    </div>
+                </div>
+
+                <table class="table table-sm table-hover align-middle">
+                    <thead><tr><th style="width:5rem">Slot</th><th>Name</th><th style="width:14rem">Reference (raw)</th></tr></thead>
+                    <tbody>
+                        @foreach (var slot in slots)
+                        {
+                            <tr class="@(slot.IsEmpty ? "text-body-secondary" : null)">
+                                <td>@slot.Index.ToString("D3")</td>
+                                <td>@(slot.IsEmpty ? "—" : slot.Name)</td>
+                                <td class="font-monospace small text-body-secondary">@slot.ReferenceHex</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <p class="text-body-secondary small">
+                    Set-list and slot names are decoded. The raw reference bytes point at each slot's
+                    Program/Combi/Song but are not yet resolved to names.
+                </p>
+            }
             break;
         }
 
@@ -200,7 +241,9 @@
     int _minLen = 3;
     string _search = string.Empty;
     List<PcgString> _stringsForChunk = new();
-    List<string> _setListNames = new();
+    List<SetList> _setLists = new();
+    int _selectedSetList;
+    bool _showEmptySlots;
 
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
@@ -244,14 +287,9 @@
         _selectedChunk = _pcg.FindFirst("SDB1") ?? _pcg.FindFirst("SLS1") ?? _pcg.TopLevel.FirstOrDefault();
         RefreshStrings();
 
-        var setLists = _pcg.FindFirst("SLS1");
-        _setListNames = setLists is null
-            ? new List<string>()
-            : PcgStrings.Extract(_pcg.Data, setLists, minLength: 3)
-                .Select(s => s.Value)
-                .Where(v => v.Length <= 32 && v.Any(char.IsLetter))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+        _setLists = SetListReader.Read(_pcg).ToList();
+        _selectedSetList = _setLists.FindIndex(s => s.NamedSlots.Any());
+        if (_selectedSetList < 0) _selectedSetList = 0;
     }
 
     void RefreshStrings()
@@ -317,13 +355,36 @@
         await Download($"{SelectedChunkName}-strings.json", "application/json", json);
     }
 
-    async Task ExportSetListNames()
+    void OnSetListChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0 && idx < _setLists.Count)
+            _selectedSetList = idx;
+    }
+
+    async Task ExportCurrentSetListCsv()
+    {
+        var sl = _setLists[_selectedSetList];
+        var sb = new StringBuilder();
+        sb.Append("slot,name,reference\n");
+        foreach (var slot in sl.Slots)
+            sb.Append(slot.Index).Append(",\"").Append(slot.Name.Replace("\"", "\"\"")).Append("\",")
+              .Append(slot.ReferenceHex).Append('\n');
+        await Download($"setlist-{sl.Index:D3}.csv", "text/csv", sb.ToString());
+    }
+
+    async Task ExportAllSetListsCsv()
     {
         var sb = new StringBuilder();
-        sb.Append("name\n");
-        foreach (var name in _setListNames)
-            sb.Append('"').Append(name.Replace("\"", "\"\"")).Append("\"\n");
-        await Download("set-list-names.csv", "text/csv", sb.ToString());
+        sb.Append("set_list,set_list_name,slot,slot_name,reference\n");
+        foreach (var sl in _setLists)
+            foreach (var slot in sl.Slots)
+            {
+                if (slot.IsEmpty && !_showEmptySlots) continue;
+                sb.Append(sl.Index).Append(",\"").Append(sl.Name.Replace("\"", "\"\"")).Append("\",")
+                  .Append(slot.Index).Append(",\"").Append(slot.Name.Replace("\"", "\"\"")).Append("\",")
+                  .Append(slot.ReferenceHex).Append('\n');
+            }
+        await Download("setlists.csv", "text/csv", sb.ToString());
     }
 
     async Task Download(string fileName, string mime, string content) =>

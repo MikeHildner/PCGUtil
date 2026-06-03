@@ -7,7 +7,7 @@ A task is **open** until it has a Completed date; then move it to the Done table
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| Decode Set List slots into structured rows (slot # → name → Program/Combi/Song reference) | 2026-06-02 | — |
+| Resolve Set List slot references (raw bytes at slot +8) to Program/Combi/Song names | 2026-06-02 | — |
 | Decode program / combi / drum-kit bank records (name + bank/index) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 
@@ -20,3 +20,4 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Implement chunk-tree parser (`PcgReader`) and printable-string extraction | 2026-06-02 | 2026-06-02 |
 | Build inspector UI: upload, Overview / Set Lists / Strings / Chunk-tree tabs, CSV/JSON export | 2026-06-02 | 2026-06-02 |
 | Add xUnit tests against the sample file | 2026-06-02 | 2026-06-02 |
+| Decode Set List set-list + slot names (SBK1 → SetListReader, with tests) | 2026-06-02 | 2026-06-02 |
