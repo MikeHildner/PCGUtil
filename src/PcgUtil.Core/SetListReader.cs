@@ -1,26 +1,25 @@
 using System.Buffers.Binary;
-using System.Text;
 
 namespace PcgUtil.Core;
 
 /// <summary>
 /// Decodes Set Lists from the <c>SBK1</c> chunk.
 ///
-/// Layout (reverse-engineered from observed files): a 12-byte sub-header
+/// Layout (reverse-engineered, confirmed against hardware): a 12-byte sub-header
 /// (count, record size) followed by <c>count</c> records. Each record is one Set
-/// List: a 40-byte header whose first 24 bytes are the set-list name, then 128
-/// slots of 542 bytes. Within a slot, the 24-byte name sits at offset 526 and a
-/// 6-byte reference (Program/Combi/Song target, not yet decoded) sits at offset 8.
+/// List: a 24-byte set-list name, then 128 slots of 542 bytes (a small trailing
+/// region is unused). Within a slot the 24-byte name is at offset 0, immediately
+/// followed by the 6-byte reference at offset 24 (see <see cref="SetListReference"/>).
 /// </summary>
 public static class SetListReader
 {
     public const int SubHeaderSize = 12;
-    public const int RecordHeaderSize = 40;
+    public const int RecordHeaderSize = 24;  // the set-list name precedes the slots
     public const int SlotSize = 542;
     public const int SetListNameLength = 24;
-    public const int SlotNameOffset = 526;
+    public const int SlotNameOffset = 0;     // name is at the start of each slot
     public const int SlotNameLength = 24;
-    public const int SlotRefOffset = 8;
+    public const int SlotRefOffset = 24;     // reference follows the name
     public const int SlotRefLength = 6;
 
     public static IReadOnlyList<SetList> Read(PcgFile pcg)
@@ -51,17 +50,17 @@ public static class SetListReader
             if (record + recordSize > sbk.DataEnd)
                 break;
 
-            string name = ReadFixedString(data, record, SetListNameLength);
+            string name = PcgText.ReadFixedString(data, record, SetListNameLength);
 
             var slots = new List<SetListSlot>(slotsPerList);
             for (int j = 0; j < slotsPerList; j++)
             {
-                long slot = record + RecordHeaderSize + (long)j * SlotSize;
+                long slotBase = record + RecordHeaderSize + (long)j * SlotSize;
                 slots.Add(new SetListSlot
                 {
                     Index = j,
-                    Name = ReadFixedString(data, slot + SlotNameOffset, SlotNameLength),
-                    Reference = ReadBytes(data, slot + SlotRefOffset, SlotRefLength),
+                    Name = PcgText.ReadFixedString(data, slotBase + SlotNameOffset, SlotNameLength),
+                    Reference = DecodeReference(ReadBytes(data, slotBase + SlotRefOffset, SlotRefLength)),
                 });
             }
 
@@ -71,23 +70,28 @@ public static class SetListReader
         return setLists;
     }
 
-    // Reads a NUL-terminated (or full-width) fixed-length ASCII field.
-    private static string ReadFixedString(byte[] data, long offset, int maxLen)
+    // Reference bytes: B0 B1 B2 06 7F B5.
+    //   Kind  = (B0 & 1) == 1 ? Program : Combi
+    //   Bank  = B1 & 0x1F
+    //   Index = B2 & 0x7F
+    private static SetListReference DecodeReference(byte[] raw)
     {
-        int start = (int)offset;
-        int end = (int)Math.Min(offset + maxLen, data.Length);
-        int len = 0;
-        for (int i = start; i < end; i++)
+        byte b0 = raw.Length > 0 ? raw[0] : (byte)0;
+        byte b1 = raw.Length > 1 ? raw[1] : (byte)0;
+        byte b2 = raw.Length > 2 ? raw[2] : (byte)0;
+        return new SetListReference
         {
-            if (data[i] == 0)
-                break;
-            len++;
-        }
-        return Encoding.ASCII.GetString(data, start, len).TrimEnd();
+            Kind = (b0 & 1) == 1 ? PcgItemKind.Program : PcgItemKind.Combi,
+            Bank = b1 & 0x1F,
+            Index = b2 & 0x7F,
+            Raw = raw,
+        };
     }
 
     private static byte[] ReadBytes(byte[] data, long offset, int length)
     {
+        if (offset < 0 || offset >= data.Length)
+            return Array.Empty<byte>();
         int start = (int)offset;
         int n = (int)Math.Min(length, data.Length - start);
         if (n <= 0)

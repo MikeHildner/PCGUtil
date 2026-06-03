@@ -139,21 +139,37 @@
                 </div>
 
                 <table class="table table-sm table-hover align-middle">
-                    <thead><tr><th style="width:5rem">Slot</th><th>Name</th><th style="width:14rem">Reference (raw)</th></tr></thead>
+                    <thead><tr><th style="width:5rem">Slot</th><th>Name</th><th>Loads</th></tr></thead>
                     <tbody>
                         @foreach (var slot in slots)
                         {
                             <tr class="@(slot.IsEmpty ? "text-body-secondary" : null)">
                                 <td>@slot.Index.ToString("D3")</td>
                                 <td>@(slot.IsEmpty ? "—" : slot.Name)</td>
-                                <td class="font-monospace small text-body-secondary">@slot.ReferenceHex</td>
+                                <td>
+                                    @if (!slot.IsEmpty)
+                                    {
+                                        var target = _catalog?.Resolve(slot.Reference);
+                                        <span class="badge text-bg-light">@slot.Reference.Kind</span>
+                                        <span class="text-body-secondary small">bank @slot.Reference.Bank · #@slot.Reference.Index.ToString("D3")</span>
+                                        @if (target is not null)
+                                        {
+                                            <span> — @target</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-body-secondary"> — (unresolved)</span>
+                                        }
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
                 </table>
                 <p class="text-body-secondary small">
-                    Set-list and slot names are decoded. The raw reference bytes point at each slot's
-                    Program/Combi/Song but are not yet resolved to names.
+                    "Loads" is the Program/Combi each slot recalls, decoded from the slot reference
+                    (low bit of the first byte selects Program vs Combi; the next two bytes give bank
+                    and number) and resolved against the file's bank names.
                 </p>
             }
             break;
@@ -242,6 +258,7 @@
     string _search = string.Empty;
     List<PcgString> _stringsForChunk = new();
     List<SetList> _setLists = new();
+    PcgCatalog? _catalog;
     int _selectedSetList;
     bool _showEmptySlots;
 
@@ -288,6 +305,7 @@
         RefreshStrings();
 
         _setLists = SetListReader.Read(_pcg).ToList();
+        _catalog = PcgCatalog.Build(_pcg);
         _selectedSetList = _setLists.FindIndex(s => s.NamedSlots.Any());
         if (_selectedSetList < 0) _selectedSetList = 0;
     }
@@ -365,27 +383,36 @@
     {
         var sl = _setLists[_selectedSetList];
         var sb = new StringBuilder();
-        sb.Append("slot,name,reference\n");
-        foreach (var slot in sl.Slots)
-            sb.Append(slot.Index).Append(",\"").Append(slot.Name.Replace("\"", "\"\"")).Append("\",")
-              .Append(slot.ReferenceHex).Append('\n');
+        sb.Append("slot,slot_name,kind,bank,number,loads\n");
+        AppendSlotRows(sb, sl, includeSetListColumns: false);
         await Download($"setlist-{sl.Index:D3}.csv", "text/csv", sb.ToString());
     }
 
     async Task ExportAllSetListsCsv()
     {
         var sb = new StringBuilder();
-        sb.Append("set_list,set_list_name,slot,slot_name,reference\n");
+        sb.Append("set_list,set_list_name,slot,slot_name,kind,bank,number,loads\n");
         foreach (var sl in _setLists)
-            foreach (var slot in sl.Slots)
-            {
-                if (slot.IsEmpty && !_showEmptySlots) continue;
-                sb.Append(sl.Index).Append(",\"").Append(sl.Name.Replace("\"", "\"\"")).Append("\",")
-                  .Append(slot.Index).Append(",\"").Append(slot.Name.Replace("\"", "\"\"")).Append("\",")
-                  .Append(slot.ReferenceHex).Append('\n');
-            }
+            AppendSlotRows(sb, sl, includeSetListColumns: true);
         await Download("setlists.csv", "text/csv", sb.ToString());
     }
+
+    void AppendSlotRows(StringBuilder sb, SetList sl, bool includeSetListColumns)
+    {
+        foreach (var slot in sl.Slots)
+        {
+            if (slot.IsEmpty && !_showEmptySlots) continue;
+            if (includeSetListColumns)
+                sb.Append(sl.Index).Append(",\"").Append(Csv(sl.Name)).Append("\",");
+            var target = _catalog?.Resolve(slot.Reference) ?? string.Empty;
+            sb.Append(slot.Index).Append(",\"").Append(Csv(slot.Name)).Append("\",")
+              .Append(slot.Reference.Kind).Append(',')
+              .Append(slot.Reference.Bank).Append(',')
+              .Append(slot.Reference.Index).Append(",\"").Append(Csv(target)).Append("\"\n");
+        }
+    }
+
+    static string Csv(string value) => value.Replace("\"", "\"\"");
 
     async Task Download(string fileName, string mime, string content) =>
         await JS.InvokeVoidAsync("pcgDownload", fileName, mime, content);

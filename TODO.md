@@ -7,8 +7,8 @@ A task is **open** until it has a Completed date; then move it to the Done table
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| Resolve Set List slot references (raw bytes at slot +8) to Program/Combi/Song names | 2026-06-02 | — |
-| Decode program / combi / drum-kit bank records (name + bank/index) | 2026-06-02 | — |
+| Map bank indices to Kronos bank labels (INT-A/USER-A…); handle Song-type slot refs | 2026-06-02 | — |
+| Decode Drum Kit & Wave Sequence bank names (program/combi names done) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 
 ## Done
@@ -21,3 +21,4 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Build inspector UI: upload, Overview / Set Lists / Strings / Chunk-tree tabs, CSV/JSON export | 2026-06-02 | 2026-06-02 |
 | Add xUnit tests against the sample file | 2026-06-02 | 2026-06-02 |
 | Decode Set List set-list + slot names (SBK1 → SetListReader, with tests) | 2026-06-02 | 2026-06-02 |
+| Resolve slot references to Program/Combi (type/bank/number) + name catalog (PcgCatalog) | 2026-06-02 | 2026-06-02 |

@@ -21,14 +21,17 @@ public class SetListReaderTests
         Assert.Equal(127, sl.Slots[127].Index);
     }
 
+    // Slot numbering matches the Kronos: songs start at slot 1; slot 0 is the
+    // unnamed Berlin Grand. (Confirmed against a hardware screenshot.)
     [Fact]
     public void First_set_list_name_and_slot_names_decode()
     {
         var sl = SetListReader.Read(Sample.Parse())[0];
         Assert.Equal("PART TIME GENIUS REPRISE", sl.Name);
-        Assert.Equal("Let's Go Crazy", sl.Slots[0].Name);
-        Assert.Equal("Freeze Frame", sl.Slots[1].Name);
-        Assert.Equal("TOM SAWYER", sl.Slots[12].Name);
+        Assert.True(sl.Slots[0].IsEmpty);
+        Assert.Equal("Let's Go Crazy", sl.Slots[1].Name);
+        Assert.Equal("Freeze Frame", sl.Slots[2].Name);
+        Assert.Equal("TOM SAWYER", sl.Slots[13].Name);
         Assert.Equal(13, sl.NamedSlots.Count());
     }
 
@@ -37,7 +40,7 @@ public class SetListReaderTests
     {
         var sl = SetListReader.Read(Sample.Parse())[1];
         Assert.Equal("Part-Time Genius BAK", sl.Name);
-        Assert.Equal("Easy", sl.Slots[0].Name);
+        Assert.Equal("Easy", sl.Slots[1].Name);
     }
 
     [Fact]
@@ -48,12 +51,40 @@ public class SetListReaderTests
     }
 
     [Fact]
-    public void Slot_reference_bytes_are_captured()
+    public void Slot_references_match_the_hardware()
     {
         var sl = SetListReader.Read(Sample.Parse())[0];
-        // Reference field is 6 bytes; observed records end with the constant 06 7F pair.
-        Assert.Equal(6, sl.Slots[1].Reference.Count);
-        Assert.Equal(0x06, sl.Slots[1].Reference[3]);
-        Assert.Equal(0x7F, sl.Slots[1].Reference[4]);
+
+        // Slot 0: Program INT-A #000 (Berlin Grand), no song name.
+        var r0 = sl.Slots[0].Reference;
+        Assert.Equal(PcgItemKind.Program, r0.Kind);
+        Assert.Equal(0, r0.Bank);
+        Assert.Equal(0, r0.Index);
+
+        // Slot 1 "Let's Go Crazy": Combi USER-A (bank 7) #057.
+        var r1 = sl.Slots[1].Reference;
+        Assert.Equal(PcgItemKind.Combi, r1.Kind);
+        Assert.Equal(7, r1.Bank);
+        Assert.Equal(57, r1.Index);
+        Assert.Equal(6, r1.Raw.Count);
+        Assert.Equal(0x06, r1.Raw[3]);
+        Assert.Equal(0x7F, r1.Raw[4]);
+
+        // Slot 13 "TOM SAWYER": Combi USER-F (bank 12) #008.
+        var r13 = sl.Slots[13].Reference;
+        Assert.Equal(PcgItemKind.Combi, r13.Kind);
+        Assert.Equal(12, r13.Bank);
+        Assert.Equal(8, r13.Index);
+    }
+
+    [Fact]
+    public void Program_reference_decodes_as_program()
+    {
+        // SL1 slot 59 "Power of Synth" loads a Program (bank 3, #55).
+        var slot = SetListReader.Read(Sample.Parse())[1].Slots[59];
+        Assert.Equal("Power of Synth", slot.Name);
+        Assert.Equal(PcgItemKind.Program, slot.Reference.Kind);
+        Assert.Equal(3, slot.Reference.Bank);
+        Assert.Equal(55, slot.Reference.Index);
     }
 }

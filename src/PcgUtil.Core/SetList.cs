@@ -1,5 +1,12 @@
 namespace PcgUtil.Core;
 
+/// <summary>Whether a Set List slot loads a Combination or a Program.</summary>
+public enum PcgItemKind
+{
+    Combi,
+    Program,
+}
+
 /// <summary>A decoded Set List (one of 128) and its slots.</summary>
 public sealed class SetList
 {
@@ -19,14 +26,23 @@ public sealed class SetListSlot
     public required int Index { get; init; }
     public required string Name { get; init; }
 
-    /// <summary>
-    /// Raw reference bytes (slot offset +8). These encode the Program / Combi / Song
-    /// target for the slot; the encoding is not yet decoded, so the bytes are kept
-    /// verbatim for inspection and future work.
-    /// </summary>
-    public required IReadOnlyList<byte> Reference { get; init; }
+    /// <summary>The Program or Combi this slot loads, decoded from the slot reference.</summary>
+    public required SetListReference Reference { get; init; }
 
     public bool IsEmpty => Name.Length == 0;
+}
 
-    public string ReferenceHex => string.Join(' ', Reference.Select(b => b.ToString("X2")));
+/// <summary>
+/// A decoded slot reference. The 6 raw bytes are <c>B0 B1 B2 06 7F B5</c>: the low
+/// bit of B0 selects Program (1) vs Combi (0), <c>B1 &amp; 0x1F</c> is the bank, and
+/// <c>B2 &amp; 0x7F</c> is the item number within the bank.
+/// </summary>
+public sealed class SetListReference
+{
+    public required PcgItemKind Kind { get; init; }
+    public required int Bank { get; init; }
+    public required int Index { get; init; }
+    public required IReadOnlyList<byte> Raw { get; init; }
+
+    public string Hex => string.Join(' ', Raw.Select(b => b.ToString("X2")));
 }
