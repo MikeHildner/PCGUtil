@@ -25,4 +25,20 @@ internal static class PcgText
         }
         return Encoding.ASCII.GetString(data, start, len).TrimEnd();
     }
+
+    /// <summary>
+    /// Writes <paramref name="value"/> as ASCII into a fixed-length field, truncating
+    /// to <paramref name="maxLen"/> and NUL-filling the remainder.
+    /// </summary>
+    public static void WriteFixedString(byte[] data, long offset, int maxLen, string value)
+    {
+        if (offset < 0 || offset >= data.Length)
+            return;
+
+        int start = (int)offset;
+        int limit = (int)Math.Min(maxLen, data.Length - start);
+        var bytes = Encoding.ASCII.GetBytes(value ?? string.Empty);
+        for (int i = 0; i < limit; i++)
+            data[start + i] = i < bytes.Length ? bytes[i] : (byte)0;
+    }
 }

@@ -107,9 +107,10 @@
             else
             {
                 var sl = _setLists[_selectedSetList];
-                var slots = (_showEmptySlots ? sl.Slots : sl.NamedSlots).ToList();
+                var slots = (_editMode || _showEmptySlots ? sl.Slots : sl.NamedSlots).ToList();
+
                 <div class="row g-2 align-items-end mb-3">
-                    <div class="col-md-8">
+                    <div class="col-md-7">
                         <label class="form-label small mb-1">Set List</label>
                         <select class="form-select form-select-sm" @onchange="OnSetListChanged">
                             @for (var i = 0; i < _setLists.Count; i++)
@@ -122,32 +123,89 @@
                             }
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-check mt-4">
-                            <input class="form-check-input" type="checkbox" id="showEmpty" @bind="_showEmptySlots" />
-                            <label class="form-check-label small" for="showEmpty">Show empty slots</label>
+                    <div class="col-md-5 d-flex gap-3 align-items-center pt-3">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="editMode" @bind="_editMode" />
+                            <label class="form-check-label small" for="editMode">Edit mode</label>
+                        </div>
+                        @if (!_editMode)
+                        {
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="showEmpty" @bind="_showEmptySlots" />
+                                <label class="form-check-label small" for="showEmpty">Show empty slots</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                    @if (_editMode)
+                    {
+                        <input class="form-control form-control-sm fw-semibold" style="max-width:22rem" maxlength="24"
+                               value="@sl.Name" placeholder="(set list name)"
+                               @onchange="@(e => RenameCurrentSetList(e.Value?.ToString()))" />
+                    }
+                    else
+                    {
+                        <h2 class="h5 mb-0">@sl.DisplayName</h2>
+                    }
+                    <div class="d-flex gap-2">
+                        @if (_dirty)
+                        {
+                            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                        }
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCurrentSetListCsv">Export this</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportAllSetListsCsv">Export all</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h2 class="h5 mb-0">@sl.DisplayName</h2>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCurrentSetListCsv">Export this</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportAllSetListsCsv">Export all</button>
+                @if (_dirty)
+                {
+                    <p class="text-success small mb-2">
+                        Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file. The uploaded file is never modified.
+                    </p>
+                }
+
+                @if (_copySource is not null)
+                {
+                    <div class="alert alert-info d-flex justify-content-between align-items-center py-1 px-2 small">
+                        <span>Copying <strong>@_copySourceName</strong> — click <em>Paste</em> on a target slot.</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _copySource = null">Cancel</button>
                     </div>
-                </div>
+                }
 
                 <table class="table table-sm table-hover align-middle">
-                    <thead><tr><th style="width:5rem">Slot</th><th>Name</th><th>Loads</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th style="width:4rem">Slot</th>
+                            <th>Name</th>
+                            <th>Loads</th>
+                            @if (_editMode)
+                            {
+                                <th style="width:13rem">Edit</th>
+                            }
+                        </tr>
+                    </thead>
                     <tbody>
                         @foreach (var slot in slots)
                         {
-                            <tr class="@(slot.IsEmpty ? "text-body-secondary" : null)">
+                            <tr @key="slot.Index" class="@(slot.IsEmpty ? "text-body-secondary" : null)">
                                 <td>@slot.Index.ToString("D3")</td>
-                                <td>@(slot.IsEmpty ? "—" : slot.Name)</td>
                                 <td>
-                                    @if (!slot.IsEmpty)
+                                    @if (_editMode)
+                                    {
+                                        <input class="form-control form-control-sm" maxlength="24" placeholder="(empty)"
+                                               value="@slot.Name" @onchange="@(e => RenameSlot(slot.Index, e.Value?.ToString()))" />
+                                    }
+                                    else
+                                    {
+                                        @(slot.IsEmpty ? "—" : slot.Name)
+                                    }
+                                </td>
+                                <td>
+                                    @if (!slot.IsEmpty || _editMode)
                                     {
                                         var target = _catalog?.Resolve(slot.Reference);
                                         <span class="badge text-bg-light">@slot.Reference.Kind</span>
@@ -156,20 +214,31 @@
                                         {
                                             <span> — @target</span>
                                         }
-                                        else
-                                        {
-                                            <span class="text-body-secondary"> — (unresolved)</span>
-                                        }
                                     }
                                 </td>
+                                @if (_editMode)
+                                {
+                                    <td class="text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up"
+                                                disabled="@(slot.Index == 0)" @onclick="() => MoveSlot(slot.Index, -1)">▲</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down"
+                                                disabled="@(slot.Index >= sl.Slots.Count - 1)" @onclick="() => MoveSlot(slot.Index, 1)">▼</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Copy this slot"
+                                                @onclick="() => StartCopy(slot)">Copy</button>
+                                        @if (_copySource is not null)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary px-2" title="Paste here"
+                                                    @onclick="() => PasteInto(slot.Index)">Paste</button>
+                                        }
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>
                 </table>
                 <p class="text-body-secondary small">
-                    "Loads" is the Program/Combi each slot recalls, decoded from the slot reference
-                    (low bit of the first byte selects Program vs Combi; the next two bytes give bank
-                    and number) and resolved against the file's bank names.
+                    "Loads" is the Program/Combi each slot recalls. In <strong>Edit mode</strong> you can rename, reorder
+                    (▲▼), and copy slots; changes accumulate in memory until you Download edited .PCG.
                 </p>
             }
             break;
@@ -186,7 +255,7 @@
                         {
                             var (chunk, depth) = _chunkChoices[i];
                             <option value="@i" selected="@(ReferenceEquals(chunk, _selectedChunk))">
-                                @(new string(' ', depth * 3))@chunk.Id — @PcgChunkInfo.Describe(chunk.Id) (@Format.Bytes(chunk.Size))
+                                @(new string(' ', depth * 3))@chunk.Id — @PcgChunkInfo.Describe(chunk.Id) (@Format.Bytes(chunk.Size))
                             </option>
                         }
                     </select>
@@ -262,6 +331,12 @@
     int _selectedSetList;
     bool _showEmptySlots;
 
+    // Editing state
+    bool _editMode;
+    bool _dirty;
+    (int SetList, int Slot)? _copySource;
+    string _copySourceName = string.Empty;
+
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
             ? _stringsForChunk
@@ -283,7 +358,10 @@
 
             _pcg = PcgReader.Parse(ms.ToArray());
             _view = View.Overview;
-            BuildDerivedViews();
+            _dirty = false;
+            _editMode = false;
+            _copySource = null;
+            LoadDerived(preserveSelection: false);
         }
         catch (Exception ex)
         {
@@ -296,7 +374,7 @@
         }
     }
 
-    void BuildDerivedViews()
+    void LoadDerived(bool preserveSelection)
     {
         if (_pcg is null) return;
 
@@ -306,8 +384,24 @@
 
         _setLists = SetListReader.Read(_pcg).ToList();
         _catalog = PcgCatalog.Build(_pcg);
-        _selectedSetList = _setLists.FindIndex(s => s.NamedSlots.Any());
-        if (_selectedSetList < 0) _selectedSetList = 0;
+
+        if (preserveSelection)
+        {
+            _selectedSetList = Math.Clamp(_selectedSetList, 0, Math.Max(0, _setLists.Count - 1));
+        }
+        else
+        {
+            _selectedSetList = _setLists.FindIndex(s => s.NamedSlots.Any());
+            if (_selectedSetList < 0) _selectedSetList = 0;
+        }
+    }
+
+    // Applies an edit (a new byte image) and refreshes, staying on the current set list.
+    void ApplyEdit(byte[] newData)
+    {
+        _pcg = PcgReader.Parse(newData);
+        _dirty = true;
+        LoadDerived(preserveSelection: true);
     }
 
     void RefreshStrings()
@@ -413,6 +507,57 @@
     }
 
     static string Csv(string value) => value.Replace("\"", "\"\"");
+
+    // ----- Editing operations (each produces a new byte image via PcgEditor) -----
+
+    void MoveSlot(int slot, int delta)
+    {
+        if (_pcg is null) return;
+        int target = slot + delta;
+        if (target < 0 || target >= _setLists[_selectedSetList].Slots.Count) return;
+        ApplyEdit(PcgEditor.SwapSetListSlots(_pcg, _selectedSetList, slot, target));
+    }
+
+    void RenameSlot(int slot, string? name)
+    {
+        if (_pcg is null) return;
+        ApplyEdit(PcgEditor.RenameSetListSlot(_pcg, _selectedSetList, slot, name ?? string.Empty));
+    }
+
+    void RenameCurrentSetList(string? name)
+    {
+        if (_pcg is null) return;
+        ApplyEdit(PcgEditor.RenameSetList(_pcg, _selectedSetList, name ?? string.Empty));
+    }
+
+    void StartCopy(SetListSlot slot)
+    {
+        _copySource = (_selectedSetList, slot.Index);
+        _copySourceName = slot.IsEmpty ? $"slot {slot.Index:D3}" : slot.Name;
+    }
+
+    void PasteInto(int slot)
+    {
+        if (_pcg is null || _copySource is null) return;
+        var src = _copySource.Value;
+        ApplyEdit(PcgEditor.CopySetListSlot(_pcg, src.SetList, src.Slot, _selectedSetList, slot));
+    }
+
+    async Task DownloadEditedPcg()
+    {
+        if (_pcg is null) return;
+        var baseName = string.IsNullOrEmpty(_fileName)
+            ? "edited"
+            : System.IO.Path.GetFileNameWithoutExtension(_fileName);
+        await SaveBytes($"{baseName}-edited.PCG", _pcg.Data);
+    }
+
+    async Task SaveBytes(string fileName, byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("pcgSaveFile", fileName, streamRef);
+    }
 
     async Task Download(string fileName, string mime, string content) =>
         await JS.InvokeVoidAsync("pcgDownload", fileName, mime, content);
