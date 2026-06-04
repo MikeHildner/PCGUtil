@@ -244,6 +244,126 @@
             break;
         }
 
+        case View.Combis:
+        {
+            if (_catalog is null || _catalog.CombiBanks.Count == 0)
+            {
+                <p class="text-body-secondary">No Combis found (this file has no <code>CMB1</code> chunk).</p>
+            }
+            else
+            {
+                var bank = _catalog.CombiBanks[_selectedCombiBank];
+                var rows = Enumerable.Range(0, bank.Count)
+                    .Where(i => _editMode || _showEmptySlots || !string.IsNullOrEmpty(bank[i]))
+                    .ToList();
+
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label small mb-1">Combi bank</label>
+                        <select class="form-select form-select-sm" @onchange="OnCombiBankChanged">
+                            @for (var i = 0; i < _catalog.CombiBanks.Count; i++)
+                            {
+                                <option value="@i" selected="@(i == _selectedCombiBank)">
+                                    Bank @i.ToString("D2") (@CountNonEmpty(_catalog.CombiBanks[i]) combis)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-5 d-flex gap-3 align-items-center pt-3">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="combiEdit" @bind="_editMode" />
+                            <label class="form-check-label small" for="combiEdit">Edit mode</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="combiShowEmpty" @bind="_showEmptySlots" />
+                            <label class="form-check-label small" for="combiShowEmpty">Show empty</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                    <h2 class="h5 mb-0">Combi bank @_selectedCombiBank.ToString("D2")</h2>
+                    @if (_dirty)
+                    {
+                        <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                    }
+                </div>
+
+                @if (_dirty)
+                {
+                    <p class="text-success small mb-2">
+                        Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file. The uploaded file is never modified.
+                    </p>
+                }
+
+                @if (_combiCopySource is not null)
+                {
+                    <div class="alert alert-info d-flex justify-content-between align-items-center py-1 px-2 small">
+                        <span>Copying combi <strong>@_combiCopySourceName</strong> — click <em>Paste</em> on a target.</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _combiCopySource = null">Cancel</button>
+                    </div>
+                }
+
+                <table class="table table-sm table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:4rem">#</th>
+                            <th>Name</th>
+                            <th style="width:6rem" title="Set-list slots that load this combi">Used by</th>
+                            @if (_editMode)
+                            {
+                                <th style="width:13rem">Edit</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var idx in rows)
+                        {
+                            var name = bank[idx];
+                            var isEmpty = string.IsNullOrEmpty(name);
+                            var refs = _combiRefCounts.GetValueOrDefault((_selectedCombiBank, idx));
+                            <tr @key="idx" class="@(isEmpty ? "text-body-secondary" : null)">
+                                <td>@idx.ToString("D3")</td>
+                                <td>
+                                    @if (_editMode)
+                                    {
+                                        <input class="form-control form-control-sm" maxlength="24" placeholder="(empty)"
+                                               value="@name" @onchange="@(e => RenameCombiAt(idx, e.Value?.ToString()))" />
+                                    }
+                                    else
+                                    {
+                                        @(isEmpty ? "—" : name)
+                                    }
+                                </td>
+                                <td>@(refs > 0 ? refs.ToString() : "")</td>
+                                @if (_editMode)
+                                {
+                                    <td class="text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up"
+                                                disabled="@(idx == 0)" @onclick="() => MoveCombi(idx, -1)">▲</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down"
+                                                disabled="@(idx >= bank.Count - 1)" @onclick="() => MoveCombi(idx, 1)">▼</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Copy this combi"
+                                                @onclick="() => StartCombiCopy(idx)">Copy</button>
+                                        @if (_combiCopySource is not null)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary px-2" title="Paste here"
+                                                    @onclick="() => PasteCombiInto(idx)">Paste</button>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <p class="text-body-secondary small">
+                    Reorder (▲▼) swaps two combis and automatically retargets the set-list slots that use them, so your
+                    songs keep their sound. "Used by" is how many set-list slots load each combi. Copy overwrites the target.
+                </p>
+            }
+            break;
+        }
+
         case View.Strings:
         {
             var filtered = FilteredStrings.ToList();
@@ -310,7 +430,7 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Strings, Tree }
+    enum View { Overview, SetLists, Combis, Strings, Tree }
 
     const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
     const int MaxRows = 1000;                    // cap rendered string rows
@@ -337,6 +457,12 @@
     (int SetList, int Slot)? _copySource;
     string _copySourceName = string.Empty;
 
+    // Combi reorganization state
+    int _selectedCombiBank;
+    (int Bank, int Index)? _combiCopySource;
+    string _combiCopySourceName = string.Empty;
+    IReadOnlyDictionary<(int Bank, int Index), int> _combiRefCounts = new Dictionary<(int, int), int>();
+
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
             ? _stringsForChunk
@@ -361,6 +487,7 @@
             _dirty = false;
             _editMode = false;
             _copySource = null;
+            _combiCopySource = null;
             LoadDerived(preserveSelection: false);
         }
         catch (Exception ex)
@@ -384,15 +511,19 @@
 
         _setLists = SetListReader.Read(_pcg).ToList();
         _catalog = PcgCatalog.Build(_pcg);
+        _combiRefCounts = PcgUsage.CombiReferenceCounts(_setLists);
 
+        var combiBankCount = _catalog.CombiBanks.Count;
         if (preserveSelection)
         {
             _selectedSetList = Math.Clamp(_selectedSetList, 0, Math.Max(0, _setLists.Count - 1));
+            _selectedCombiBank = Math.Clamp(_selectedCombiBank, 0, Math.Max(0, combiBankCount - 1));
         }
         else
         {
             _selectedSetList = _setLists.FindIndex(s => s.NamedSlots.Any());
             if (_selectedSetList < 0) _selectedSetList = 0;
+            _selectedCombiBank = 0;
         }
     }
 
@@ -441,6 +572,7 @@
     {
         View.Overview => "Overview",
         View.SetLists => "Set Lists",
+        View.Combis => "Combis",
         View.Strings => "Strings",
         View.Tree => "Chunk tree",
         _ => v.ToString(),
@@ -557,6 +689,53 @@
         using var stream = new MemoryStream(bytes);
         using var streamRef = new DotNetStreamReference(stream);
         await JS.InvokeVoidAsync("pcgSaveFile", fileName, streamRef);
+    }
+
+    // ----- Combi reorganization -----
+
+    void OnCombiBankChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && _catalog is not null
+            && idx >= 0 && idx < _catalog.CombiBanks.Count)
+            _selectedCombiBank = idx;
+    }
+
+    void MoveCombi(int index, int delta)
+    {
+        if (_pcg is null || _catalog is null) return;
+        int target = index + delta;
+        if (target < 0 || target >= _catalog.CombiBanks[_selectedCombiBank].Count) return;
+        ApplyEdit(PcgEditor.SwapCombis(_pcg, _selectedCombiBank, index, _selectedCombiBank, target));
+    }
+
+    void RenameCombiAt(int index, string? name)
+    {
+        if (_pcg is null) return;
+        ApplyEdit(PcgEditor.RenameCombi(_pcg, _selectedCombiBank, index, name ?? string.Empty));
+    }
+
+    void StartCombiCopy(int index)
+    {
+        if (_catalog is null) return;
+        _combiCopySource = (_selectedCombiBank, index);
+        var name = _catalog.CombiBanks[_selectedCombiBank][index];
+        _combiCopySourceName = string.IsNullOrEmpty(name) ? $"bank {_selectedCombiBank:D2} #{index:D3}" : name;
+    }
+
+    void PasteCombiInto(int index)
+    {
+        if (_pcg is null || _combiCopySource is null) return;
+        var src = _combiCopySource.Value;
+        ApplyEdit(PcgEditor.CopyCombi(_pcg, src.Bank, src.Index, _selectedCombiBank, index));
+    }
+
+    static int CountNonEmpty(IReadOnlyList<string> names)
+    {
+        var count = 0;
+        foreach (var name in names)
+            if (!string.IsNullOrEmpty(name))
+                count++;
+        return count;
     }
 
     async Task Download(string fileName, string mime, string content) =>

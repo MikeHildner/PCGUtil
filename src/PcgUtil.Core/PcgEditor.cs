@@ -74,6 +74,111 @@ public static class PcgEditor
         return data;
     }
 
+    // ----- Combis -----
+    //
+    // A combi is referenced only by combi-type Set List slots, so reorganizing combis
+    // is safe as long as those slot references are retargeted to follow the combi.
+
+    /// <summary>
+    /// Returns a copy with two combis swapped. The combi records are exchanged and the
+    /// combi-type Set List slot references are retargeted (A↔B), so every set list keeps
+    /// loading the same combi.
+    /// </summary>
+    public static byte[] SwapCombis(PcgFile pcg, int bankA, int indexA, int bankB, int indexB)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (offsetA, size) = LocateCombi(pcg, bankA, indexA);
+        var (offsetB, sizeB) = LocateCombi(pcg, bankB, indexB);
+
+        var data = (byte[])pcg.Data.Clone();
+        if (offsetA != offsetB && size == sizeB)
+        {
+            for (int i = 0; i < size; i++)
+                (data[offsetA + i], data[offsetB + i]) = (data[offsetB + i], data[offsetA + i]);
+
+            if (pcg.FindFirst("SBK1") is not null)
+                RetargetCombiReferences(data, GetLayout(pcg), bankA, indexA, bankB, indexB);
+        }
+        return data;
+    }
+
+    /// <summary>Returns a copy with one combi copied over another. The destination is overwritten.</summary>
+    public static byte[] CopyCombi(PcgFile pcg, int srcBank, int srcIndex, int dstBank, int dstIndex)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (src, size) = LocateCombi(pcg, srcBank, srcIndex);
+        var (dst, dstSize) = LocateCombi(pcg, dstBank, dstIndex);
+
+        var data = (byte[])pcg.Data.Clone();
+        if (src != dst && size == dstSize)
+            Array.Copy(data, src, data, dst, size);
+        return data;
+    }
+
+    /// <summary>Returns a copy with a combi's name field rewritten (24 chars, ASCII).</summary>
+    public static byte[] RenameCombi(PcgFile pcg, int bank, int index, string name)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (offset, _) = LocateCombi(pcg, bank, index);
+
+        var data = (byte[])pcg.Data.Clone();
+        PcgText.WriteFixedString(data, offset, BankNameLength, name);
+        return data;
+    }
+
+    private const int BankSubHeaderSize = 12;
+    private const int BankNameLength = 24;
+
+    // Combi name is at record offset 0; bank data is a 12-byte sub-header then records.
+    private static (long Offset, int RecordSize) LocateCombi(PcgFile pcg, int bank, int index)
+    {
+        var cmb = pcg.FindFirst("CMB1")
+            ?? throw new InvalidOperationException("File has no CMB1 (Combi) chunk.");
+        if (bank < 0 || bank >= cmb.Children.Count)
+            throw new ArgumentOutOfRangeException(nameof(bank));
+
+        long baseOffset = cmb.Children[bank].DataOffset;
+        int count = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset, 4));
+        int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset + 4, 4));
+        if (index < 0 || index >= count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+
+        return (baseOffset + BankSubHeaderSize + (long)index * recordSize, recordSize);
+    }
+
+    private static void RetargetCombiReferences(byte[] data, SetListLayout layout, int bankA, int indexA, int bankB, int indexB)
+    {
+        for (int setList = 0; setList < layout.Count; setList++)
+        {
+            long record = layout.RecordsStart + (long)setList * layout.RecordSize;
+            for (int slot = 0; slot < layout.SlotsPerList; slot++)
+            {
+                long refOffset = record + SetListReader.RecordHeaderSize
+                    + (long)slot * SetListReader.SlotSize + SetListReader.SlotRefOffset;
+                if (refOffset + 3 > data.Length)
+                    continue;
+
+                // Combi references have the low bit of B0 clear (Program = 1).
+                if ((data[refOffset] & 1) != 0)
+                    continue;
+
+                int bank = data[refOffset + 1] & 0x1F;
+                int index = data[refOffset + 2] & 0x7F;
+                if (bank == bankA && index == indexA)
+                    WriteCombiReference(data, refOffset, bankB, indexB);
+                else if (bank == bankB && index == indexB)
+                    WriteCombiReference(data, refOffset, bankA, indexA);
+            }
+        }
+    }
+
+    // Rewrites bank (B1, low 5 bits) and number (B2, low 7 bits), preserving the other bits.
+    private static void WriteCombiReference(byte[] data, long refOffset, int bank, int index)
+    {
+        data[refOffset + 1] = (byte)((data[refOffset + 1] & 0xE0) | (bank & 0x1F));
+        data[refOffset + 2] = (byte)((data[refOffset + 2] & 0x80) | (index & 0x7F));
+    }
+
     // ----- Set List layout helpers -----
 
     private readonly record struct SetListLayout(long RecordsStart, int RecordSize, int Count, int SlotsPerList);
