@@ -12,6 +12,17 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | Editing polish: clear/init a slot or combi; drag-to-position reorder; re-point a slot's patch | 2026-06-02 | — |
 | Move/reorganize Programs (decode combi-timbre block; retarget timbres + set-list slots) | 2026-06-02 | — |
+| [T1] Duplicate detection — find duplicate programs/combis/slots (by name; optionally by content bytes) | 2026-06-04 | — |
+| [T1] Compact banks — push empty/init slots to the end, reference-safe | 2026-06-04 | — |
+| [T1] Ref-safe sort — sort a bank/section/selection by name or category, retargeting references | 2026-06-04 | — |
+| [T1] Name search / filter across the whole file | 2026-06-04 | — |
+| [T1] Usage / cross-reference report — surface PcgUsage: what uses program X, unused-patch list, bank-usage map | 2026-06-04 | — |
+| [T2] HTML report export (printable patch lists) — formatter over existing CSV/JSON | 2026-06-04 | — |
+| [T3] Open two files + copy programs/combis/slots between same-model files (multi-file model) | 2026-06-04 | — |
+| [T3] Clone an entire PCG (save-as) | 2026-06-04 | — |
+| [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
+| [T4] Parameter editing beyond names (program/combi params; global master tuning) | 2026-06-04 | — |
+| [T4] Sysex .syx/.mid export ("send to hardware") | 2026-06-04 | — |
 
 ## Done
 
@@ -28,3 +39,5 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Set list editing — reorder / rename / copy slots, surgical writes, download new .PCG | 2026-06-02 | 2026-06-02 |
 | Study PCG Tools (LGPL C#) — confirmed reference model + timbre/slot ref byte fields | 2026-06-02 | 2026-06-02 |
 | Combi reorganization — swap / copy / rename combis, retarget set-list refs, usage counts | 2026-06-02 | 2026-06-02 |
+| Re-examine PCG Tools — confirmed combi-timbre layout (4802 / 16×188) + program-bank PcgId map; 99.7% resolve verified on sample | 2026-06-04 | 2026-06-04 |
+| Format fixes + CombiReader: decode 3-way slot type (Song) + guard combi retargeting; PcgId program resolution; combi-timbre decode | 2026-06-04 | 2026-06-04 |

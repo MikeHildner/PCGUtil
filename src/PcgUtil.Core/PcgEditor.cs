@@ -158,8 +158,9 @@ public static class PcgEditor
                 if (refOffset + 3 > data.Length)
                     continue;
 
-                // Combi references have the low bit of B0 clear (Program = 1).
-                if ((data[refOffset] & 1) != 0)
+                // Only retarget true Combi-type slots. Type = B0 & 0x03 (Combi=0,
+                // Program=1, Song=2); Program and Song slots must be left untouched.
+                if ((data[refOffset] & 0x03) != 0)
                     continue;
 
                 int bank = data[refOffset + 1] & 0x1F;

@@ -87,4 +87,14 @@ public class SetListReaderTests
         Assert.Equal(3, slot.Reference.Bank);
         Assert.Equal(55, slot.Reference.Index);
     }
+
+    [Fact]
+    public void Song_type_slot_decodes_as_song()
+    {
+        // Set List 15, slot 31 "Sequence" is a Song-type slot (type bits = 2), the one
+        // such slot in the sample. It must not be mistaken for a Combi.
+        var slot = SetListReader.Read(Sample.Parse())[15].Slots[31];
+        Assert.Equal("Sequence", slot.Name);
+        Assert.Equal(PcgItemKind.Song, slot.Reference.Kind);
+    }
 }

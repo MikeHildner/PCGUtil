@@ -70,8 +70,8 @@ public static class SetListReader
         return setLists;
     }
 
-    // Reference bytes: B0 B1 B2 06 7F B5.
-    //   Kind  = (B0 & 1) == 1 ? Program : Combi
+    // Reference bytes B0 B1 B2 (bytes 3–5 are the slot's color/volume/transpose):
+    //   Type  = B0 & 0x03  (Combi=0, Program=1, Song=2)
     //   Bank  = B1 & 0x1F
     //   Index = B2 & 0x7F
     private static SetListReference DecodeReference(byte[] raw)
@@ -81,7 +81,12 @@ public static class SetListReader
         byte b2 = raw.Length > 2 ? raw[2] : (byte)0;
         return new SetListReference
         {
-            Kind = (b0 & 1) == 1 ? PcgItemKind.Program : PcgItemKind.Combi,
+            Kind = (b0 & 0x03) switch
+            {
+                1 => PcgItemKind.Program,
+                2 => PcgItemKind.Song,
+                _ => PcgItemKind.Combi,
+            },
             Bank = b1 & 0x1F,
             Index = b2 & 0x7F,
             Raw = raw,

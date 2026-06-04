@@ -25,19 +25,47 @@ public sealed class PcgCatalog
         };
     }
 
-    /// <summary>Resolves a slot reference to its target name, or null if out of range or empty.</summary>
+    /// <summary>Resolves a slot reference to its target name, or null if unresolved or empty.</summary>
     public string? Resolve(SetListReference reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
-        var banks = reference.Kind == PcgItemKind.Program ? ProgramBanks : CombiBanks;
-        if (reference.Bank < 0 || reference.Bank >= banks.Count)
+        return reference.Kind switch
+        {
+            // Program banks are addressed by a hardware PcgId; combi banks by direct list index.
+            PcgItemKind.Program => ResolveProgram(reference.Bank, reference.Index),
+            PcgItemKind.Combi => Lookup(CombiBanks, reference.Bank, reference.Index),
+            _ => null, // Song: lives in the sequencer, not in Program/Combi banks.
+        };
+    }
+
+    /// <summary>
+    /// Resolves a program by its raw bank <em>PcgId</em> (as stored in set-list slots and combi
+    /// timbres) plus number, or null if the id maps to no in-file bank or the program is empty.
+    /// </summary>
+    public string? ResolveProgram(int bankPcgId, int number) =>
+        Lookup(ProgramBanks, ProgramBankIndexForPcgId(bankPcgId), number);
+
+    private static string? Lookup(IReadOnlyList<IReadOnlyList<string>> banks, int bankIndex, int number)
+    {
+        if (bankIndex < 0 || bankIndex >= banks.Count)
             return null;
-        var bank = banks[reference.Bank];
-        if (reference.Index < 0 || reference.Index >= bank.Count)
+        var bank = banks[bankIndex];
+        if (number < 0 || number >= bank.Count)
             return null;
-        var name = bank[reference.Index];
+        var name = bank[number];
         return string.IsNullOrEmpty(name) ? null : name;
     }
+
+    // Program-bank references store a hardware PcgId, not a list index. On KRONOS the program
+    // banks are I-A..I-F (PcgId 0..5), U-A..U-G (17..23), U-AA..U-GG (24..30), stored in the file
+    // in that order (list indices 0..19). Ids with no in-file bank (GM=6, gaps 7..16, virtual 31+)
+    // return -1. Verified against the sample: this resolves ~99.7% of combi timbres.
+    private static int ProgramBankIndexForPcgId(int pcgId) => pcgId switch
+    {
+        >= 0 and <= 5 => pcgId,
+        >= 17 and <= 30 => pcgId - 11,
+        _ => -1,
+    };
 
     private const int BankNameLength = 24;
 

@@ -60,6 +60,26 @@ public class PcgEditorCombiTests
         Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SwapCombis(pcg, 7, 57, 99, 0));
     }
 
+    [Fact]
+    public void SwapCombis_does_not_disturb_song_type_slots()
+    {
+        var pcg = Sample.Parse();
+
+        // The Song slot at Set List 15 / slot 31 is stored as bank 0, index 0 — the same
+        // (bank, index) as the first INT-A combi. Swapping that combi must NOT rewrite the
+        // song slot's reference; only true Combi-type slots are retargeted.
+        var before = SetListReader.Read(pcg)[15].Slots[31].Reference;
+        Assert.Equal(PcgItemKind.Song, before.Kind);
+
+        var edited = PcgEditor.SwapCombis(pcg, 0, 0, 0, 1);
+        var after = SetListReader.Read(PcgReader.Parse(edited))[15].Slots[31].Reference;
+
+        Assert.Equal(PcgItemKind.Song, after.Kind);
+        Assert.Equal(before.Bank, after.Bank);
+        Assert.Equal(before.Index, after.Index);
+        Assert.Equal(before.Raw, after.Raw); // byte-identical reference
+    }
+
     private static Dictionary<string, string> ResolveAllNamedSlots(PcgFile pcg)
     {
         var catalog = PcgCatalog.Build(pcg);

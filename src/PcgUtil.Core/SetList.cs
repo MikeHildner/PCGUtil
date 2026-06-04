@@ -1,10 +1,11 @@
 namespace PcgUtil.Core;
 
-/// <summary>Whether a Set List slot loads a Combination or a Program.</summary>
+/// <summary>What a Set List slot loads. Values match the hardware's 2-bit type field (<c>B0 &amp; 0x03</c>).</summary>
 public enum PcgItemKind
 {
-    Combi,
-    Program,
+    Combi = 0,
+    Program = 1,
+    Song = 2,
 }
 
 /// <summary>A decoded Set List (one of 128) and its slots.</summary>
@@ -33,9 +34,9 @@ public sealed class SetListSlot
 }
 
 /// <summary>
-/// A decoded slot reference. The 6 raw bytes are <c>B0 B1 B2 06 7F B5</c>: the low
-/// bit of B0 selects Program (1) vs Combi (0), <c>B1 &amp; 0x1F</c> is the bank, and
-/// <c>B2 &amp; 0x7F</c> is the item number within the bank.
+/// A decoded slot reference. <c>B0 &amp; 0x03</c> is the type (Combi=0, Program=1, Song=2),
+/// <c>B1 &amp; 0x1F</c> is the bank, and <c>B2 &amp; 0x7F</c> is the item number within the bank.
+/// (Raw bytes 3–5 are the slot's color/volume/transpose, not part of the reference.)
 /// </summary>
 public sealed class SetListReference
 {
