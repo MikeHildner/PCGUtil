@@ -67,6 +67,14 @@ public sealed class PcgCatalog
         _ => -1,
     };
 
+    /// <summary>Inverse of <see cref="ProgramBankIndexForPcgId"/>: program-bank list index → hardware PcgId.</summary>
+    public static int ProgramBankPcgIdForIndex(int listIndex) => listIndex switch
+    {
+        >= 0 and <= 5 => listIndex,        // I-A..I-F
+        >= 6 and <= 19 => listIndex + 11,  // U-A..U-G (6→17) .. U-AA..U-GG (13→24 .. 19→30)
+        _ => -1,
+    };
+
     private const int BankNameLength = 24;
 
     private static IReadOnlyList<IReadOnlyList<string>> ReadSection(PcgFile pcg, string sectionId)

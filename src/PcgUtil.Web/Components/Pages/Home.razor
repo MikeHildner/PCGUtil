@@ -364,6 +364,127 @@
             break;
         }
 
+        case View.Programs:
+        {
+            if (_catalog is null || _catalog.ProgramBanks.Count == 0)
+            {
+                <p class="text-body-secondary">No Programs found (this file has no <code>PRG1</code> chunk).</p>
+            }
+            else
+            {
+                var bank = _catalog.ProgramBanks[_selectedProgramBank];
+                var refCounts = CurrentUsage.Programs.ToDictionary(p => (p.BankIndex, p.Number), p => p.ReferenceCount);
+                var rows = Enumerable.Range(0, bank.Count)
+                    .Where(i => _editMode || _showEmptySlots || !string.IsNullOrEmpty(bank[i]))
+                    .ToList();
+
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label small mb-1">Program bank</label>
+                        <select class="form-select form-select-sm" @onchange="OnProgramBankChanged">
+                            @for (var i = 0; i < _catalog.ProgramBanks.Count; i++)
+                            {
+                                <option value="@i" selected="@(i == _selectedProgramBank)">
+                                    Bank @i.ToString("D2") (@CountNonEmpty(_catalog.ProgramBanks[i]) programs)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-5 d-flex gap-3 align-items-center pt-3">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="programEdit" @bind="_editMode" />
+                            <label class="form-check-label small" for="programEdit">Edit mode</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="programShowEmpty" @bind="_showEmptySlots" />
+                            <label class="form-check-label small" for="programShowEmpty">Show empty</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                    <h2 class="h5 mb-0">Program bank @_selectedProgramBank.ToString("D2")</h2>
+                    @if (_dirty)
+                    {
+                        <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                    }
+                </div>
+
+                @if (_dirty)
+                {
+                    <p class="text-success small mb-2">
+                        Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file. The uploaded file is never modified.
+                    </p>
+                }
+
+                @if (_programCopySource is not null)
+                {
+                    <div class="alert alert-info d-flex justify-content-between align-items-center py-1 px-2 small">
+                        <span>Copying program <strong>@_programCopySourceName</strong> — click <em>Paste</em> on a target.</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _programCopySource = null">Cancel</button>
+                    </div>
+                }
+
+                <table class="table table-sm table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:4rem">#</th>
+                            <th>Name</th>
+                            <th style="width:6rem" title="Combi timbres + program-type set-list slots that use this program">Used by</th>
+                            @if (_editMode)
+                            {
+                                <th style="width:13rem">Edit</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var idx in rows)
+                        {
+                            var name = bank[idx];
+                            var isEmpty = string.IsNullOrEmpty(name);
+                            var refs = refCounts.GetValueOrDefault((_selectedProgramBank, idx));
+                            <tr @key="idx" class="@(isEmpty ? "text-body-secondary" : null)">
+                                <td>@idx.ToString("D3")</td>
+                                <td>
+                                    @if (_editMode)
+                                    {
+                                        <input class="form-control form-control-sm" maxlength="24" placeholder="(empty)"
+                                               value="@name" @onchange="@(e => RenameProgramAt(idx, e.Value?.ToString()))" />
+                                    }
+                                    else
+                                    {
+                                        @(isEmpty ? "—" : name)
+                                    }
+                                </td>
+                                <td>@(refs > 0 ? refs.ToString() : "")</td>
+                                @if (_editMode)
+                                {
+                                    <td class="text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up"
+                                                disabled="@(idx == 0)" @onclick="() => MoveProgram(idx, -1)">▲</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down"
+                                                disabled="@(idx >= bank.Count - 1)" @onclick="() => MoveProgram(idx, 1)">▼</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Copy this program"
+                                                @onclick="() => StartProgramCopy(idx)">Copy</button>
+                                        @if (_programCopySource is not null)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary px-2" title="Paste here"
+                                                    @onclick="() => PasteProgramInto(idx)">Paste</button>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <p class="text-body-secondary small">
+                    Reorder (▲▼) swaps two programs and automatically retargets the combi timbres and set-list slots that
+                    use them, so your sounds stay intact. "Used by" counts those references. Copy overwrites the target.
+                </p>
+            }
+            break;
+        }
+
         case View.Usage:
         {
             var usage = CurrentUsage;
@@ -513,7 +634,7 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Combis, Usage, Strings, Tree }
+    enum View { Overview, SetLists, Combis, Programs, Usage, Strings, Tree }
 
     const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
     const int MaxRows = 1000;                    // cap rendered string rows
@@ -547,6 +668,11 @@
     IReadOnlyDictionary<(int Bank, int Index), int> _combiRefCounts = new Dictionary<(int, int), int>();
     UsageReport? _usageReport;
 
+    // Program reorganization state
+    int _selectedProgramBank;
+    (int Bank, int Index)? _programCopySource;
+    string _programCopySourceName = string.Empty;
+
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
             ? _stringsForChunk
@@ -575,6 +701,7 @@
             _editMode = false;
             _copySource = null;
             _combiCopySource = null;
+            _programCopySource = null;
             LoadDerived(preserveSelection: false);
         }
         catch (Exception ex)
@@ -602,16 +729,19 @@
         _usageReport = null; // rebuilt lazily the next time the Usage tab is viewed
 
         var combiBankCount = _catalog.CombiBanks.Count;
+        var programBankCount = _catalog.ProgramBanks.Count;
         if (preserveSelection)
         {
             _selectedSetList = Math.Clamp(_selectedSetList, 0, Math.Max(0, _setLists.Count - 1));
             _selectedCombiBank = Math.Clamp(_selectedCombiBank, 0, Math.Max(0, combiBankCount - 1));
+            _selectedProgramBank = Math.Clamp(_selectedProgramBank, 0, Math.Max(0, programBankCount - 1));
         }
         else
         {
             _selectedSetList = _setLists.FindIndex(s => s.NamedSlots.Any());
             if (_selectedSetList < 0) _selectedSetList = 0;
             _selectedCombiBank = 0;
+            _selectedProgramBank = 0;
         }
     }
 
@@ -661,6 +791,7 @@
         View.Overview => "Overview",
         View.SetLists => "Set Lists",
         View.Combis => "Combis",
+        View.Programs => "Programs",
         View.Usage => "Usage",
         View.Strings => "Strings",
         View.Tree => "Chunk tree",
@@ -832,6 +963,44 @@
         if (_pcg is null || _combiCopySource is null) return;
         var src = _combiCopySource.Value;
         ApplyEdit(PcgEditor.CopyCombi(_pcg, src.Bank, src.Index, _selectedCombiBank, index));
+    }
+
+    // ----- Program reorganization -----
+
+    void OnProgramBankChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && _catalog is not null
+            && idx >= 0 && idx < _catalog.ProgramBanks.Count)
+            _selectedProgramBank = idx;
+    }
+
+    void MoveProgram(int index, int delta)
+    {
+        if (_pcg is null || _catalog is null) return;
+        int target = index + delta;
+        if (target < 0 || target >= _catalog.ProgramBanks[_selectedProgramBank].Count) return;
+        ApplyEdit(PcgEditor.SwapPrograms(_pcg, _selectedProgramBank, index, _selectedProgramBank, target));
+    }
+
+    void RenameProgramAt(int index, string? name)
+    {
+        if (_pcg is null) return;
+        ApplyEdit(PcgEditor.RenameProgram(_pcg, _selectedProgramBank, index, name ?? string.Empty));
+    }
+
+    void StartProgramCopy(int index)
+    {
+        if (_catalog is null) return;
+        _programCopySource = (_selectedProgramBank, index);
+        var name = _catalog.ProgramBanks[_selectedProgramBank][index];
+        _programCopySourceName = string.IsNullOrEmpty(name) ? $"bank {_selectedProgramBank:D2} #{index:D3}" : name;
+    }
+
+    void PasteProgramInto(int index)
+    {
+        if (_pcg is null || _programCopySource is null) return;
+        var src = _programCopySource.Value;
+        ApplyEdit(PcgEditor.CopyProgram(_pcg, src.Bank, src.Index, _selectedProgramBank, index));
     }
 
     static int CountNonEmpty(IReadOnlyList<string> names)
