@@ -16,7 +16,6 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | [T1] Compact banks — push empty/init slots to the end, reference-safe | 2026-06-04 | — |
 | [T1] Ref-safe sort — sort a bank/section/selection by name or category, retargeting references | 2026-06-04 | — |
 | [T1] Name search / filter across the whole file | 2026-06-04 | — |
-| [T1] Usage / cross-reference report — surface PcgUsage: what uses program X, unused-patch list, bank-usage map | 2026-06-04 | — |
 | [T2] HTML report export (printable patch lists) — formatter over existing CSV/JSON | 2026-06-04 | — |
 | [T3] Open two files + copy programs/combis/slots between same-model files (multi-file model) | 2026-06-04 | — |
 | [T3] Clone an entire PCG (save-as) | 2026-06-04 | — |
@@ -41,3 +40,4 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Combi reorganization — swap / copy / rename combis, retarget set-list refs, usage counts | 2026-06-02 | 2026-06-02 |
 | Re-examine PCG Tools — confirmed combi-timbre layout (4802 / 16×188) + program-bank PcgId map; 99.7% resolve verified on sample | 2026-06-04 | 2026-06-04 |
 | Format fixes + CombiReader: decode 3-way slot type (Song) + guard combi retargeting; PcgId program resolution; combi-timbre decode | 2026-06-04 | 2026-06-04 |
+| Usage / cross-reference report — program usage sites + unreferenced programs/combis (init combis excluded); Usage tab + CSV | 2026-06-04 | 2026-06-04 |

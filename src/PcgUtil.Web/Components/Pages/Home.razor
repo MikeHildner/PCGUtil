@@ -364,6 +364,89 @@
             break;
         }
 
+        case View.Usage:
+        {
+            var usage = CurrentUsage;
+            <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                <h2 class="h5 mb-0">Program usage</h2>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportUsageCsv">Export CSV</button>
+            </div>
+            <p class="text-body-secondary small">
+                Which Programs are referenced by combi timbres and program-type set-list slots —
+                <strong>@usage.Programs.Count</strong> referenced,
+                <strong>@usage.UnreferencedPrograms.Count</strong> unreferenced programs,
+                <strong>@usage.UnreferencedCombis.Count</strong> unreferenced combis.
+                "Unreferenced" means nothing in <em>this file</em> points at it; Song-type references aren't decoded yet.
+            </p>
+
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th style="width:5rem">Bank</th>
+                        <th style="width:4rem">#</th>
+                        <th>Program</th>
+                        <th style="width:4rem" class="text-end">Refs</th>
+                        <th>Used by</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in usage.Programs)
+                    {
+                        <tr>
+                            <td>@p.BankIndex.ToString("D2")</td>
+                            <td>@p.Number.ToString("D3")</td>
+                            <td>@(string.IsNullOrEmpty(p.Name) ? "—" : p.Name)</td>
+                            <td class="text-end">@p.ReferenceCount</td>
+                            <td>
+                                <details>
+                                    <summary class="small text-body-secondary">show</summary>
+                                    <ul class="small mb-0">
+                                        @foreach (var s in p.Sites)
+                                        {
+                                            <li>@s.Description</li>
+                                        }
+                                    </ul>
+                                </details>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (usage.UnreferencedCombis.Count > 0)
+            {
+                <details class="mb-3">
+                    <summary class="h6 d-inline">Unreferenced combis (@usage.UnreferencedCombis.Count)</summary>
+                    <p class="text-body-secondary small mb-1 mt-1">Combis no set-list slot loads — cleanup candidates.</p>
+                    <ul class="small">
+                        @foreach (var c in usage.UnreferencedCombis)
+                        {
+                            <li>bank @c.BankIndex.ToString("D2") #@c.Number.ToString("D3") — @c.Name</li>
+                        }
+                    </ul>
+                </details>
+            }
+
+            @if (usage.UnreferencedPrograms.Count > 0)
+            {
+                <details>
+                    <summary class="h6 d-inline">Unreferenced programs (@usage.UnreferencedPrograms.Count)</summary>
+                    <p class="text-body-secondary small mb-1 mt-1">Not used by any combi timbre or program slot in this file (many factory programs land here).</p>
+                    <ul class="small">
+                        @foreach (var p in usage.UnreferencedPrograms.Take(MaxRows))
+                        {
+                            <li>bank @p.BankIndex.ToString("D2") #@p.Number.ToString("D3") — @p.Name</li>
+                        }
+                    </ul>
+                    @if (usage.UnreferencedPrograms.Count > MaxRows)
+                    {
+                        <p class="text-body-secondary small">… showing first @MaxRows of @usage.UnreferencedPrograms.Count.</p>
+                    }
+                </details>
+            }
+            break;
+        }
+
         case View.Strings:
         {
             var filtered = FilteredStrings.ToList();
@@ -430,7 +513,7 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Combis, Strings, Tree }
+    enum View { Overview, SetLists, Combis, Usage, Strings, Tree }
 
     const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
     const int MaxRows = 1000;                    // cap rendered string rows
@@ -462,11 +545,15 @@
     (int Bank, int Index)? _combiCopySource;
     string _combiCopySourceName = string.Empty;
     IReadOnlyDictionary<(int Bank, int Index), int> _combiRefCounts = new Dictionary<(int, int), int>();
+    UsageReport? _usageReport;
 
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
             ? _stringsForChunk
             : _stringsForChunk.Where(s => s.Value.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    // Built on first view of the Usage tab and cached until the next edit / file load.
+    UsageReport CurrentUsage => _usageReport ??= PcgUsage.BuildUsageReport(_pcg!);
 
     async Task OnFileSelected(InputFileChangeEventArgs e)
     {
@@ -512,6 +599,7 @@
         _setLists = SetListReader.Read(_pcg).ToList();
         _catalog = PcgCatalog.Build(_pcg);
         _combiRefCounts = PcgUsage.CombiReferenceCounts(_setLists);
+        _usageReport = null; // rebuilt lazily the next time the Usage tab is viewed
 
         var combiBankCount = _catalog.CombiBanks.Count;
         if (preserveSelection)
@@ -573,6 +661,7 @@
         View.Overview => "Overview",
         View.SetLists => "Set Lists",
         View.Combis => "Combis",
+        View.Usage => "Usage",
         View.Strings => "Strings",
         View.Tree => "Chunk tree",
         _ => v.ToString(),
@@ -597,6 +686,22 @@
         var json = System.Text.Json.JsonSerializer.Serialize(
             items, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
         await Download($"{SelectedChunkName}-strings.json", "application/json", json);
+    }
+
+    async Task ExportUsageCsv()
+    {
+        var usage = CurrentUsage;
+        var sb = new StringBuilder();
+        sb.Append("program_bank,program_number,program_name,ref_count,used_by_kind,used_by_detail\n");
+        foreach (var p in usage.Programs)
+            foreach (var site in p.Sites)
+                sb.Append(p.BankIndex).Append(',')
+                  .Append(p.Number).Append(",\"")
+                  .Append(Csv(p.Name)).Append("\",")
+                  .Append(p.ReferenceCount).Append(',')
+                  .Append(site.Kind).Append(",\"")
+                  .Append(Csv(site.Description)).Append("\"\n");
+        await Download("program-usage.csv", "text/csv", sb.ToString());
     }
 
     void OnSetListChanged(ChangeEventArgs e)

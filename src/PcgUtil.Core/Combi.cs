@@ -20,6 +20,15 @@ public sealed class Combi
     public required IReadOnlyList<CombiTimbre> Timbres { get; init; }
 
     public bool IsEmpty => Name.Length == 0;
+
+    /// <summary>
+    /// Empty, or a factory "Init Combi" placeholder. Such combis' timbres all default to the
+    /// first program, so they're excluded from usage analysis (matches how PCG Tools treats them).
+    /// </summary>
+    public bool IsEmptyOrInit =>
+        Name.Length == 0 ||
+        (Name.Contains("Init", StringComparison.OrdinalIgnoreCase) &&
+         Name.Contains("Combi", StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>One timbre of a <see cref="Combi"/> and the Program it references.</summary>

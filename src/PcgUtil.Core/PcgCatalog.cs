@@ -60,7 +60,7 @@ public sealed class PcgCatalog
     // banks are I-A..I-F (PcgId 0..5), U-A..U-G (17..23), U-AA..U-GG (24..30), stored in the file
     // in that order (list indices 0..19). Ids with no in-file bank (GM=6, gaps 7..16, virtual 31+)
     // return -1. Verified against the sample: this resolves ~99.7% of combi timbres.
-    private static int ProgramBankIndexForPcgId(int pcgId) => pcgId switch
+    public static int ProgramBankIndexForPcgId(int pcgId) => pcgId switch
     {
         >= 0 and <= 5 => pcgId,
         >= 17 and <= 30 => pcgId - 11,
