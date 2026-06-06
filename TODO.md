@@ -13,7 +13,6 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Editing polish: clear/init a slot or combi; drag-to-position reorder; re-point a slot's patch | 2026-06-02 | — |
 | [T1] Compact banks — push empty/init slots to the end, reference-safe | 2026-06-04 | — |
 | [T1] Ref-safe sort — sort a bank/section/selection by name or category, retargeting references | 2026-06-04 | — |
-| [T1] Name search / filter across the whole file | 2026-06-04 | — |
 | [T2] HTML report export (printable patch lists) — formatter over existing CSV/JSON | 2026-06-04 | — |
 | [T3] Open two files + copy programs/combis/slots between same-model files (multi-file model) | 2026-06-04 | — |
 | [T3] Clone an entire PCG (save-as) | 2026-06-04 | — |
@@ -42,3 +41,4 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Move/reorganize Programs — SwapPrograms with dual retargeting (combi timbres + program set-list slots); Programs tab; integrity test (hardware re-confirm pending) | 2026-06-05 | 2026-06-05 |
 | KRONOS bank labels (INT-A / USER-A / USER-AA) shown in Programs / Combis / Usage / Set Lists tabs | 2026-06-05 | 2026-06-05 |
 | Duplicate detection — programs/combis grouped by name with byte-identical flag; Duplicates tab | 2026-06-05 | 2026-06-05 |
+| Name search — case-insensitive search over program / combi / set-list names; Search tab | 2026-06-05 | 2026-06-05 |

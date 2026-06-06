@@ -632,6 +632,47 @@
             break;
         }
 
+        case View.Search:
+        {
+            var hits = _catalog is null
+                ? new List<SearchHit>()
+                : PcgSearch.Find(_catalog, _setLists, _nameQuery).ToList();
+
+            <h2 class="h5">Search names</h2>
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control form-control-sm"
+                           placeholder="search Program / Combi / Set List names…"
+                           @bind="_nameQuery" @bind:event="oninput" />
+                </div>
+            </div>
+
+            @if (string.IsNullOrWhiteSpace(_nameQuery))
+            {
+                <p class="text-body-secondary small">Type to search names across Programs, Combis, and Set List slots.</p>
+            }
+            else
+            {
+                <div class="text-body-secondary small mb-2">
+                    @hits.Count match@(hits.Count == 1 ? "" : "es")@(hits.Count > MaxRows ? $" — showing first {MaxRows}" : "")
+                </div>
+                <table class="table table-sm table-hover align-middle">
+                    <thead><tr><th style="width:7rem">Type</th><th>Name</th><th style="width:15rem">Location</th></tr></thead>
+                    <tbody>
+                        @foreach (var h in hits.Take(MaxRows))
+                        {
+                            <tr>
+                                <td><span class="badge text-bg-light">@HitKindLabel(h.Kind)</span></td>
+                                <td>@h.Name</td>
+                                <td class="small text-body-secondary">@h.Location</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            break;
+        }
+
         case View.Strings:
         {
             var filtered = FilteredStrings.ToList();
@@ -698,7 +739,7 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Combis, Programs, Usage, Duplicates, Strings, Tree }
+    enum View { Overview, SetLists, Combis, Programs, Usage, Duplicates, Search, Strings, Tree }
 
     const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
     const int MaxRows = 1000;                    // cap rendered string rows
@@ -713,6 +754,7 @@
     PcgChunk? _selectedChunk;
     int _minLen = 3;
     string _search = string.Empty;
+    string _nameQuery = string.Empty;
     List<PcgString> _stringsForChunk = new();
     List<SetList> _setLists = new();
     PcgCatalog? _catalog;
@@ -858,6 +900,7 @@
         View.Programs => "Programs",
         View.Usage => "Usage",
         View.Duplicates => "Duplicates",
+        View.Search => "Search",
         View.Strings => "Strings",
         View.Tree => "Chunk tree",
         _ => v.ToString(),
@@ -1092,6 +1135,14 @@
         var text = string.Join(", ", labels);
         return g.Count > max ? $"{text} … +{g.Count - max} more" : text;
     }
+
+    static string HitKindLabel(SearchHitKind k) => k switch
+    {
+        SearchHitKind.Program => "Program",
+        SearchHitKind.Combi => "Combi",
+        SearchHitKind.SetListSlot => "Set List",
+        _ => k.ToString(),
+    };
 
     async Task Download(string fileName, string mime, string content) =>
         await JS.InvokeVoidAsync("pcgDownload", fileName, mime, content);
