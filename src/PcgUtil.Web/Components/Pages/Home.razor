@@ -209,7 +209,7 @@
                                     {
                                         var target = _catalog?.Resolve(slot.Reference);
                                         <span class="badge text-bg-light">@slot.Reference.Kind</span>
-                                        <span class="text-body-secondary small">bank @slot.Reference.Bank · #@slot.Reference.Index.ToString("D3")</span>
+                                        <span class="text-body-secondary small">@SlotBankLabel(slot.Reference) · #@slot.Reference.Index.ToString("D3")</span>
                                         @if (target is not null)
                                         {
                                             <span> — @target</span>
@@ -264,7 +264,7 @@
                             @for (var i = 0; i < _catalog.CombiBanks.Count; i++)
                             {
                                 <option value="@i" selected="@(i == _selectedCombiBank)">
-                                    Bank @i.ToString("D2") (@CountNonEmpty(_catalog.CombiBanks[i]) combis)
+                                    @PcgBankLabels.Combi(i) (@CountNonEmpty(_catalog.CombiBanks[i]) combis)
                                 </option>
                             }
                         </select>
@@ -282,7 +282,7 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                    <h2 class="h5 mb-0">Combi bank @_selectedCombiBank.ToString("D2")</h2>
+                    <h2 class="h5 mb-0">Combi bank @PcgBankLabels.Combi(_selectedCombiBank)</h2>
                     @if (_dirty)
                     {
                         <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
@@ -385,7 +385,7 @@
                             @for (var i = 0; i < _catalog.ProgramBanks.Count; i++)
                             {
                                 <option value="@i" selected="@(i == _selectedProgramBank)">
-                                    Bank @i.ToString("D2") (@CountNonEmpty(_catalog.ProgramBanks[i]) programs)
+                                    @PcgBankLabels.Program(i) (@CountNonEmpty(_catalog.ProgramBanks[i]) programs)
                                 </option>
                             }
                         </select>
@@ -403,7 +403,7 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                    <h2 class="h5 mb-0">Program bank @_selectedProgramBank.ToString("D2")</h2>
+                    <h2 class="h5 mb-0">Program bank @PcgBankLabels.Program(_selectedProgramBank)</h2>
                     @if (_dirty)
                     {
                         <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
@@ -514,7 +514,7 @@
                     @foreach (var p in usage.Programs)
                     {
                         <tr>
-                            <td>@p.BankIndex.ToString("D2")</td>
+                            <td>@PcgBankLabels.Program(p.BankIndex)</td>
                             <td>@p.Number.ToString("D3")</td>
                             <td>@(string.IsNullOrEmpty(p.Name) ? "—" : p.Name)</td>
                             <td class="text-end">@p.ReferenceCount</td>
@@ -542,7 +542,7 @@
                     <ul class="small">
                         @foreach (var c in usage.UnreferencedCombis)
                         {
-                            <li>bank @c.BankIndex.ToString("D2") #@c.Number.ToString("D3") — @c.Name</li>
+                            <li>@PcgBankLabels.Combi(c.BankIndex) #@c.Number.ToString("D3") — @c.Name</li>
                         }
                     </ul>
                 </details>
@@ -556,7 +556,7 @@
                     <ul class="small">
                         @foreach (var p in usage.UnreferencedPrograms.Take(MaxRows))
                         {
-                            <li>bank @p.BankIndex.ToString("D2") #@p.Number.ToString("D3") — @p.Name</li>
+                            <li>@PcgBankLabels.Program(p.BankIndex) #@p.Number.ToString("D3") — @p.Name</li>
                         }
                     </ul>
                     @if (usage.UnreferencedPrograms.Count > MaxRows)
@@ -826,7 +826,7 @@
         sb.Append("program_bank,program_number,program_name,ref_count,used_by_kind,used_by_detail\n");
         foreach (var p in usage.Programs)
             foreach (var site in p.Sites)
-                sb.Append(p.BankIndex).Append(',')
+                sb.Append(PcgBankLabels.Program(p.BankIndex)).Append(',')
                   .Append(p.Number).Append(",\"")
                   .Append(Csv(p.Name)).Append("\",")
                   .Append(p.ReferenceCount).Append(',')
@@ -1011,6 +1011,13 @@
                 count++;
         return count;
     }
+
+    static string SlotBankLabel(SetListReference r) => r.Kind switch
+    {
+        PcgItemKind.Combi => PcgBankLabels.Combi(r.Bank),
+        PcgItemKind.Program => PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(r.Bank)),
+        _ => "—",
+    };
 
     async Task Download(string fileName, string mime, string content) =>
         await JS.InvokeVoidAsync("pcgDownload", fileName, mime, content);
