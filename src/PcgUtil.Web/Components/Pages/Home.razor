@@ -568,6 +568,70 @@
             break;
         }
 
+        case View.Duplicates:
+        {
+            var dupCombis = PcgDuplicates.Combis(_pcg);
+            var dupPrograms = PcgDuplicates.Programs(_pcg);
+
+            <h2 class="h5">Duplicate patches</h2>
+            <p class="text-body-secondary small">
+                Programs and combis that share a name. <span class="badge text-bg-secondary">identical</span>
+                means the records are byte-for-byte the same (a true redundant copy); without it, the name is
+                reused for a different sound.
+            </p>
+
+            <h3 class="h6 mt-3">Combis — @dupCombis.Count duplicate name@(dupCombis.Count == 1 ? "" : "s")</h3>
+            @if (dupCombis.Count == 0)
+            {
+                <p class="text-body-secondary small">No duplicate combi names.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Name</th><th style="width:5rem" class="text-end">Count</th><th>Members</th></tr></thead>
+                    <tbody>
+                        @foreach (var g in dupCombis)
+                        {
+                            <tr>
+                                <td>
+                                    @g.Name
+                                    @if (g.AllByteIdentical) { <span class="badge text-bg-secondary">identical</span> }
+                                </td>
+                                <td class="text-end">@g.Count</td>
+                                <td class="small text-body-secondary">@MemberList(g, isProgram: false)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <h3 class="h6 mt-4">Programs — @dupPrograms.Count duplicate name@(dupPrograms.Count == 1 ? "" : "s")</h3>
+            @if (dupPrograms.Count == 0)
+            {
+                <p class="text-body-secondary small">No duplicate program names.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Name</th><th style="width:5rem" class="text-end">Count</th><th>Members</th></tr></thead>
+                    <tbody>
+                        @foreach (var g in dupPrograms)
+                        {
+                            <tr>
+                                <td>
+                                    @g.Name
+                                    @if (g.AllByteIdentical) { <span class="badge text-bg-secondary">identical</span> }
+                                </td>
+                                <td class="text-end">@g.Count</td>
+                                <td class="small text-body-secondary">@MemberList(g, isProgram: true)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            break;
+        }
+
         case View.Strings:
         {
             var filtered = FilteredStrings.ToList();
@@ -634,7 +698,7 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Combis, Programs, Usage, Strings, Tree }
+    enum View { Overview, SetLists, Combis, Programs, Usage, Duplicates, Strings, Tree }
 
     const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
     const int MaxRows = 1000;                    // cap rendered string rows
@@ -793,6 +857,7 @@
         View.Combis => "Combis",
         View.Programs => "Programs",
         View.Usage => "Usage",
+        View.Duplicates => "Duplicates",
         View.Strings => "Strings",
         View.Tree => "Chunk tree",
         _ => v.ToString(),
@@ -1018,6 +1083,15 @@
         PcgItemKind.Program => PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(r.Bank)),
         _ => "—",
     };
+
+    static string MemberList(DuplicateGroup g, bool isProgram)
+    {
+        const int max = 12;
+        var labels = g.Members.Take(max).Select(m =>
+            $"{(isProgram ? PcgBankLabels.Program(m.Bank) : PcgBankLabels.Combi(m.Bank))} #{m.Index:D3}");
+        var text = string.Join(", ", labels);
+        return g.Count > max ? $"{text} … +{g.Count - max} more" : text;
+    }
 
     async Task Download(string fileName, string mime, string content) =>
         await JS.InvokeVoidAsync("pcgDownload", fileName, mime, content);

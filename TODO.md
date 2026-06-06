@@ -11,7 +11,6 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Decode Drum Kit & Wave Sequence bank names (program/combi names done) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | Editing polish: clear/init a slot or combi; drag-to-position reorder; re-point a slot's patch | 2026-06-02 | — |
-| [T1] Duplicate detection — find duplicate programs/combis/slots (by name; optionally by content bytes) | 2026-06-04 | — |
 | [T1] Compact banks — push empty/init slots to the end, reference-safe | 2026-06-04 | — |
 | [T1] Ref-safe sort — sort a bank/section/selection by name or category, retargeting references | 2026-06-04 | — |
 | [T1] Name search / filter across the whole file | 2026-06-04 | — |
@@ -42,3 +41,4 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Usage / cross-reference report — program usage sites + unreferenced programs/combis (init combis excluded); Usage tab + CSV | 2026-06-04 | 2026-06-04 |
 | Move/reorganize Programs — SwapPrograms with dual retargeting (combi timbres + program set-list slots); Programs tab; integrity test (hardware re-confirm pending) | 2026-06-05 | 2026-06-05 |
 | KRONOS bank labels (INT-A / USER-A / USER-AA) shown in Programs / Combis / Usage / Set Lists tabs | 2026-06-05 | 2026-06-05 |
+| Duplicate detection — programs/combis grouped by name with byte-identical flag; Duplicates tab | 2026-06-05 | 2026-06-05 |
