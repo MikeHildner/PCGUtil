@@ -6,4 +6,9 @@
   <Folder Name="/tests/">
     <Project Path="tests/PcgUtil.Core.Tests/PcgUtil.Core.Tests.csproj" />
   </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="TODO.md" />
+    <File Path="LICENSE" />
+  </Folder>
 </Solution>
