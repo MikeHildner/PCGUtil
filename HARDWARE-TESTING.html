@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCGUtil — Hardware testing checklist</title>
+<style>
+  :root {
+    --ok: #1a7f37; --pending: #9a6700; --fg: #1c2024; --muted: #656d76; --line: #d0d7de;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, "Segoe UI", Arial, sans-serif; color: var(--fg);
+         background: #f6f8fa; margin: 0; padding: 2rem 1rem; line-height: 1.5; }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  .lede { color: var(--muted); margin: 0 0 1rem; }
+  .progress { background: #fff; border: 1px solid var(--line); border-radius: 8px;
+              padding: .7rem 1rem; display: flex; align-items: center; gap: 1rem;
+              position: sticky; top: .5rem; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .bar { flex: 1; height: 10px; background: #eef1f4; border-radius: 5px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
+  .count { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  button.reset { border: 1px solid var(--line); background: #fff; border-radius: 6px;
+                 padding: .35rem .7rem; cursor: pointer; font: inherit; }
+  button.reset:hover { background: #f3f4f6; }
+  section { background: #fff; border: 1px solid var(--line); border-radius: 8px;
+            padding: 1rem 1.25rem; margin: 1rem 0; }
+  section h2 { font-size: 1.15rem; margin: 0 0 .25rem; display: flex; align-items: center;
+               gap: .6rem; flex-wrap: wrap; }
+  .badge { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+           padding: .15rem .5rem; border-radius: 999px; color: #fff; }
+  .badge.ok { background: var(--ok); }
+  .badge.pending { background: var(--pending); }
+  .badge.neutral { background: #57606a; }
+  ul.checks { list-style: none; margin: .5rem 0 0; padding: 0; }
+  ul.checks li { padding: .4rem 0; border-top: 1px solid #f0f2f4; }
+  ul.checks li:first-child { border-top: 0; }
+  label { display: flex; gap: .6rem; align-items: flex-start; cursor: pointer; }
+  input[type=checkbox] { margin-top: .2rem; width: 1.1rem; height: 1.1rem; flex: none; cursor: pointer; }
+  label.done > span { color: var(--muted); text-decoration: line-through; }
+  .note { border-radius: 8px; padding: .75rem 1rem; margin: 1rem 0; font-size: .95rem; }
+  .note.warn { background: #fff8e6; border: 1px solid #f0e0a8; }
+  .note.pass { background: #e9f6ec; border: 1px solid #b7e0c0; }
+  footer { color: var(--muted); font-size: .85rem; margin-top: 1.5rem; }
+  code { background: #eef1f4; padding: .05rem .3rem; border-radius: 4px; font-size: .9em; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .progress { position: static; box-shadow: none; }
+    button.reset { display: none; }
+    section, .note { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Hardware testing checklist</h1>
+    <p class="lede">
+      Confirm the workstation accepts a surgically-edited <code>.PCG</code> and recalls the same
+      sounds after each edit. Tick items as you go — progress is saved in this browser.
+    </p>
+    <div class="progress">
+      <div class="bar"><div id="barfill"></div></div>
+      <span class="count"><span id="done">0</span> / <span id="total">0</span> done</span>
+      <button class="reset" onclick="resetChecks()">Reset</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>0. Setup &amp; safety <span class="badge neutral">do first</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Back up the workstation's current state to a fresh <code>.PCG</code>.</span></label></li>
+      <li><label><input type="checkbox"><span>Prefer testing on a USER bank (not irreplaceable data); keep the backup to restore.</span></label></li>
+      <li><label><input type="checkbox"><span>Note a baseline: pick 3–4 set-list songs and remember what each sounds like / loads.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>1. File loads <span class="badge neutral">smoke test</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Make any small edit, download, and load the edited <code>.PCG</code> — it loads with no file error or hang.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>2. Set-list editing <span class="badge ok">confirmed</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Reorder slots: the order changes and each song recalls the same sound.</span></label></li>
+      <li><label><input type="checkbox"><span>Rename a slot and the set list: the new names show on the device.</span></label></li>
+      <li><label><input type="checkbox"><span>Copy a slot: the destination recalls the source's sound.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. Combi reorganization <span class="badge pending">pending</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Reorder two combis in a USER bank (e.g. "Let's Go Crazy", USER-A #057): they swap positions and each sounds the same.</span></label></li>
+      <li><label><input type="checkbox"><span>A set-list song that used a moved combi still recalls the correct combi (the reference followed the swap).</span></label></li>
+      <li><label><input type="checkbox"><span>Copy a combi: the destination sounds like the source. Rename: the name shows.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4. Program reorganization <span class="badge pending">pending</span> <span class="badge neutral">priority</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Pick a referenced program from the <strong>Usage</strong> tab, then swap it with a neighbor in the <strong>Programs</strong> tab.</span></label></li>
+      <li><label><input type="checkbox"><span>The programs are in their new positions and each sounds right.</span></label></li>
+      <li><label><input type="checkbox"><span>Combis that used the moved program still load it in every timbre — open a couple from its "Used by" list; they sound identical to before.</span></label></li>
+      <li><label><input type="checkbox"><span>A set-list slot that loads the moved program directly still recalls it.</span></label></li>
+      <li><label><input type="checkbox"><span>Copy a program: the destination sounds like the source. Rename: the name shows.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. Song-slot guard <span class="badge pending">pending</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>The Song-type slot "Sequence" (Set List 15, slot 31) is unchanged after a combi/program reorg — especially one that touches the first INT-A combi/program (bank 0, #0), whose bytes it collides with.</span></label></li>
+    </ul>
+  </section>
+
+  <div class="note warn">
+    <strong>Known limitation.</strong> Sequencer <em>songs</em> that reference a moved program are
+    <em>not</em> retargeted (set-list and combi references are). If you use songs, spot-check a
+    song's tracks after a program reorg.
+  </div>
+
+  <div class="note pass">
+    <strong>Pass criteria.</strong> The edited <code>.PCG</code> loads cleanly, and every patch and
+    reference recalls the same sound as before — only the positions you intentionally changed
+    should differ.
+  </div>
+
+  <footer>Mirrors <code>HARDWARE-TESTING.md</code>. © 2026 Mike Hildner.</footer>
+</div>
+
+<script>
+  (function () {
+    const boxes = Array.from(document.querySelectorAll('input[type=checkbox]'));
+    const KEY = 'pcgutil-hwtest';
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
+
+    function keyFor(box) { return box.closest('label').innerText.trim(); }
+    function syncLabel(box) { box.closest('label').classList.toggle('done', box.checked); }
+    function updateProgress() {
+      const done = boxes.filter(b => b.checked).length;
+      document.getElementById('done').textContent = done;
+      document.getElementById('barfill').style.width = boxes.length ? (100 * done / boxes.length) + '%' : '0';
+    }
+
+    boxes.forEach(box => {
+      const k = keyFor(box);
+      box.checked = !!saved[k];
+      syncLabel(box);
+      box.addEventListener('change', () => {
+        saved[keyFor(box)] = box.checked;
+        localStorage.setItem(KEY, JSON.stringify(saved));
+        syncLabel(box);
+        updateProgress();
+      });
+    });
+
+    document.getElementById('total').textContent = boxes.length;
+    updateProgress();
+
+    window.resetChecks = function () {
+      boxes.forEach(b => { b.checked = false; syncLabel(b); });
+      saved = {};
+      localStorage.removeItem(KEY);
+      updateProgress();
+    };
+  })();
+</script>
+</body>
+</html>
