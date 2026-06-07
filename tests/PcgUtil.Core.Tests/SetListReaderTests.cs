@@ -21,7 +21,7 @@ public class SetListReaderTests
         Assert.Equal(127, sl.Slots[127].Index);
     }
 
-    // Slot numbering matches the Kronos: songs start at slot 1; slot 0 is the
+    // Slot numbering matches the hardware: songs start at slot 1; slot 0 is the
     // unnamed Berlin Grand. (Confirmed against a hardware screenshot.)
     [Fact]
     public void First_set_list_name_and_slot_names_decode()

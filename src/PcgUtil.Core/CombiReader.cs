@@ -6,7 +6,7 @@ namespace PcgUtil.Core;
 /// Decodes Combis and their timbres from the <c>CMB1</c> chunk.
 ///
 /// Each combi bank is a 12-byte sub-header (count, record size) followed by fixed records.
-/// Within a record (KRONOS: 7810 bytes) the 24-byte name is at offset 0, and the 16 timbres
+/// Within a record (7810 bytes on this hardware) the 24-byte name is at offset 0, and the 16 timbres
 /// are a 188-byte-strided array starting at offset 4802 (16 × 188 fills the record exactly).
 /// Per timbre: program number @ +0, program-bank PcgId @ +1, status in bits 5–7 of +2.
 /// Offsets re-derived from PCG Tools and verified against the sample (~99.7% of enabled

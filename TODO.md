@@ -31,7 +31,7 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Add xUnit tests against the sample file | 2026-06-02 | 2026-06-02 |
 | Decode Set List set-list + slot names (SBK1 → SetListReader, with tests) | 2026-06-02 | 2026-06-02 |
 | Resolve slot references to Program/Combi (type/bank/number) + name catalog (PcgCatalog) | 2026-06-02 | 2026-06-02 |
-| Validate write path on hardware (surgical slot swap → Kronos accepts edited PCG) | 2026-06-02 | 2026-06-02 |
+| Validate write path on hardware (surgical slot swap → the workstation accepts edited PCG) | 2026-06-02 | 2026-06-02 |
 | Set list editing — reorder / rename / copy slots, surgical writes, download new .PCG | 2026-06-02 | 2026-06-02 |
 | Study PCG Tools (LGPL C#) — confirmed reference model + timbre/slot ref byte fields | 2026-06-02 | 2026-06-02 |
 | Combi reorganization — swap / copy / rename combis, retarget set-list refs, usage counts | 2026-06-02 | 2026-06-02 |
@@ -39,6 +39,6 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Format fixes + CombiReader: decode 3-way slot type (Song) + guard combi retargeting; PcgId program resolution; combi-timbre decode | 2026-06-04 | 2026-06-04 |
 | Usage / cross-reference report — program usage sites + unreferenced programs/combis (init combis excluded); Usage tab + CSV | 2026-06-04 | 2026-06-04 |
 | Move/reorganize Programs — SwapPrograms with dual retargeting (combi timbres + program set-list slots); Programs tab; integrity test (hardware re-confirm pending) | 2026-06-05 | 2026-06-05 |
-| KRONOS bank labels (INT-A / USER-A / USER-AA) shown in Programs / Combis / Usage / Set Lists tabs | 2026-06-05 | 2026-06-05 |
+| Bank labels (INT-A / USER-A / USER-AA) shown in Programs / Combis / Usage / Set Lists tabs | 2026-06-05 | 2026-06-05 |
 | Duplicate detection — programs/combis grouped by name with byte-identical flag; Duplicates tab | 2026-06-05 | 2026-06-05 |
 | Name search — case-insensitive search over program / combi / set-list names; Search tab | 2026-06-05 | 2026-06-05 |

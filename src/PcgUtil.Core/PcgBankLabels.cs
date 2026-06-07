@@ -1,7 +1,7 @@
 namespace PcgUtil.Core;
 
 /// <summary>
-/// Human-readable KRONOS bank labels (as shown on the hardware), keyed by bank list index.
+/// Human-readable bank labels (as shown on the hardware), keyed by bank list index.
 /// Programs: INT-A..INT-F, USER-A..USER-G, USER-AA..USER-GG (20 banks). Combis: INT-A..INT-G,
 /// USER-A..USER-G (14 banks). Note the asymmetry — 6 internal program banks vs 7 combi banks.
 /// </summary>

@@ -56,7 +56,7 @@ public sealed class PcgCatalog
         return string.IsNullOrEmpty(name) ? null : name;
     }
 
-    // Program-bank references store a hardware PcgId, not a list index. On KRONOS the program
+    // Program-bank references store a hardware PcgId, not a list index. On this hardware the program
     // banks are I-A..I-F (PcgId 0..5), U-A..U-G (17..23), U-AA..U-GG (24..30), stored in the file
     // in that order (list indices 0..19). Ids with no in-file bank (GM=6, gaps 7..16, virtual 31+)
     // return -1. Verified against the sample: this resolves ~99.7% of combi timbres.
