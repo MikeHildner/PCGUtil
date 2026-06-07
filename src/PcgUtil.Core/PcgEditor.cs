@@ -30,7 +30,7 @@ public static class PcgEditor
             for (int i = 0; i < SetListReader.SlotSize; i++)
                 (data[a + i], data[b + i]) = (data[b + i], data[a + i]);
         }
-        return data;
+        return Finalized(pcg, data);
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public static class PcgEditor
         long dst = SlotOffset(layout, dstSetList, dstSlot);
         if (src != dst)
             Array.Copy(data, src, data, dst, SetListReader.SlotSize);
-        return data;
+        return Finalized(pcg, data);
     }
 
     /// <summary>Returns a copy with a slot's name field rewritten (24 chars, ASCII).</summary>
@@ -60,7 +60,7 @@ public static class PcgEditor
         var data = (byte[])pcg.Data.Clone();
         long offset = SlotOffset(layout, setListIndex, slot) + SetListReader.SlotNameOffset;
         PcgText.WriteFixedString(data, offset, SetListReader.SlotNameLength, name);
-        return data;
+        return Finalized(pcg, data);
     }
 
     /// <summary>Returns a copy with a set list's name field rewritten (24 chars, ASCII).</summary>
@@ -71,7 +71,7 @@ public static class PcgEditor
 
         var data = (byte[])pcg.Data.Clone();
         PcgText.WriteFixedString(data, RecordOffset(layout, setListIndex), SetListReader.SetListNameLength, name);
-        return data;
+        return Finalized(pcg, data);
     }
 
     // ----- Combis -----
@@ -99,7 +99,7 @@ public static class PcgEditor
             if (pcg.FindFirst("SBK1") is not null)
                 RetargetCombiReferences(data, GetLayout(pcg), bankA, indexA, bankB, indexB);
         }
-        return data;
+        return Finalized(pcg, data);
     }
 
     /// <summary>Returns a copy with one combi copied over another. The destination is overwritten.</summary>
@@ -112,7 +112,7 @@ public static class PcgEditor
         var data = (byte[])pcg.Data.Clone();
         if (src != dst && size == dstSize)
             Array.Copy(data, src, data, dst, size);
-        return data;
+        return Finalized(pcg, data);
     }
 
     /// <summary>Returns a copy with a combi's name field rewritten (24 chars, ASCII).</summary>
@@ -123,7 +123,7 @@ public static class PcgEditor
 
         var data = (byte[])pcg.Data.Clone();
         PcgText.WriteFixedString(data, offset, BankNameLength, name);
-        return data;
+        return Finalized(pcg, data);
     }
 
     private const int BankSubHeaderSize = 12;
@@ -180,6 +180,13 @@ public static class PcgEditor
         data[refOffset + 2] = (byte)((data[refOffset + 2] & 0x80) | (index & 0x7F));
     }
 
+    // Every edit ends here: recompute per-chunk checksums so the hardware accepts the file.
+    private static byte[] Finalized(PcgFile pcg, byte[] data)
+    {
+        PcgChecksum.Recompute(pcg, data);
+        return data;
+    }
+
     // ----- Programs -----
     //
     // A program is referenced by combi timbres (number @ timbre+0, bank PcgId @ timbre+1) and by
@@ -205,7 +212,7 @@ public static class PcgEditor
 
             RetargetProgramReferences(pcg, data, bankA, indexA, bankB, indexB);
         }
-        return data;
+        return Finalized(pcg, data);
     }
 
     /// <summary>Returns a copy with one program copied over another. The destination is overwritten.</summary>
@@ -218,7 +225,7 @@ public static class PcgEditor
         var data = (byte[])pcg.Data.Clone();
         if (src != dst && size == dstSize)
             Array.Copy(data, src, data, dst, size);
-        return data;
+        return Finalized(pcg, data);
     }
 
     /// <summary>Returns a copy with a program's name field rewritten (24 chars, ASCII).</summary>
@@ -229,7 +236,7 @@ public static class PcgEditor
 
         var data = (byte[])pcg.Data.Clone();
         PcgText.WriteFixedString(data, offset, BankNameLength, name);
-        return data;
+        return Finalized(pcg, data);
     }
 
     // Program name is at record offset 0; bank data is a 12-byte sub-header then fixed records.

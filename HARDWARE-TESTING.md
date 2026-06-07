@@ -20,7 +20,7 @@ choose which patches to test with.
 - [ ] Make any small edit, download, and load the edited `.PCG` — it loads with no file error or hang.
 
 ## 2. Set-list editing
-Status: **confirmed** on hardware (surgical slot swap, 2026-06-02).
+Status: **re-test needed** — the slot *swap* was confirmed (2026-06-02), but a *rename* was rejected as "File unavailable" (2026-06-07) until a per-chunk **checksum** fix landed. Re-download a freshly-edited file and re-run.
 - [ ] Reorder slots: the order changes and each song recalls the same sound.
 - [ ] Rename a slot and the set list: the new names show on the device.
 - [ ] Copy a slot: the destination recalls the source's sound.

@@ -42,3 +42,4 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Duplicate detection — programs/combis grouped by name with byte-identical flag; Duplicates tab | 2026-06-05 | 2026-06-05 |
 | Name search — case-insensitive search over program / combi / set-list names; Search tab | 2026-06-05 | 2026-06-05 |
 | HTML report export — printable set-list sheets (current / all) + usage report; Set Lists and Usage tabs | 2026-06-07 | 2026-06-07 |
+| Fix per-chunk checksum on edit — recompute each leaf chunk's 8-bit data checksum (root cause of hardware "File unavailable"); PcgChecksum + PcgEditor | 2026-06-07 | 2026-06-07 |
