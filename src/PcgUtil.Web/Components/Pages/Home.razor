@@ -155,8 +155,12 @@
                             <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
                         }
                         <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCurrentSetListCsv">Export this</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportAllSetListsCsv">Export all</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCurrentSetListCsv">CSV: this</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportAllSetListsCsv">CSV: all</button>
+                        </div>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCurrentSetListHtml">Print: this</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportAllSetListsHtml">Print: all</button>
                         </div>
                     </div>
                 </div>
@@ -490,7 +494,10 @@
             var usage = CurrentUsage;
             <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
                 <h2 class="h5 mb-0">Program usage</h2>
-                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportUsageCsv">Export CSV</button>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportUsageCsv">CSV</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportUsageHtml">HTML</button>
+                </div>
             </div>
             <p class="text-body-secondary small">
                 Which Programs are referenced by combi timbres and program-type set-list slots —
@@ -942,6 +949,22 @@
                   .Append(Csv(site.Description)).Append("\"\n");
         await Download("program-usage.csv", "text/csv", sb.ToString());
     }
+
+    async Task ExportCurrentSetListHtml()
+    {
+        if (_catalog is null) return;
+        var sl = _setLists[_selectedSetList];
+        await Download($"setlist-{sl.Index:D3}.html", "text/html", PcgHtmlReport.SetList(sl, _catalog));
+    }
+
+    async Task ExportAllSetListsHtml()
+    {
+        if (_catalog is null) return;
+        await Download("setlists.html", "text/html", PcgHtmlReport.AllSetLists(_setLists, _catalog));
+    }
+
+    async Task ExportUsageHtml() =>
+        await Download("program-usage.html", "text/html", PcgHtmlReport.Usage(CurrentUsage));
 
     void OnSetListChanged(ChangeEventArgs e)
     {
