@@ -32,6 +32,9 @@
   .badge.ok { background: var(--ok); }
   .badge.pending { background: var(--pending); }
   .badge.neutral { background: #57606a; }
+  .legend { font-size: .8rem; color: var(--muted); margin: .25rem 0 1rem; }
+  .legend .badge { vertical-align: middle; }
+  .hint { font-size: .72rem; font-weight: 400; font-style: italic; color: var(--muted); }
   ul.checks { list-style: none; margin: .5rem 0 0; padding: 0; }
   ul.checks li { padding: .4rem 0; border-top: 1px solid #f0f2f4; }
   ul.checks li:first-child { border-top: 0; }
@@ -59,6 +62,11 @@
       Confirm the workstation accepts a surgically-edited <code>.PCG</code> and recalls the same
       sounds after each edit. Tick items as you go — progress is saved in this browser.
     </p>
+    <p class="legend">
+      <span class="badge ok">confirmed</span> verified on the instrument &nbsp;·&nbsp;
+      <span class="badge pending">pending</span> not tested yet &nbsp;·&nbsp;
+      gray italics are hints, not a status.
+    </p>
     <div class="progress">
       <div class="bar"><div id="barfill"></div></div>
       <span class="count"><span id="done">0</span> / <span id="total">0</span> done</span>
@@ -67,7 +75,7 @@
   </header>
 
   <section>
-    <h2>0. Setup &amp; safety <span class="badge neutral">do first</span></h2>
+    <h2>0. Setup &amp; safety <span class="hint">do these first</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Back up the workstation's current state to a fresh <code>.PCG</code>.</span></label></li>
       <li><label><input type="checkbox"><span>Prefer testing on a USER bank (not irreplaceable data); keep the backup to restore.</span></label></li>
@@ -76,7 +84,7 @@
   </section>
 
   <section>
-    <h2>1. File loads <span class="badge neutral">smoke test</span></h2>
+    <h2>1. File loads <span class="badge ok">confirmed</span> <span class="hint">quick load check</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Make any small edit, download, and load the edited <code>.PCG</code> — it loads with no file error or hang.</span></label></li>
     </ul>
@@ -101,7 +109,7 @@
   </section>
 
   <section>
-    <h2>4. Program reorganization <span class="badge pending">pending</span> <span class="badge neutral">priority</span></h2>
+    <h2>4. Program reorganization <span class="badge pending">pending</span> <span class="hint">highest priority</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>In the <strong>Usage</strong> tab (read-only) pick a referenced program in a USER bank; note its bank + number and one combi from its "show" list.</span></label></li>
       <li><label><input type="checkbox"><span>In the <strong>Programs</strong> tab, choose that bank, turn on <strong>Edit mode</strong>, and click ▼ (or ▲) to swap that program with its neighbor — references retarget automatically.</span></label></li>

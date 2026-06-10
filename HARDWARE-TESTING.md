@@ -17,6 +17,7 @@ choose which patches to test with.
 - [ ] Note a baseline: pick 3–4 set-list songs and remember what each sounds like / loads.
 
 ## 1. File loads (smoke test)
+Status: **confirmed** on hardware (2026-06-07).
 - [ ] Make any small edit, download, and load the edited `.PCG` — it loads with no file error or hang.
 
 ## 2. Set-list editing
