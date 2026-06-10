@@ -20,20 +20,21 @@ choose which patches to test with.
 - [ ] Make any small edit, download, and load the edited `.PCG` — it loads with no file error or hang.
 
 ## 2. Set-list editing
-Status: **re-test needed** — the slot *swap* was confirmed (2026-06-02), but a *rename* was rejected as "File unavailable" (2026-06-07) until a per-chunk **checksum** fix landed. Re-download a freshly-edited file and re-run.
+Status: **confirmed** on hardware (2026-06-07; rename/copy needed the per-chunk checksum fix, now verified).
 - [ ] Reorder slots: the order changes and each song recalls the same sound.
 - [ ] Rename a slot and the set list: the new names show on the device.
 - [ ] Copy a slot: the destination recalls the source's sound.
 
 ## 3. Combi reorganization
-Status: **pending**.
+Status: **confirmed** on hardware (2026-06-07).
 - [ ] Reorder two combis in a USER bank (e.g. "Let's Go Crazy", USER-A #057): they swap positions and each sounds the same.
 - [ ] A set-list song that used a moved combi still recalls the correct combi (the reference followed the swap).
 - [ ] Copy a combi: the destination sounds like the source. Rename: the name shows.
 
 ## 4. Program reorganization
 Status: **pending** (highest priority — new dual-retarget write path).
-- [ ] Pick a referenced program from the **Usage** tab, then swap it with a neighbor in the **Programs** tab.
+- [ ] In the **Usage** tab (read-only) pick a referenced program in a USER bank; note its bank + number and one combi from its "show" list.
+- [ ] In the **Programs** tab, choose that bank, turn on **Edit mode**, and click ▼ (or ▲) to swap that program with its neighbor — references retarget automatically.
 - [ ] The programs are in their new positions and each sounds right.
 - [ ] Combis that used the moved program still load it in every timbre — open a couple from its "Used by" list; they sound identical to before.
 - [ ] A set-list slot that loads the moved program directly still recalls it.
