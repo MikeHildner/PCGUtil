@@ -3,6 +3,12 @@
 Task tracker for the PCGUtil PCG inspector. Dates are `YYYY-MM-DD`.
 A task is **open** until it has a Completed date; then move it to the Done table.
 
+`[T1]`–`[T5]` are effort/scope tiers, not a strict order: **T1** rides existing, verified
+machinery; **T2** adds decoding or reports (no new write machinery); **T3** needs a new
+architectural concept (multi-file model, rule engine); **T4** opens a new editing domain
+(parameters, bulk edit, sysex); **T5** is the strategic long-pole (multi-model coverage).
+*(parity)* marks gaps versus PCG Tools, the current benchmark.
+
 ## Open
 
 | Task | Created | Completed |
@@ -41,14 +47,14 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Re-examine PCG Tools — confirmed combi-timbre layout (4802 / 16×188) + program-bank PcgId map; 99.7% resolve verified on sample | 2026-06-04 | 2026-06-04 |
 | Format fixes + CombiReader: decode 3-way slot type (Song) + guard combi retargeting; PcgId program resolution; combi-timbre decode | 2026-06-04 | 2026-06-04 |
 | Usage / cross-reference report — program usage sites + unreferenced programs/combis (init combis excluded); Usage tab + CSV | 2026-06-04 | 2026-06-04 |
-| Move/reorganize Programs — SwapPrograms with dual retargeting (combi timbres + program set-list slots); Programs tab; integrity test (hardware re-confirm pending) | 2026-06-05 | 2026-06-05 |
+| Move/reorganize Programs — SwapPrograms with dual retargeting (combi timbres + program set-list slots); Programs tab; integrity test (hardware confirmed 2026-07-03) | 2026-06-05 | 2026-06-05 |
 | Bank labels (INT-A / USER-A / USER-AA) shown in Programs / Combis / Usage / Set Lists tabs | 2026-06-05 | 2026-06-05 |
 | Duplicate detection — programs/combis grouped by name with byte-identical flag; Duplicates tab | 2026-06-05 | 2026-06-05 |
 | Name search — case-insensitive search over program / combi / set-list names; Search tab | 2026-06-05 | 2026-06-05 |
 | HTML report export — printable set-list sheets (current / all) + usage report; Set Lists and Usage tabs | 2026-06-07 | 2026-06-07 |
 | Fix per-chunk checksum on edit — recompute each leaf chunk's 8-bit data checksum (root cause of hardware "File unavailable"); PcgChecksum + PcgEditor | 2026-06-07 | 2026-06-07 |
 | Find/sort/filter navigation aids — Find box on Programs/Combis tabs; Find + Bank + Sort on Usage tab | 2026-07-02 | 2026-07-02 |
-| Ref-safe sort + compact banks — whole-bank permutation reorder (ReorderPrograms/ReorderCombis + PcgOrganizer), init/empty placeholders to the tail, dual retarget; Sort A–Z / Compact buttons (hardware confirm pending) | 2026-06-04 | 2026-07-02 |
+| Ref-safe sort + compact banks — whole-bank permutation reorder (ReorderPrograms/ReorderCombis + PcgOrganizer), init/empty placeholders to the tail, dual retarget; Sort A–Z / Compact buttons (hardware confirmed 2026-07-03) | 2026-06-04 | 2026-07-02 |
 | Publish to hildner.org/pcgutil — self-contained win-x86 (32-bit shared pool), PathBase-aware base href, scripted FTPS deploy (deploy/deploy-ftp.ps1); WebSocket transport verified live | 2026-07-02 | 2026-07-02 |
 | Landing-page card + app polish — PCG Util card on hildner.org index, template About link removed, hardware checklist exposed in sidebar (now wwwroot/hardware-testing.html) | 2026-07-02 | 2026-07-02 |
 | User-facing test page — served checklist rewritten for visitors (no dev statuses, file-agnostic wording, GitHub-issues report link); HARDWARE-TESTING.md stays the internal tracker | 2026-07-03 | 2026-07-03 |

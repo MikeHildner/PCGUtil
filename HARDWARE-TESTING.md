@@ -37,7 +37,7 @@ Status: **confirmed** on hardware (2026-06-07).
 - [ ] Copy a combi: the destination sounds like the source. Rename: the name shows.
 
 ## 4. Program reorganization
-Status: **pending** (highest priority — new dual-retarget write path).
+Status: **confirmed** on hardware (2026-07-03; dual retarget — combi timbres + program-type slots).
 - [ ] In the **Usage** tab (read-only), set **Sort** to *Most used* and **Bank** to a USER bank — the top row is the best candidate. Note its bank + number and one combi from its "show" list.
 - [ ] In the **Programs** tab, choose that bank and type the number (or name) in **Find** to jump to the program. Turn on **Edit mode**, clear Find so the neighbor is visible, and click ▼ (or ▲) to swap — references retarget automatically.
 - [ ] The programs are in their new positions and each sounds right.
@@ -46,11 +46,11 @@ Status: **pending** (highest priority — new dual-retarget write path).
 - [ ] Copy a program: the destination sounds like the source. Rename: the name shows.
 
 ## 5. Song-slot guard (edge case)
-Status: **pending**.
+Status: **confirmed** on hardware (2026-07-03).
 - [ ] The Song-type slot "Sequence" (Set List 15, slot 31) is unchanged after a combi/program reorg — especially one that touches the first INT-A combi/program (bank 0, #0), whose bytes it collides with.
 
 ## 6. Sort & compact banks
-Status: **pending** (same write path as reorg — one confirm run should cover it).
+Status: **confirmed** on hardware (2026-07-03).
 - [ ] Sort a USER combi bank A–Z (Combis tab → Edit mode → **Sort A–Z**): the device shows the new order, init/empty slots last, and a set-list song that used a sorted combi still recalls the same sound.
 - [ ] Sort or compact a USER program bank: a combi that used a moved program still sounds identical, and a program-type set-list slot still recalls its program.
 - [ ] **Compact** only moves init/empty slots to the end — every named patch keeps its relative order.
