@@ -55,6 +55,12 @@ Status: **confirmed** on hardware (2026-07-03).
 - [ ] Sort or compact a USER program bank: a combi that used a moved program still sounds identical, and a program-type set-list slot still recalls its program.
 - [ ] **Compact** only moves init/empty slots to the end — every named patch keeps its relative order.
 
+## 7. Cross-file copy
+Status: **pending**.
+- [ ] Open a second backup as the source (Copy tab) and copy a program into a USER slot: the edited file loads and the copied program sounds like it did in the source file.
+- [ ] Copy a combi across: the destination recalls it, and its timbres play the destination's programs at those slots (compare with the Copy tab's timbre preview before downloading).
+- [ ] Copy a set-list slot across: the slot recalls whatever its reference points at in the destination file.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.

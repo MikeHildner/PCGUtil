@@ -51,6 +51,28 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>
+    /// Returns a copy of <paramref name="destination"/> with one Set List slot overwritten by a
+    /// slot from another file. The 542-byte block carries the name and reference verbatim; the
+    /// reference will resolve against whatever lives in the destination's banks.
+    /// </summary>
+    public static byte[] CopySetListSlotAcross(PcgFile source, int srcSetList, int srcSlot,
+                                               PcgFile destination, int dstSetList, int dstSlot)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        var srcLayout = GetLayout(source);
+        var dstLayout = GetLayout(destination);
+        ValidateSlot(srcLayout, srcSetList, srcSlot, nameof(srcSlot));
+        ValidateSlot(dstLayout, dstSetList, dstSlot, nameof(dstSlot));
+        RequireSameRecordSize("Set List", srcLayout.RecordSize, dstLayout.RecordSize);
+
+        var data = (byte[])destination.Data.Clone();
+        Array.Copy(source.Data, SlotOffset(srcLayout, srcSetList, srcSlot),
+                   data, SlotOffset(dstLayout, dstSetList, dstSlot), SetListReader.SlotSize);
+        return Finalized(destination, data);
+    }
+
     /// <summary>Returns a copy with a slot's name field rewritten (24 chars, ASCII).</summary>
     public static byte[] RenameSetListSlot(PcgFile pcg, int setListIndex, int slot, string name)
     {
@@ -113,6 +135,26 @@ public static class PcgEditor
         if (src != dst && size == dstSize)
             Array.Copy(data, src, data, dst, size);
         return Finalized(pcg, data);
+    }
+
+    /// <summary>
+    /// Returns a copy of <paramref name="destination"/> with one combi overwritten by a combi
+    /// from another file. The whole record travels — name, timbres, parameters — but the timbre
+    /// program references resolve against the destination's banks, so the combi plays whatever
+    /// lives at those slots there.
+    /// </summary>
+    public static byte[] CopyCombiAcross(PcgFile source, int srcBank, int srcIndex,
+                                         PcgFile destination, int dstBank, int dstIndex)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        var (srcOffset, srcSize) = LocateCombi(source, srcBank, srcIndex);
+        var (dstOffset, dstSize) = LocateCombi(destination, dstBank, dstIndex);
+        RequireSameRecordSize("Combi", srcSize, dstSize);
+
+        var data = (byte[])destination.Data.Clone();
+        Array.Copy(source.Data, srcOffset, data, dstOffset, dstSize);
+        return Finalized(destination, data);
     }
 
     /// <summary>Returns a copy with a combi's name field rewritten (24 chars, ASCII).</summary>
@@ -303,6 +345,34 @@ public static class PcgEditor
         if (src != dst && size == dstSize)
             Array.Copy(data, src, data, dst, size);
         return Finalized(pcg, data);
+    }
+
+    /// <summary>
+    /// Returns a copy of <paramref name="destination"/> with one program overwritten by a
+    /// program from another file (whole record: name + parameters).
+    /// </summary>
+    public static byte[] CopyProgramAcross(PcgFile source, int srcBank, int srcIndex,
+                                           PcgFile destination, int dstBank, int dstIndex)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        var (srcOffset, srcSize) = LocateProgram(source, srcBank, srcIndex);
+        var (dstOffset, dstSize) = LocateProgram(destination, dstBank, dstIndex);
+        RequireSameRecordSize("Program", srcSize, dstSize);
+
+        var data = (byte[])destination.Data.Clone();
+        Array.Copy(source.Data, srcOffset, data, dstOffset, dstSize);
+        return Finalized(destination, data);
+    }
+
+    // Cross-file copies land raw bytes at computed offsets, so mismatched record layouts
+    // (different models, or different OS versions that resized records) must be refused.
+    private static void RequireSameRecordSize(string what, int srcSize, int dstSize)
+    {
+        if (srcSize != dstSize)
+            throw new InvalidOperationException(
+                $"{what} records differ in size ({srcSize} vs {dstSize} bytes) — " +
+                "the files don't appear to be from the same model.");
     }
 
     /// <summary>Returns a copy with a program's name field rewritten (24 chars, ASCII).</summary>

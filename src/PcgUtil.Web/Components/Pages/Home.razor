@@ -551,6 +551,256 @@
             break;
         }
 
+        case View.Copy:
+        {
+            <h2 class="h5">Copy between files</h2>
+            <p class="text-body-secondary small">
+                Open a second <code>.PCG</code> as a read-only <strong>source</strong>, then copy programs,
+                combis, or set-list slots into the file you're editing. A copy <strong>overwrites</strong> the
+                destination slot you choose; edits accumulate in memory until you download the edited .PCG.
+            </p>
+
+            <div class="row g-3 mb-3">
+                <div class="col-lg-6">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                            <span class="text-body-secondary small">Destination — your main file</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Save an unmodified copy under a new name"
+                                    @onclick="DownloadDestinationCopy">Download a copy</button>
+                        </div>
+                        <div class="fw-semibold text-truncate" title="@_fileName">@_fileName</div>
+                        <div class="text-body-secondary small">@Format.Bytes(_pcg.Length)@(_dirty ? " — has unsaved edits" : "")</div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="border rounded p-3 h-100">
+                        @if (_srcPcg is null)
+                        {
+                            <label class="form-label small fw-semibold mb-1">Source — choose a second .PCG to copy from</label>
+                            <InputFile OnChange="OnSourceFileSelected" accept=".PCG,.pcg" class="form-control form-control-sm" />
+                            @if (_srcLoading)
+                            {
+                                <div class="mt-2 text-body-secondary small">
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                    Reading and parsing @_srcFileName …
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                                <span class="text-body-secondary small">Source — read-only</span>
+                                <span class="d-flex gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="DownloadSourceCopy">Download a copy</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearSource">Clear</button>
+                                </span>
+                            </div>
+                            <div class="fw-semibold text-truncate" title="@_srcFileName">@_srcFileName</div>
+                            <div class="text-body-secondary small">@Format.Bytes(_srcPcg.Length)</div>
+                        }
+                        @if (_srcError is not null)
+                        {
+                            <div class="alert alert-danger mt-2 mb-0 py-1 px-2 small">@_srcError</div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (_dirty)
+            {
+                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                    <p class="text-success small mb-0">
+                        Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file.
+                    </p>
+                    <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                </div>
+            }
+
+            @if (_srcPcg is not null && _srcCatalog is not null)
+            {
+                var compat = PcgCompat.Compare(_srcPcg, _pcg);
+                if (!compat.AllMatch)
+                {
+                    <div class="alert alert-danger">
+                        <strong>Record layouts differ</strong> (@compat.MismatchSummary) — these files don't appear
+                        to be from the same model, so copying is disabled.
+                    </div>
+                }
+                else
+                {
+                    var srcRows = CrossSourceRows();
+
+                    <div class="d-flex align-items-end gap-2 flex-wrap mb-2">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm @(_crossKind == CrossKind.Programs ? "btn-secondary" : "btn-outline-secondary")"
+                                    @onclick="() => SetCrossKind(CrossKind.Programs)">Programs</button>
+                            <button type="button" class="btn btn-sm @(_crossKind == CrossKind.Combis ? "btn-secondary" : "btn-outline-secondary")"
+                                    @onclick="() => SetCrossKind(CrossKind.Combis)">Combis</button>
+                            <button type="button" class="btn btn-sm @(_crossKind == CrossKind.SetListSlots ? "btn-secondary" : "btn-outline-secondary")"
+                                    @onclick="() => SetCrossKind(CrossKind.SetListSlots)">Set-list slots</button>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1">@(_crossKind == CrossKind.SetListSlots ? "Source set list" : "Source bank")</label>
+                            <select class="form-select form-select-sm" @onchange="OnCrossSrcBankChanged">
+                                @if (_crossKind == CrossKind.Programs)
+                                {
+                                    @for (var i = 0; i < _srcCatalog.ProgramBanks.Count; i++)
+                                    {
+                                        <option value="@i" selected="@(i == _crossSrcBank)">@PcgBankLabels.Program(i) (@CountNonEmpty(_srcCatalog.ProgramBanks[i]))</option>
+                                    }
+                                }
+                                else if (_crossKind == CrossKind.Combis)
+                                {
+                                    @for (var i = 0; i < _srcCatalog.CombiBanks.Count; i++)
+                                    {
+                                        <option value="@i" selected="@(i == _crossSrcBank)">@PcgBankLabels.Combi(i) (@CountNonEmpty(_srcCatalog.CombiBanks[i]))</option>
+                                    }
+                                }
+                                else
+                                {
+                                    @for (var i = 0; i < _srcSetLists.Count; i++)
+                                    {
+                                        <option value="@i" selected="@(i == _crossSrcBank)">@i.ToString("D3") — @_srcSetLists[i].DisplayName (@_srcSetLists[i].NamedSlots.Count())</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1">Find</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="name or #…"
+                                   @bind="_crossFilter" @bind:event="oninput" />
+                        </div>
+                    </div>
+
+                    @if (_crossSelection is { } sel)
+                    {
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-end gap-2 flex-wrap">
+                                <div class="me-2 pb-1">
+                                    Copy <strong>@sel.Name</strong>
+                                    <span class="text-body-secondary small">(@CrossSrcLabel(sel.Bank) #@sel.Index.ToString("D3"))</span> to:
+                                </div>
+                                <div>
+                                    <label class="form-label small mb-1">@(_crossKind == CrossKind.SetListSlots ? "Set list" : "Bank")</label>
+                                    <select class="form-select form-select-sm" @onchange="OnCrossDstBankChanged">
+                                        @if (_crossKind == CrossKind.Programs)
+                                        {
+                                            @for (var i = 0; i < _catalog!.ProgramBanks.Count; i++)
+                                            {
+                                                <option value="@i" selected="@(i == _crossDstBank)">@PcgBankLabels.Program(i)</option>
+                                            }
+                                        }
+                                        else if (_crossKind == CrossKind.Combis)
+                                        {
+                                            @for (var i = 0; i < _catalog!.CombiBanks.Count; i++)
+                                            {
+                                                <option value="@i" selected="@(i == _crossDstBank)">@PcgBankLabels.Combi(i)</option>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            @for (var i = 0; i < _setLists.Count; i++)
+                                            {
+                                                <option value="@i" selected="@(i == _crossDstBank)">@i.ToString("D3") — @_setLists[i].DisplayName</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label small mb-1">Slot <span class="text-body-secondary">(current occupant shown)</span></label>
+                                    <select class="form-select form-select-sm" style="max-width:22rem" @onchange="OnCrossDstIndexChanged">
+                                        @if (_crossKind == CrossKind.SetListSlots)
+                                        {
+                                            @foreach (var slot in _setLists[_crossDstBank].Slots)
+                                            {
+                                                <option value="@slot.Index" selected="@(slot.Index == _crossDstIndex)">@slot.Index.ToString("D3") — @(slot.IsEmpty ? "(empty)" : slot.Name)</option>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            var dstNames = _crossKind == CrossKind.Programs
+                                                ? _catalog!.ProgramBanks[_crossDstBank]
+                                                : _catalog!.CombiBanks[_crossDstBank];
+                                            @for (var i = 0; i < dstNames.Count; i++)
+                                            {
+                                                <option value="@i" selected="@(i == _crossDstIndex)">@i.ToString("D3") — @(string.IsNullOrEmpty(dstNames[i]) ? "(empty)" : dstNames[i])</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" @onclick="DoCrossCopy">Copy</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelCrossSelection">Cancel</button>
+                            </div>
+                            <div class="small mt-1">Copying <strong>overwrites</strong> the destination slot shown above.</div>
+                            @if (_crossKind == CrossKind.Combis && _crossSelectedCombi is not null)
+                            {
+                                var timbres = _crossSelectedCombi.Timbres.Where(t => t.UsesInternalProgram).ToList();
+                                var matching = timbres.Count(t =>
+                                    (_srcCatalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)")
+                                    == (_catalog!.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)"));
+                                <div class="small mt-2">
+                                    In the destination this combi will play whatever lives at its timbres' program slots:
+                                    <strong>@matching of @timbres.Count</strong> internal timbres currently resolve to the
+                                    same program name in both files.
+                                    <details class="mt-1">
+                                        <summary class="text-body-secondary">show timbres</summary>
+                                        <ul class="mb-0">
+                                            @foreach (var t in timbres)
+                                            {
+                                                var srcName = _srcCatalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)";
+                                                var dstName = _catalog!.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)";
+                                                <li>
+                                                    T@(t.Index + 1): @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
+                                                    — source '@srcName'@(srcName == dstName ? " (same in destination)" : $" vs destination '{dstName}'")
+                                                </li>
+                                            }
+                                        </ul>
+                                    </details>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (_crossLastCopy is not null)
+                    {
+                        <div class="alert alert-success py-1 px-2 small">@_crossLastCopy</div>
+                    }
+
+                    <div class="text-body-secondary small mb-1">
+                        @srcRows.Count item(s)@(string.IsNullOrWhiteSpace(_crossFilter) ? "" : $" matching \"{_crossFilter}\"") in the source — click <em>Select</em>, then choose a destination.
+                    </div>
+                    <table class="table table-sm table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width:4rem">#</th>
+                                <th>Name</th>
+                                @if (_crossKind == CrossKind.SetListSlots)
+                                {
+                                    <th>Loads</th>
+                                }
+                                <th style="width:6rem"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in srcRows.Take(MaxRows))
+                            {
+                                <tr @key="row.Index" class="@(_crossSelection is { } cs && cs.Bank == _crossSrcBank && cs.Index == row.Index ? "table-active" : null)">
+                                    <td>@row.Index.ToString("D3")</td>
+                                    <td>@row.Name</td>
+                                    @if (_crossKind == CrossKind.SetListSlots)
+                                    {
+                                        <td class="small text-body-secondary">@row.Extra</td>
+                                    }
+                                    <td><button type="button" class="btn btn-sm btn-outline-primary px-2" @onclick="() => SelectCrossItem(row.Index, row.Name)">Select</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+            break;
+        }
+
         case View.Usage:
         {
             var usage = CurrentUsage;
@@ -863,8 +1113,9 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Combis, Programs, Usage, Duplicates, Search, Strings, Tree }
+    enum View { Overview, SetLists, Combis, Programs, Copy, Usage, Duplicates, Search, Strings, Tree }
     enum UsageSort { BankNumber, Name, MostUsed }
+    enum CrossKind { Programs, Combis, SetListSlots }
 
     const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
     const int MaxRows = 1000;                    // cap rendered string rows
@@ -910,6 +1161,22 @@
     string _usageFilter = string.Empty;
     int _usageBankFilter = -1;                 // -1 = all banks
     UsageSort _usageSort = UsageSort.BankNumber;
+
+    // Cross-file copy state (the main file is the destination; the source is read-only)
+    PcgFile? _srcPcg;
+    string? _srcFileName;
+    string? _srcError;
+    bool _srcLoading;
+    PcgCatalog? _srcCatalog;
+    List<SetList> _srcSetLists = new();
+    CrossKind _crossKind = CrossKind.Programs;
+    int _crossSrcBank;                          // source bank (or set-list index)
+    string _crossFilter = string.Empty;
+    (int Bank, int Index, string Name)? _crossSelection;
+    Combi? _crossSelectedCombi;                 // timbre preview for a selected combi
+    int _crossDstBank;
+    int _crossDstIndex;
+    string? _crossLastCopy;
 
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
@@ -1033,6 +1300,7 @@
         View.SetLists => "Set Lists",
         View.Combis => "Combis",
         View.Programs => "Programs",
+        View.Copy => "Copy",
         View.Usage => "Usage",
         View.Duplicates => "Duplicates",
         View.Search => "Search",
@@ -1280,6 +1548,184 @@
         if (_pcg is null || _programCopySource is null) return;
         var src = _programCopySource.Value;
         ApplyEdit(PcgEditor.CopyProgram(_pcg, src.Bank, src.Index, _selectedProgramBank, index));
+    }
+
+    // ----- Cross-file copy (Copy tab) -----
+
+    async Task OnSourceFileSelected(InputFileChangeEventArgs e)
+    {
+        _srcError = null;
+        _srcPcg = null;
+        _srcCatalog = null;
+        _srcSetLists = new();
+        _srcFileName = e.File.Name;
+        _srcLoading = true;
+        try
+        {
+            using var ms = new MemoryStream();
+            await using (var stream = e.File.OpenReadStream(MaxFileSize))
+            {
+                await stream.CopyToAsync(ms);
+            }
+
+            _srcPcg = PcgReader.Parse(ms.ToArray());
+            _srcCatalog = PcgCatalog.Build(_srcPcg);
+            _srcSetLists = SetListReader.Read(_srcPcg).ToList();
+            _crossSrcBank = 0;
+            _crossFilter = string.Empty;
+            CancelCrossSelection();
+        }
+        catch (Exception ex)
+        {
+            _srcError = $"Could not parse '{_srcFileName}': {ex.Message}";
+            _srcPcg = null;
+            Logger.LogWarning(ex, "Failed to parse source PCG {File}", _srcFileName);
+        }
+        finally
+        {
+            _srcLoading = false;
+        }
+    }
+
+    void ClearSource()
+    {
+        _srcPcg = null;
+        _srcCatalog = null;
+        _srcSetLists = new();
+        _srcFileName = null;
+        _srcError = null;
+        CancelCrossSelection();
+    }
+
+    void SetCrossKind(CrossKind kind)
+    {
+        _crossKind = kind;
+        _crossSrcBank = 0;
+        _crossFilter = string.Empty;
+        CancelCrossSelection();
+    }
+
+    void SelectCrossItem(int index, string name)
+    {
+        _crossSelection = (_crossSrcBank, index, name);
+        _crossSelectedCombi = _crossKind == CrossKind.Combis && _srcPcg is not null
+            ? CombiReader.Read(_srcPcg).FirstOrDefault(c => c.Bank == _crossSrcBank && c.Index == index)
+            : null;
+        _crossDstBank = 0;
+        _crossDstIndex = 0;
+        _crossLastCopy = null;
+    }
+
+    void CancelCrossSelection()
+    {
+        _crossSelection = null;
+        _crossSelectedCombi = null;
+        _crossDstBank = 0;
+        _crossDstIndex = 0;
+        _crossLastCopy = null;
+    }
+
+    void DoCrossCopy()
+    {
+        if (_pcg is null || _srcPcg is null || _crossSelection is null) return;
+        var sel = _crossSelection.Value;
+        var edited = _crossKind switch
+        {
+            CrossKind.Programs => PcgEditor.CopyProgramAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex),
+            CrossKind.Combis => PcgEditor.CopyCombiAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex),
+            _ => PcgEditor.CopySetListSlotAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex),
+        };
+        ApplyEdit(edited);
+        _crossLastCopy = $"Copied '{sel.Name}' to {CrossDstLabel()} — pick another destination to copy again, or download the edited .PCG.";
+    }
+
+    void OnCrossSrcBankChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+        {
+            _crossSrcBank = idx;
+            _crossFilter = string.Empty;
+            CancelCrossSelection();
+        }
+    }
+
+    void OnCrossDstBankChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+        {
+            _crossDstBank = idx;
+            _crossDstIndex = 0;
+        }
+    }
+
+    void OnCrossDstIndexChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+            _crossDstIndex = idx;
+    }
+
+    // Source rows for the current kind/bank/filter: (index, name, extra) with empties hidden.
+    List<(int Index, string Name, string Extra)> CrossSourceRows()
+    {
+        var rows = new List<(int, string, string)>();
+        if (_srcCatalog is null) return rows;
+
+        switch (_crossKind)
+        {
+            case CrossKind.Programs:
+            case CrossKind.Combis:
+            {
+                var banks = _crossKind == CrossKind.Programs ? _srcCatalog.ProgramBanks : _srcCatalog.CombiBanks;
+                if (_crossSrcBank < 0 || _crossSrcBank >= banks.Count) break;
+                var bank = banks[_crossSrcBank];
+                for (int i = 0; i < bank.Count; i++)
+                    if (!string.IsNullOrEmpty(bank[i]) && MatchesFilter(bank[i], i, _crossFilter))
+                        rows.Add((i, bank[i], string.Empty));
+                break;
+            }
+            default:
+            {
+                if (_crossSrcBank < 0 || _crossSrcBank >= _srcSetLists.Count) break;
+                foreach (var slot in _srcSetLists[_crossSrcBank].Slots)
+                    if (!slot.IsEmpty && MatchesFilter(slot.Name, slot.Index, _crossFilter))
+                        rows.Add((slot.Index, slot.Name,
+                            $"{slot.Reference.Kind} {SlotBankLabel(slot.Reference)} #{slot.Reference.Index:D3}"));
+                break;
+            }
+        }
+        return rows;
+    }
+
+    string CrossSrcLabel(int bank) => _crossKind switch
+    {
+        CrossKind.Programs => PcgBankLabels.Program(bank),
+        CrossKind.Combis => PcgBankLabels.Combi(bank),
+        _ => $"Set List {bank:D3}",
+    };
+
+    string CrossDstLabel() => _crossKind switch
+    {
+        CrossKind.Programs => $"{PcgBankLabels.Program(_crossDstBank)} #{_crossDstIndex:D3}",
+        CrossKind.Combis => $"{PcgBankLabels.Combi(_crossDstBank)} #{_crossDstIndex:D3}",
+        _ => $"Set List {_crossDstBank:D3} slot {_crossDstIndex:D3}",
+    };
+
+    async Task DownloadDestinationCopy()
+    {
+        if (_pcg is null) return;
+        var baseName = string.IsNullOrEmpty(_fileName)
+            ? "pcg"
+            : System.IO.Path.GetFileNameWithoutExtension(_fileName);
+        await SaveBytes($"{baseName}-copy.PCG", _pcg.Data);
+    }
+
+    async Task DownloadSourceCopy()
+    {
+        if (_srcPcg is null) return;
+        var baseName = string.IsNullOrEmpty(_srcFileName)
+            ? "source"
+            : System.IO.Path.GetFileNameWithoutExtension(_srcFileName);
+        await SaveBytes($"{baseName}-copy.PCG", _srcPcg.Data);
     }
 
     void SortProgramBank()

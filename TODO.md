@@ -17,8 +17,6 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | Decode Drum Kit & Wave Sequence bank names (program/combi names done) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | Editing polish: clear/init a slot or combi; drag-to-position reorder; re-point a slot's patch | 2026-06-02 | — |
-| [T3] Open two files + copy programs/combis/slots between same-model files (multi-file model) | 2026-06-04 | — |
-| [T3] Clone an entire PCG (save-as) | 2026-06-04 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
 | [T4] Parameter editing beyond names (program/combi params; global master tuning) | 2026-06-04 | — |
 | [T4] Sysex .syx/.mid export ("send to hardware") | 2026-06-04 | — |
@@ -58,3 +56,4 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | Publish to hildner.org/pcgutil — self-contained win-x86 (32-bit shared pool), PathBase-aware base href, scripted FTPS deploy (deploy/deploy-ftp.ps1); WebSocket transport verified live | 2026-07-02 | 2026-07-02 |
 | Landing-page card + app polish — PCG Util card on hildner.org index, template About link removed, hardware checklist exposed in sidebar (now wwwroot/hardware-testing.html) | 2026-07-02 | 2026-07-02 |
 | User-facing test page — served checklist rewritten for visitors (no dev statuses, file-agnostic wording, GitHub-issues report link); HARDWARE-TESTING.md stays the internal tracker | 2026-07-03 | 2026-07-03 |
+| Cross-file copy + clone (T3 multi-file model) — Copy tab with read-only source file, CopyProgram/Combi/SetListSlotAcross + PcgCompat same-model gate, combi timbre preview, download-a-copy buttons; checklist section 7 (hardware confirm pending) | 2026-06-04 | 2026-07-03 |
