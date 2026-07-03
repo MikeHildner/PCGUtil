@@ -10,7 +10,6 @@
     <File Path="README.md" />
     <File Path="TODO.md" />
     <File Path="HARDWARE-TESTING.md" />
-    <File Path="HARDWARE-TESTING.html" />
     <File Path="LICENSE" />
   </Folder>
 </Solution>

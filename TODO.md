@@ -50,3 +50,5 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Find/sort/filter navigation aids — Find box on Programs/Combis tabs; Find + Bank + Sort on Usage tab | 2026-07-02 | 2026-07-02 |
 | Ref-safe sort + compact banks — whole-bank permutation reorder (ReorderPrograms/ReorderCombis + PcgOrganizer), init/empty placeholders to the tail, dual retarget; Sort A–Z / Compact buttons (hardware confirm pending) | 2026-06-04 | 2026-07-02 |
 | Publish to hildner.org/pcgutil — self-contained win-x86 (32-bit shared pool), PathBase-aware base href, scripted FTPS deploy (deploy/deploy-ftp.ps1); WebSocket transport verified live | 2026-07-02 | 2026-07-02 |
+| Landing-page card + app polish — PCG Util card on hildner.org index, template About link removed, hardware checklist exposed in sidebar (now wwwroot/hardware-testing.html) | 2026-07-02 | 2026-07-02 |
+| User-facing test page — served checklist rewritten for visitors (no dev statuses, file-agnostic wording, GitHub-issues report link); HARDWARE-TESTING.md stays the internal tracker | 2026-07-03 | 2026-07-03 |

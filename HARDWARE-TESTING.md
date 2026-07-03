@@ -7,9 +7,13 @@ things on the workstation itself:
 2. its interpretation of the references **matches ours** — every patch still recalls the same
    sound after an edit.
 
-Work through the relevant section after a change and tick items as you go. Add a new section
-whenever a new write-path feature ships. Tip: use the **Usage** and **Duplicates** tabs to
-choose which patches to test with.
+This file is the **internal tracker**: per-section Status lines record what has been verified
+on our own hardware, and items may reference patches from our sample file. The public,
+file-agnostic variant every visitor sees is `src/PcgUtil.Web/wwwroot/hardware-testing.html`
+(linked from the app sidebar as "Hardware tests") — same checks in substance, no statuses,
+worded for any instrument, with a GitHub-issues link for reports. **When a write-path feature
+ships, add a section to both.** Tip: use the **Usage** and **Duplicates** tabs to choose which
+patches to test with.
 
 ## 0. Setup & safety (do first)
 - [ ] Back up the workstation's current state to a fresh `.PCG`.

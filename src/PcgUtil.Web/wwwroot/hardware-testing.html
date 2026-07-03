@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PCGUtil — Hardware testing checklist</title>
+<title>PCG Util — test with your workstation</title>
 <style>
   :root {
-    --ok: #1a7f37; --pending: #9a6700; --fg: #1c2024; --muted: #656d76; --line: #d0d7de;
+    --ok: #1a7f37; --fg: #1c2024; --muted: #656d76; --line: #d0d7de;
   }
   * { box-sizing: border-box; }
   body { font-family: system-ui, "Segoe UI", Arial, sans-serif; color: var(--fg);
@@ -27,13 +27,6 @@
             padding: 1rem 1.25rem; margin: 1rem 0; }
   section h2 { font-size: 1.15rem; margin: 0 0 .25rem; display: flex; align-items: center;
                gap: .6rem; flex-wrap: wrap; }
-  .badge { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
-           padding: .15rem .5rem; border-radius: 999px; color: #fff; }
-  .badge.ok { background: var(--ok); }
-  .badge.pending { background: var(--pending); }
-  .badge.neutral { background: #57606a; }
-  .legend { font-size: .8rem; color: var(--muted); margin: .25rem 0 1rem; }
-  .legend .badge { vertical-align: middle; }
   .hint { font-size: .72rem; font-weight: 400; font-style: italic; color: var(--muted); }
   ul.checks { list-style: none; margin: .5rem 0 0; padding: 0; }
   ul.checks li { padding: .4rem 0; border-top: 1px solid #f0f2f4; }
@@ -45,6 +38,7 @@
   .note.warn { background: #fff8e6; border: 1px solid #f0e0a8; }
   .note.pass { background: #e9f6ec; border: 1px solid #b7e0c0; }
   footer { color: var(--muted); font-size: .85rem; margin-top: 1.5rem; }
+  footer a { color: inherit; }
   code { background: #eef1f4; padding: .05rem .3rem; border-radius: 4px; font-size: .9em; }
   @media print {
     body { background: #fff; padding: 0; }
@@ -57,15 +51,13 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Hardware testing checklist</h1>
+    <h1>Test PCG Util with your workstation</h1>
     <p class="lede">
-      Confirm the workstation accepts a surgically-edited <code>.PCG</code> and recalls the same
-      sounds after each edit. Tick items as you go — progress is saved in this browser.
-    </p>
-    <p class="legend">
-      <span class="badge ok">confirmed</span> verified on the instrument &nbsp;·&nbsp;
-      <span class="badge pending">pending</span> not tested yet &nbsp;·&nbsp;
-      gray italics are hints, not a status.
+      PCG Util edits <em>copies</em> of your <code>.PCG</code> backups — the file you upload is never
+      modified, and every edit downloads as a new file. These checks confirm that <strong>your</strong>
+      instrument accepts an edited file and recalls the same sounds afterward. Work through them with
+      your own gear and your own file; tick items as you go — progress is saved in this browser.
+      Plan on about 15 minutes.
     </p>
     <div class="progress">
       <div class="bar"><div id="barfill"></div></div>
@@ -77,21 +69,21 @@
   <section>
     <h2>0. Setup &amp; safety <span class="hint">do these first</span></h2>
     <ul class="checks">
-      <li><label><input type="checkbox"><span>Back up the workstation's current state to a fresh <code>.PCG</code>.</span></label></li>
-      <li><label><input type="checkbox"><span>Prefer testing on a USER bank (not irreplaceable data); keep the backup to restore.</span></label></li>
+      <li><label><input type="checkbox"><span>Back up your workstation's current state to a fresh <code>.PCG</code> and keep it somewhere safe — it's your way back, no matter what.</span></label></li>
+      <li><label><input type="checkbox"><span>Prefer testing on a USER bank, not irreplaceable data.</span></label></li>
       <li><label><input type="checkbox"><span>Note a baseline: pick 3–4 set-list songs and remember what each sounds like / loads.</span></label></li>
     </ul>
   </section>
 
   <section>
-    <h2>1. File loads <span class="badge ok">confirmed</span> <span class="hint">quick load check</span></h2>
+    <h2>1. File loads <span class="hint">quick check</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Make any small edit, download, and load the edited <code>.PCG</code> — it loads with no file error or hang.</span></label></li>
     </ul>
   </section>
 
   <section>
-    <h2>2. Set-list editing <span class="badge ok">confirmed</span></h2>
+    <h2>2. Set-list editing</h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Reorder slots: the order changes and each song recalls the same sound.</span></label></li>
       <li><label><input type="checkbox"><span>Rename a slot and the set list: the new names show on the device.</span></label></li>
@@ -100,16 +92,16 @@
   </section>
 
   <section>
-    <h2>3. Combi reorganization <span class="badge ok">confirmed</span></h2>
+    <h2>3. Combi reorganization</h2>
     <ul class="checks">
-      <li><label><input type="checkbox"><span>Reorder two combis in a USER bank (e.g. "Let's Go Crazy", USER-A #057): they swap positions and each sounds the same.</span></label></li>
-      <li><label><input type="checkbox"><span>A set-list song that used a moved combi still recalls the correct combi (the reference followed the swap).</span></label></li>
+      <li><label><input type="checkbox"><span>Reorder two combis in a USER bank — pick one that a set-list song uses (the <strong>Used by</strong> column shows candidates): they swap positions and each sounds the same.</span></label></li>
+      <li><label><input type="checkbox"><span>A set-list song that used a moved combi still recalls the correct combi (the reference followed the move).</span></label></li>
       <li><label><input type="checkbox"><span>Copy a combi: the destination sounds like the source. Rename: the name shows.</span></label></li>
     </ul>
   </section>
 
   <section>
-    <h2>4. Program reorganization <span class="badge pending">pending</span> <span class="hint">highest priority</span></h2>
+    <h2>4. Program reorganization <span class="hint">the deepest test — references retarget in two places</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>In the <strong>Usage</strong> tab (read-only), set <strong>Sort</strong> to <em>Most used</em> and <strong>Bank</strong> to a USER bank — the top row is the best candidate. Note its bank + number and one combi from its "show" list.</span></label></li>
       <li><label><input type="checkbox"><span>In the <strong>Programs</strong> tab, choose that bank and type the number (or name) in <strong>Find</strong> to jump to the program. Turn on <strong>Edit mode</strong>, clear Find so the neighbor is visible, and click ▼ (or ▲) to swap — references retarget automatically.</span></label></li>
@@ -121,14 +113,14 @@
   </section>
 
   <section>
-    <h2>5. Song-slot guard <span class="badge pending">pending</span></h2>
+    <h2>5. Song-slot guard <span class="hint">skip if you don't use songs</span></h2>
     <ul class="checks">
-      <li><label><input type="checkbox"><span>The Song-type slot "Sequence" (Set List 15, slot 31) is unchanged after a combi/program reorg — especially one that touches the first INT-A combi/program (bank 0, #0), whose bytes it collides with.</span></label></li>
+      <li><label><input type="checkbox"><span>If one of your set lists has a Song-type slot, confirm it's unchanged after a combi/program reorg — Song slots are deliberately left alone, and this proves it.</span></label></li>
     </ul>
   </section>
 
   <section>
-    <h2>6. Sort &amp; compact banks <span class="badge pending">pending</span> <span class="hint">same write path as reorg</span></h2>
+    <h2>6. Sort &amp; compact banks <span class="hint">same write path as reorg</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Sort a USER combi bank A–Z (Combis tab → Edit mode → <strong>Sort A–Z</strong>): the device shows the new order, init/empty slots last, and a set-list song that used a sorted combi still recalls the same sound.</span></label></li>
       <li><label><input type="checkbox"><span>Sort or compact a USER program bank: a combi that used a moved program still sounds identical, and a program-type set-list slot still recalls its program.</span></label></li>
@@ -148,7 +140,17 @@
     should differ.
   </div>
 
-  <footer>Mirrors <code>HARDWARE-TESTING.md</code>. © 2026 Mike Hildner.</footer>
+  <section>
+    <h2>Tell me what you found</h2>
+    <p class="lede" style="margin-bottom:0">
+      Pass or fail, every report helps — especially from models that haven't been tested yet.
+      <a href="https://github.com/MikeHildner/PCGUtil/issues" target="_blank" rel="noopener">Open an
+      issue on GitHub</a> with your workstation model, its OS/firmware version, and which checks
+      passed or failed.
+    </p>
+  </section>
+
+  <footer>© 2026 Mike Hildner · <a href="https://github.com/MikeHildner/PCGUtil" target="_blank" rel="noopener">open source (MIT)</a></footer>
 </div>
 
 <script>
