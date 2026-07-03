@@ -259,10 +259,11 @@
                 var bank = _catalog.CombiBanks[_selectedCombiBank];
                 var rows = Enumerable.Range(0, bank.Count)
                     .Where(i => _editMode || _showEmptySlots || !string.IsNullOrEmpty(bank[i]))
+                    .Where(i => MatchesFilter(bank[i], i, _combiFilter))
                     .ToList();
 
                 <div class="row g-2 align-items-end mb-3">
-                    <div class="col-md-7">
+                    <div class="col-md-5">
                         <label class="form-label small mb-1">Combi bank</label>
                         <select class="form-select form-select-sm" @onchange="OnCombiBankChanged">
                             @for (var i = 0; i < _catalog.CombiBanks.Count; i++)
@@ -273,7 +274,12 @@
                             }
                         </select>
                     </div>
-                    <div class="col-md-5 d-flex gap-3 align-items-center pt-3">
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Find</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="name or #…"
+                               @bind="_combiFilter" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-4 d-flex gap-3 align-items-center pt-3">
                         <div class="form-check mb-0">
                             <input class="form-check-input" type="checkbox" id="combiEdit" @bind="_editMode" />
                             <label class="form-check-label small" for="combiEdit">Edit mode</label>
@@ -287,10 +293,23 @@
 
                 <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
                     <h2 class="h5 mb-0">Combi bank @PcgBankLabels.Combi(_selectedCombiBank)</h2>
-                    @if (_dirty)
-                    {
-                        <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
-                    }
+                    <div class="d-flex gap-2">
+                        @if (_editMode)
+                        {
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        title="Sort this bank by name (A–Z, init/empty slots last) — references follow"
+                                        @onclick="SortCombiBank">Sort A–Z</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        title="Push init/empty slots to the end — references follow"
+                                        @onclick="CompactCombiBank">Compact</button>
+                            </div>
+                        }
+                        @if (_dirty)
+                        {
+                            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                        }
+                    </div>
                 </div>
 
                 @if (_dirty)
@@ -298,6 +317,15 @@
                     <p class="text-success small mb-2">
                         Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file. The uploaded file is never modified.
                     </p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(_combiFilter))
+                {
+                    <div class="text-body-secondary small mb-2">
+                        @rows.Count match@(rows.Count == 1 ? "" : "es") for "@_combiFilter" in this bank
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                                @onclick="@(() => _combiFilter = string.Empty)">clear</button>
+                    </div>
                 }
 
                 @if (_combiCopySource is not null)
@@ -363,6 +391,9 @@
                 <p class="text-body-secondary small">
                     Reorder (▲▼) swaps two combis and automatically retargets the set-list slots that use them, so your
                     songs keep their sound. "Used by" is how many set-list slots load each combi. Copy overwrites the target.
+                    <strong>Sort A–Z</strong> / <strong>Compact</strong> reorganize the whole bank (init/empty slots go last),
+                    retargeting references the same way. Use <strong>Find</strong> to jump to a combi by name or number;
+                    clear it before reordering so you can see the neighbour a swap will hit.
                 </p>
             }
             break;
@@ -380,10 +411,11 @@
                 var refCounts = CurrentUsage.Programs.ToDictionary(p => (p.BankIndex, p.Number), p => p.ReferenceCount);
                 var rows = Enumerable.Range(0, bank.Count)
                     .Where(i => _editMode || _showEmptySlots || !string.IsNullOrEmpty(bank[i]))
+                    .Where(i => MatchesFilter(bank[i], i, _programFilter))
                     .ToList();
 
                 <div class="row g-2 align-items-end mb-3">
-                    <div class="col-md-7">
+                    <div class="col-md-5">
                         <label class="form-label small mb-1">Program bank</label>
                         <select class="form-select form-select-sm" @onchange="OnProgramBankChanged">
                             @for (var i = 0; i < _catalog.ProgramBanks.Count; i++)
@@ -394,7 +426,12 @@
                             }
                         </select>
                     </div>
-                    <div class="col-md-5 d-flex gap-3 align-items-center pt-3">
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Find</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="name or #…"
+                               @bind="_programFilter" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-4 d-flex gap-3 align-items-center pt-3">
                         <div class="form-check mb-0">
                             <input class="form-check-input" type="checkbox" id="programEdit" @bind="_editMode" />
                             <label class="form-check-label small" for="programEdit">Edit mode</label>
@@ -408,10 +445,23 @@
 
                 <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
                     <h2 class="h5 mb-0">Program bank @PcgBankLabels.Program(_selectedProgramBank)</h2>
-                    @if (_dirty)
-                    {
-                        <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
-                    }
+                    <div class="d-flex gap-2">
+                        @if (_editMode)
+                        {
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        title="Sort this bank by name (A–Z, init/empty slots last) — references follow"
+                                        @onclick="SortProgramBank">Sort A–Z</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        title="Push init/empty slots to the end — references follow"
+                                        @onclick="CompactProgramBank">Compact</button>
+                            </div>
+                        }
+                        @if (_dirty)
+                        {
+                            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                        }
+                    </div>
                 </div>
 
                 @if (_dirty)
@@ -419,6 +469,15 @@
                     <p class="text-success small mb-2">
                         Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file. The uploaded file is never modified.
                     </p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(_programFilter))
+                {
+                    <div class="text-body-secondary small mb-2">
+                        @rows.Count match@(rows.Count == 1 ? "" : "es") for "@_programFilter" in this bank
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                                @onclick="@(() => _programFilter = string.Empty)">clear</button>
+                    </div>
                 }
 
                 @if (_programCopySource is not null)
@@ -484,6 +543,9 @@
                 <p class="text-body-secondary small">
                     Reorder (▲▼) swaps two programs and automatically retargets the combi timbres and set-list slots that
                     use them, so your sounds stay intact. "Used by" counts those references. Copy overwrites the target.
+                    <strong>Sort A–Z</strong> / <strong>Compact</strong> reorganize the whole bank (init/empty slots go last),
+                    retargeting references the same way. Use <strong>Find</strong> to jump to a program by name or number;
+                    clear it before reordering so you can see the neighbour a swap will hit.
                 </p>
             }
             break;
@@ -492,6 +554,27 @@
         case View.Usage:
         {
             var usage = CurrentUsage;
+            var usageBanks = usage.Programs.Select(p => p.BankIndex).Distinct().OrderBy(b => b).ToList();
+            IEnumerable<ProgramUsage> usageQuery = usage.Programs;
+            if (_usageBankFilter >= 0)
+                usageQuery = usageQuery.Where(p => p.BankIndex == _usageBankFilter);
+            if (!string.IsNullOrWhiteSpace(_usageFilter))
+            {
+                var needle = _usageFilter.Trim();
+                usageQuery = usageQuery.Where(p =>
+                    p.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                    || p.Number.ToString("D3").Contains(needle)
+                    || PcgBankLabels.Program(p.BankIndex).Contains(needle, StringComparison.OrdinalIgnoreCase));
+            }
+            usageQuery = _usageSort switch
+            {
+                UsageSort.Name => usageQuery.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase),
+                UsageSort.MostUsed => usageQuery.OrderByDescending(p => p.ReferenceCount)
+                                                .ThenBy(p => p.BankIndex).ThenBy(p => p.Number),
+                _ => usageQuery.OrderBy(p => p.BankIndex).ThenBy(p => p.Number),
+            };
+            var programsView = usageQuery.ToList();
+            var usageFiltered = _usageBankFilter >= 0 || !string.IsNullOrWhiteSpace(_usageFilter);
             <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
                 <h2 class="h5 mb-0">Program usage</h2>
                 <div class="btn-group">
@@ -507,6 +590,40 @@
                 "Unreferenced" means nothing in <em>this file</em> points at it; Song-type references aren't decoded yet.
             </p>
 
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">Find program</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="name, # or bank…"
+                           @bind="_usageFilter" @bind:event="oninput" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">Bank</label>
+                    <select class="form-select form-select-sm" @bind="_usageBankFilter">
+                        <option value="-1">All banks</option>
+                        @foreach (var b in usageBanks)
+                        {
+                            <option value="@b">@PcgBankLabels.Program(b)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">Sort</label>
+                    <select class="form-select form-select-sm" @bind="_usageSort">
+                        <option value="@UsageSort.BankNumber">Bank, #</option>
+                        <option value="@UsageSort.Name">Name</option>
+                        <option value="@UsageSort.MostUsed">Most used</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="text-body-secondary small mb-2">
+                Showing @programsView.Count of @usage.Programs.Count referenced program@(usage.Programs.Count == 1 ? "" : "s")@(usageFiltered ? " (filtered)" : "").
+                @if (usageFiltered)
+                {
+                    <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" @onclick="ClearUsageFilters">clear</button>
+                }
+            </div>
+
             <table class="table table-sm table-hover align-middle">
                 <thead>
                     <tr>
@@ -518,7 +635,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var p in usage.Programs)
+                    @foreach (var p in programsView)
                     {
                         <tr>
                             <td>@PcgBankLabels.Program(p.BankIndex)</td>
@@ -747,6 +864,7 @@
 
 @code {
     enum View { Overview, SetLists, Combis, Programs, Usage, Duplicates, Search, Strings, Tree }
+    enum UsageSort { BankNumber, Name, MostUsed }
 
     const long MaxFileSize = 256L * 1024 * 1024; // OpenReadStream ceiling
     const int MaxRows = 1000;                    // cap rendered string rows
@@ -786,6 +904,13 @@
     (int Bank, int Index)? _programCopySource;
     string _programCopySourceName = string.Empty;
 
+    // Find / sort navigation aids (per-tab)
+    string _programFilter = string.Empty;
+    string _combiFilter = string.Empty;
+    string _usageFilter = string.Empty;
+    int _usageBankFilter = -1;                 // -1 = all banks
+    UsageSort _usageSort = UsageSort.BankNumber;
+
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
             ? _stringsForChunk
@@ -815,6 +940,9 @@
             _copySource = null;
             _combiCopySource = null;
             _programCopySource = null;
+            _programFilter = _combiFilter = _usageFilter = string.Empty;
+            _usageBankFilter = -1;
+            _usageSort = UsageSort.BankNumber;
             LoadDerived(preserveSelection: false);
         }
         catch (Exception ex)
@@ -1064,7 +1192,10 @@
     {
         if (int.TryParse(e.Value?.ToString(), out var idx) && _catalog is not null
             && idx >= 0 && idx < _catalog.CombiBanks.Count)
+        {
             _selectedCombiBank = idx;
+            _combiFilter = string.Empty;
+        }
     }
 
     void MoveCombi(int index, int delta)
@@ -1096,13 +1227,30 @@
         ApplyEdit(PcgEditor.CopyCombi(_pcg, src.Bank, src.Index, _selectedCombiBank, index));
     }
 
+    void SortCombiBank()
+    {
+        if (_pcg is null) return;
+        if (PcgOrganizer.SortCombiBankByName(_pcg, _selectedCombiBank) is { } edited)
+            ApplyEdit(edited);
+    }
+
+    void CompactCombiBank()
+    {
+        if (_pcg is null) return;
+        if (PcgOrganizer.CompactCombiBank(_pcg, _selectedCombiBank) is { } edited)
+            ApplyEdit(edited);
+    }
+
     // ----- Program reorganization -----
 
     void OnProgramBankChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var idx) && _catalog is not null
             && idx >= 0 && idx < _catalog.ProgramBanks.Count)
+        {
             _selectedProgramBank = idx;
+            _programFilter = string.Empty;
+        }
     }
 
     void MoveProgram(int index, int delta)
@@ -1134,6 +1282,20 @@
         ApplyEdit(PcgEditor.CopyProgram(_pcg, src.Bank, src.Index, _selectedProgramBank, index));
     }
 
+    void SortProgramBank()
+    {
+        if (_pcg is null) return;
+        if (PcgOrganizer.SortProgramBankByName(_pcg, _selectedProgramBank) is { } edited)
+            ApplyEdit(edited);
+    }
+
+    void CompactProgramBank()
+    {
+        if (_pcg is null) return;
+        if (PcgOrganizer.CompactProgramBank(_pcg, _selectedProgramBank) is { } edited)
+            ApplyEdit(edited);
+    }
+
     static int CountNonEmpty(IReadOnlyList<string> names)
     {
         var count = 0;
@@ -1141,6 +1303,23 @@
             if (!string.IsNullOrEmpty(name))
                 count++;
         return count;
+    }
+
+    // True when a patch row matches the Find box: empty query, a name substring, or a number match.
+    static bool MatchesFilter(string? name, int index, string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        query = query.Trim();
+        if (!string.IsNullOrEmpty(name) && name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return index.ToString("D3").Contains(query) || index.ToString().Contains(query);
+    }
+
+    void ClearUsageFilters()
+    {
+        _usageFilter = string.Empty;
+        _usageBankFilter = -1;
+        _usageSort = UsageSort.BankNumber;
     }
 
     static string SlotBankLabel(SetListReference r) => r.Kind switch

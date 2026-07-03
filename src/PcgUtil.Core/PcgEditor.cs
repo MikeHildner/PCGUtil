@@ -126,24 +126,101 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>
+    /// Returns a copy with one combi bank's records rearranged in a single pass: the record at
+    /// position <c>i</c> afterwards is the one that was at <c>newOrder[i]</c> (<paramref name="newOrder"/>
+    /// must be a permutation of 0..count-1). Combi-type Set List slot references into the bank are
+    /// retargeted to follow their records, so every set list keeps loading the same combi.
+    /// </summary>
+    public static byte[] ReorderCombis(PcgFile pcg, int bank, IReadOnlyList<int> newOrder)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (recordsStart, recordSize, count) = LocateBank(pcg, "CMB1", bank);
+        var newIndexOfOld = InverseOf(newOrder, count);
+
+        var data = (byte[])pcg.Data.Clone();
+        for (int i = 0; i < count; i++)
+            if (newOrder[i] != i)
+                Array.Copy(pcg.Data, recordsStart + (long)newOrder[i] * recordSize,
+                           data, recordsStart + (long)i * recordSize, recordSize);
+
+        if (pcg.FindFirst("SBK1") is not null)
+            RetargetCombiReferences(data, GetLayout(pcg), bank, newIndexOfOld);
+        return Finalized(pcg, data);
+    }
+
+    // Retargets combi-type slot references after a whole-bank permutation. newIndexOfOld maps each
+    // record's old index to its new one; references into other banks are untouched.
+    private static void RetargetCombiReferences(byte[] data, SetListLayout layout, int bank, int[] newIndexOfOld)
+    {
+        for (int setList = 0; setList < layout.Count; setList++)
+        {
+            long record = layout.RecordsStart + (long)setList * layout.RecordSize;
+            for (int slot = 0; slot < layout.SlotsPerList; slot++)
+            {
+                long refOffset = record + SetListReader.RecordHeaderSize
+                    + (long)slot * SetListReader.SlotSize + SetListReader.SlotRefOffset;
+                if (refOffset + 3 > data.Length)
+                    continue;
+                if ((data[refOffset] & 0x03) != 0) // combi-type slots only
+                    continue;
+                if ((data[refOffset + 1] & 0x1F) != bank)
+                    continue;
+
+                int index = data[refOffset + 2] & 0x7F;
+                if (index < newIndexOfOld.Length && newIndexOfOld[index] != index)
+                    data[refOffset + 2] = (byte)((data[refOffset + 2] & 0x80) | (newIndexOfOld[index] & 0x7F));
+            }
+        }
+    }
+
+    // Validates that newOrder is a permutation of 0..count-1 and returns its inverse
+    // (old record index → new record index).
+    private static int[] InverseOf(IReadOnlyList<int> newOrder, int count)
+    {
+        ArgumentNullException.ThrowIfNull(newOrder);
+        if (newOrder.Count != count)
+            throw new ArgumentException($"Expected {count} entries, got {newOrder.Count}.", nameof(newOrder));
+
+        var inverse = new int[count];
+        Array.Fill(inverse, -1);
+        for (int i = 0; i < count; i++)
+        {
+            int old = newOrder[i];
+            if (old < 0 || old >= count || inverse[old] != -1)
+                throw new ArgumentException("newOrder must be a permutation of 0..count-1.", nameof(newOrder));
+            inverse[old] = i;
+        }
+        return inverse;
+    }
+
     private const int BankSubHeaderSize = 12;
     private const int BankNameLength = 24;
 
     // Combi name is at record offset 0; bank data is a 12-byte sub-header then records.
     private static (long Offset, int RecordSize) LocateCombi(PcgFile pcg, int bank, int index)
     {
-        var cmb = pcg.FindFirst("CMB1")
-            ?? throw new InvalidOperationException("File has no CMB1 (Combi) chunk.");
-        if (bank < 0 || bank >= cmb.Children.Count)
-            throw new ArgumentOutOfRangeException(nameof(bank));
-
-        long baseOffset = cmb.Children[bank].DataOffset;
-        int count = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset, 4));
-        int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset + 4, 4));
+        var (recordsStart, recordSize, count) = LocateBank(pcg, "CMB1", bank);
         if (index < 0 || index >= count)
             throw new ArgumentOutOfRangeException(nameof(index));
+        return (recordsStart + (long)index * recordSize, recordSize);
+    }
 
-        return (baseOffset + BankSubHeaderSize + (long)index * recordSize, recordSize);
+    // Locates one bank's fixed-size record table (12-byte sub-header: count, record size).
+    private static (long RecordsStart, int RecordSize, int Count) LocateBank(PcgFile pcg, string sectionId, int bank)
+    {
+        var section = pcg.FindFirst(sectionId)
+            ?? throw new InvalidOperationException($"File has no {sectionId} chunk.");
+        if (bank < 0 || bank >= section.Children.Count)
+            throw new ArgumentOutOfRangeException(nameof(bank));
+
+        long baseOffset = section.Children[bank].DataOffset;
+        int count = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset, 4));
+        int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset + 4, 4));
+        long recordsStart = baseOffset + BankSubHeaderSize;
+        if (count < 0 || recordSize <= 0 || recordsStart + (long)count * recordSize > pcg.Data.Length)
+            throw new InvalidOperationException($"{sectionId} bank {bank} record table is out of bounds.");
+        return (recordsStart, recordSize, count);
     }
 
     private static void RetargetCombiReferences(byte[] data, SetListLayout layout, int bankA, int indexA, int bankB, int indexB)
@@ -239,21 +316,100 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>
+    /// Returns a copy with one program bank's records rearranged in a single pass: the record at
+    /// position <c>i</c> afterwards is the one that was at <c>newOrder[i]</c> (<paramref name="newOrder"/>
+    /// must be a permutation of 0..count-1). Every combi timbre and program-type Set List slot that
+    /// references the bank is retargeted to follow its record, so the file keeps loading the same
+    /// program everywhere.
+    /// </summary>
+    public static byte[] ReorderPrograms(PcgFile pcg, int bank, IReadOnlyList<int> newOrder)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (recordsStart, recordSize, count) = LocateBank(pcg, "PRG1", bank);
+        var newIndexOfOld = InverseOf(newOrder, count);
+
+        var data = (byte[])pcg.Data.Clone();
+        for (int i = 0; i < count; i++)
+            if (newOrder[i] != i)
+                Array.Copy(pcg.Data, recordsStart + (long)newOrder[i] * recordSize,
+                           data, recordsStart + (long)i * recordSize, recordSize);
+
+        RetargetProgramReferences(pcg, data, bank, newIndexOfOld);
+        return Finalized(pcg, data);
+    }
+
+    // Retargets both program reference graphs after a whole-bank permutation. newIndexOfOld maps
+    // each record's old index to its new one; references into other banks are untouched, and the
+    // bank byte never changes because the permutation stays within one bank.
+    private static void RetargetProgramReferences(PcgFile pcg, byte[] data, int bank, int[] newIndexOfOld)
+    {
+        // Combi timbres (every CMB1 record). Each timbre: number @ +0, bank PcgId @ +1.
+        var cmb = pcg.FindFirst("CMB1");
+        if (cmb is not null)
+        {
+            foreach (var bankChunk in cmb.Children)
+            {
+                long baseOffset = bankChunk.DataOffset;
+                if (baseOffset + BankSubHeaderSize > data.Length)
+                    continue;
+                int count = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset, 4));
+                int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset + 4, 4));
+                long recordsStart = baseOffset + BankSubHeaderSize;
+
+                for (int i = 0; i < count; i++)
+                {
+                    long record = recordsStart + (long)i * recordSize;
+                    if (record + recordSize > data.Length)
+                        break;
+                    for (int t = 0; t < CombiReader.TimbresPerCombi; t++)
+                    {
+                        long tOff = record + CombiReader.TimbresOffset + (long)t * CombiReader.TimbreStride;
+                        if (tOff + 1 >= data.Length)
+                            break;
+                        if (PcgCatalog.ProgramBankIndexForPcgId(data[tOff + 1]) != bank)
+                            continue;
+                        int number = data[tOff];
+                        if (number < newIndexOfOld.Length && newIndexOfOld[number] != number)
+                            data[tOff] = (byte)newIndexOfOld[number];
+                    }
+                }
+            }
+        }
+
+        // Program-type Set List slots (SBK1): bank PcgId in low 5 bits of +25, number in low 7 of +26.
+        if (pcg.FindFirst("SBK1") is not null)
+        {
+            var layout = GetLayout(pcg);
+            for (int setList = 0; setList < layout.Count; setList++)
+            {
+                long record = layout.RecordsStart + (long)setList * layout.RecordSize;
+                for (int slot = 0; slot < layout.SlotsPerList; slot++)
+                {
+                    long refOffset = record + SetListReader.RecordHeaderSize
+                        + (long)slot * SetListReader.SlotSize + SetListReader.SlotRefOffset;
+                    if (refOffset + 2 >= data.Length)
+                        continue;
+                    if ((data[refOffset] & 0x03) != 1) // program-type slots only (Program == 1)
+                        continue;
+                    if (PcgCatalog.ProgramBankIndexForPcgId(data[refOffset + 1] & 0x1F) != bank)
+                        continue;
+
+                    int number = data[refOffset + 2] & 0x7F;
+                    if (number < newIndexOfOld.Length && newIndexOfOld[number] != number)
+                        data[refOffset + 2] = (byte)((data[refOffset + 2] & 0x80) | (newIndexOfOld[number] & 0x7F));
+                }
+            }
+        }
+    }
+
     // Program name is at record offset 0; bank data is a 12-byte sub-header then fixed records.
     private static (long Offset, int RecordSize) LocateProgram(PcgFile pcg, int bank, int index)
     {
-        var prg = pcg.FindFirst("PRG1")
-            ?? throw new InvalidOperationException("File has no PRG1 (Program) chunk.");
-        if (bank < 0 || bank >= prg.Children.Count)
-            throw new ArgumentOutOfRangeException(nameof(bank));
-
-        long baseOffset = prg.Children[bank].DataOffset;
-        int count = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset, 4));
-        int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset + 4, 4));
+        var (recordsStart, recordSize, count) = LocateBank(pcg, "PRG1", bank);
         if (index < 0 || index >= count)
             throw new ArgumentOutOfRangeException(nameof(index));
-
-        return (baseOffset + BankSubHeaderSize + (long)index * recordSize, recordSize);
+        return (recordsStart + (long)index * recordSize, recordSize);
     }
 
     // Retargets both reference graphs after the programs at (bankA,indexA)/(bankB,indexB) swap.

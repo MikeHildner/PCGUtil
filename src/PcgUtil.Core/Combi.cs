@@ -25,10 +25,14 @@ public sealed class Combi
     /// Empty, or a factory "Init Combi" placeholder. Such combis' timbres all default to the
     /// first program, so they're excluded from usage analysis (matches how PCG Tools treats them).
     /// </summary>
-    public bool IsEmptyOrInit =>
-        Name.Length == 0 ||
-        (Name.Contains("Init", StringComparison.OrdinalIgnoreCase) &&
-         Name.Contains("Combi", StringComparison.OrdinalIgnoreCase));
+    public bool IsEmptyOrInit => IsEmptyOrInitName(Name);
+
+    /// <summary>The name-only form of <see cref="IsEmptyOrInit"/>, for callers that have a
+    /// catalog name but no decoded <see cref="Combi"/>.</summary>
+    public static bool IsEmptyOrInitName(string name) =>
+        name.Length == 0 ||
+        (name.Contains("Init", StringComparison.OrdinalIgnoreCase) &&
+         name.Contains("Combi", StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>One timbre of a <see cref="Combi"/> and the Program it references.</summary>

@@ -111,8 +111,8 @@
   <section>
     <h2>4. Program reorganization <span class="badge pending">pending</span> <span class="hint">highest priority</span></h2>
     <ul class="checks">
-      <li><label><input type="checkbox"><span>In the <strong>Usage</strong> tab (read-only) pick a referenced program in a USER bank; note its bank + number and one combi from its "show" list.</span></label></li>
-      <li><label><input type="checkbox"><span>In the <strong>Programs</strong> tab, choose that bank, turn on <strong>Edit mode</strong>, and click ▼ (or ▲) to swap that program with its neighbor — references retarget automatically.</span></label></li>
+      <li><label><input type="checkbox"><span>In the <strong>Usage</strong> tab (read-only), set <strong>Sort</strong> to <em>Most used</em> and <strong>Bank</strong> to a USER bank — the top row is the best candidate. Note its bank + number and one combi from its "show" list.</span></label></li>
+      <li><label><input type="checkbox"><span>In the <strong>Programs</strong> tab, choose that bank and type the number (or name) in <strong>Find</strong> to jump to the program. Turn on <strong>Edit mode</strong>, clear Find so the neighbor is visible, and click ▼ (or ▲) to swap — references retarget automatically.</span></label></li>
       <li><label><input type="checkbox"><span>The programs are in their new positions and each sounds right.</span></label></li>
       <li><label><input type="checkbox"><span>Combis that used the moved program still load it in every timbre — open a couple from its "Used by" list; they sound identical to before.</span></label></li>
       <li><label><input type="checkbox"><span>A set-list slot that loads the moved program directly still recalls it.</span></label></li>
@@ -124,6 +124,15 @@
     <h2>5. Song-slot guard <span class="badge pending">pending</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>The Song-type slot "Sequence" (Set List 15, slot 31) is unchanged after a combi/program reorg — especially one that touches the first INT-A combi/program (bank 0, #0), whose bytes it collides with.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. Sort &amp; compact banks <span class="badge pending">pending</span> <span class="hint">same write path as reorg</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Sort a USER combi bank A–Z (Combis tab → Edit mode → <strong>Sort A–Z</strong>): the device shows the new order, init/empty slots last, and a set-list song that used a sorted combi still recalls the same sound.</span></label></li>
+      <li><label><input type="checkbox"><span>Sort or compact a USER program bank: a combi that used a moved program still sounds identical, and a program-type set-list slot still recalls its program.</span></label></li>
+      <li><label><input type="checkbox"><span><strong>Compact</strong> only moves init/empty slots to the end — every named patch keeps its relative order.</span></label></li>
     </ul>
   </section>
 

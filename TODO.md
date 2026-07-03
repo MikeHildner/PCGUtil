@@ -11,13 +11,17 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Decode Drum Kit & Wave Sequence bank names (program/combi names done) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | Editing polish: clear/init a slot or combi; drag-to-position reorder; re-point a slot's patch | 2026-06-02 | — |
-| [T1] Compact banks — push empty/init slots to the end, reference-safe | 2026-06-04 | — |
-| [T1] Ref-safe sort — sort a bank/section/selection by name or category, retargeting references | 2026-06-04 | — |
 | [T3] Open two files + copy programs/combis/slots between same-model files (multi-file model) | 2026-06-04 | — |
 | [T3] Clone an entire PCG (save-as) | 2026-06-04 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
 | [T4] Parameter editing beyond names (program/combi params; global master tuning) | 2026-06-04 | — |
 | [T4] Sysex .syx/.mid export ("send to hardware") | 2026-06-04 | — |
+| [T2] Set-list slot description field — decode + view/edit (multi-line comment) *(parity)* | 2026-07-02 | — |
+| [T2] More reports: combi content list, whole-file content list, DAW patch-list export *(parity)* | 2026-07-02 | — |
+| [T3] Differences report — compare two PCGs, list changed/moved patches *(parity; pairs with multi-file)* | 2026-07-02 | — |
+| [T3] Rule-based reference changer — bulk retarget program refs by pattern/rule *(parity)* | 2026-07-02 | — |
+| [T4] Bulk edit — select multiple combis/slots and edit shared fields at once *(parity)* | 2026-07-02 | — |
+| [T5] Multi-model coverage — detect model family from header; per-family format tables (currently one family) *(parity long-pole)* | 2026-07-02 | — |
 
 ## Done
 
@@ -43,3 +47,5 @@ A task is **open** until it has a Completed date; then move it to the Done table
 | Name search — case-insensitive search over program / combi / set-list names; Search tab | 2026-06-05 | 2026-06-05 |
 | HTML report export — printable set-list sheets (current / all) + usage report; Set Lists and Usage tabs | 2026-06-07 | 2026-06-07 |
 | Fix per-chunk checksum on edit — recompute each leaf chunk's 8-bit data checksum (root cause of hardware "File unavailable"); PcgChecksum + PcgEditor | 2026-06-07 | 2026-06-07 |
+| Find/sort/filter navigation aids — Find box on Programs/Combis tabs; Find + Bank + Sort on Usage tab | 2026-07-02 | 2026-07-02 |
+| Ref-safe sort + compact banks — whole-bank permutation reorder (ReorderPrograms/ReorderCombis + PcgOrganizer), init/empty placeholders to the tail, dual retarget; Sort A–Z / Compact buttons (hardware confirm pending) | 2026-06-04 | 2026-07-02 |
