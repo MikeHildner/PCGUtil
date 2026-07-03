@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
+    @* Base href follows the IIS application path (e.g. /pcgutil/ on the shared host, / locally). *@
+    <base href="@BaseHref" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
@@ -22,3 +23,9 @@
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private string BaseHref => (HttpContext?.Request.PathBase.Value ?? string.Empty) + "/";
+}

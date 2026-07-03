@@ -21,7 +21,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
+// The shared host serves plain HTTP for now (no TLS cert bound to the domain yet);
+// restore UseHttpsRedirection once one exists.
 
 app.UseAntiforgery();
 

@@ -21,5 +21,9 @@ Thumbs.db
 ## Per-machine Claude Code settings
 .claude/settings.local.json
 
+## Deployment (credentials + publish output stay local)
+deploy/ftp.secrets.json
+deploy/out/
+
 ## Large sample data (kept out of the repo)
 files/
