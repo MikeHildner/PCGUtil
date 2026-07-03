@@ -5,22 +5,7 @@ namespace PcgUtil.Core.Tests;
 
 public class PcgReaderTests
 {
-    private static byte[] LoadSample() => File.ReadAllBytes(FindSampleFile());
-
-    // Walk up from the test output directory to locate the checked-in sample PCG.
-    private static string FindSampleFile()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Combine(dir.FullName, "files", "20260602.PCG");
-            if (File.Exists(candidate))
-                return candidate;
-            dir = dir.Parent;
-        }
-        throw new FileNotFoundException(
-            $"Sample PCG (files/20260602.PCG) not found walking up from {AppContext.BaseDirectory}");
-    }
+    private static byte[] LoadSample() => Sample.Bytes();
 
     [Fact]
     public void Parse_recognizes_file_signature()

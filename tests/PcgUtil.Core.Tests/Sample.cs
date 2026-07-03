@@ -2,7 +2,9 @@ using PcgUtil.Core;
 
 namespace PcgUtil.Core.Tests;
 
-/// <summary>Locates and loads the checked-in sample PCG for tests.</summary>
+/// <summary>Locates and loads the sample PCG for tests: the first *.PCG (by name) in the
+/// repo's untracked <c>files/</c> directory. Content assertions are pinned to whatever file
+/// is there, so swapping in a new sample means re-pinning the expected values.</summary>
 internal static class Sample
 {
     public static string Path { get; } = Find();
@@ -16,12 +18,18 @@ internal static class Sample
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var candidate = System.IO.Path.Combine(dir.FullName, "files", "20260602.PCG");
-            if (File.Exists(candidate))
-                return candidate;
+            var filesDir = System.IO.Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+            {
+                var candidate = Directory.EnumerateFiles(filesDir, "*.PCG")
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+                if (candidate is not null)
+                    return candidate;
+            }
             dir = dir.Parent;
         }
         throw new FileNotFoundException(
-            $"Sample PCG (files/20260602.PCG) not found walking up from {AppContext.BaseDirectory}");
+            $"No sample *.PCG found in a files/ directory walking up from {AppContext.BaseDirectory}");
     }
 }

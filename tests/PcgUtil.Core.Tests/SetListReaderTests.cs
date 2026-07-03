@@ -32,7 +32,7 @@ public class SetListReaderTests
         Assert.Equal("Let's Go Crazy", sl.Slots[1].Name);
         Assert.Equal("Freeze Frame", sl.Slots[2].Name);
         Assert.Equal("TOM SAWYER", sl.Slots[13].Name);
-        Assert.Equal(13, sl.NamedSlots.Count());
+        Assert.Equal(15, sl.NamedSlots.Count()); // 20260702 sample: two songs added vs June
     }
 
     [Fact]
