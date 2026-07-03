@@ -81,4 +81,4 @@ Write-Host 'Bringing the app back online ...'
 Invoke-FtpDelete 'app_offline.htm'
 Remove-Item $appOffline -Force
 
-Write-Host 'Done. Browse: http://hildner.org/pcgutil/'
+Write-Host 'Done. Browse: https://hildner.org/pcgutil/'
