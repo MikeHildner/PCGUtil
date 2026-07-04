@@ -9,6 +9,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- VS Browser Link / browser-refresh inject scripts into text/html responses; injecting
+         into a pre-compressed static asset corrupts the stream (ERR_HTTP2_PROTOCOL_ERROR on
+         hardware-testing.html under F5). Localhost gains nothing from gzip anyway; publish
+         compression is a separate property and stays on for the live site. -->
+    <DisableBuildCompression Condition="'$(Configuration)' == 'Debug'">true</DisableBuildCompression>
   </PropertyGroup>
 
 </Project>
