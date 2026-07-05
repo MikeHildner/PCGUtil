@@ -16,11 +16,10 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
 | Decode Drum Kit & Wave Sequence bank names (program/combi names done) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
-| Editing polish: clear/init a slot or combi; drag-to-position reorder; re-point a slot's patch | 2026-06-02 | — |
+| Editing polish: clear/init a slot or combi; drag-to-position reorder | 2026-06-02 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
 | [T4] Parameter editing beyond names (program/combi params; global master tuning) | 2026-06-04 | — |
 | [T4] Sysex .syx/.mid export ("send to hardware") | 2026-06-04 | — |
-| [T2] Set-list slot description field — decode + view/edit (multi-line comment) *(parity)* | 2026-07-02 | — |
 | [T2] More reports: combi content list, whole-file content list, DAW patch-list export *(parity)* | 2026-07-02 | — |
 | [T3] Rule-based reference changer — bulk retarget program refs by pattern/rule *(parity)* | 2026-07-02 | — |
 | [T4] Bulk edit — select multiple combis/slots and edit shared fields at once *(parity)* | 2026-07-02 | — |
@@ -57,3 +56,4 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | User-facing test page — served checklist rewritten for visitors (no dev statuses, file-agnostic wording, GitHub-issues report link); HARDWARE-TESTING.md stays the internal tracker | 2026-07-03 | 2026-07-03 |
 | Cross-file copy + clone (T3 multi-file model) — Copy tab with read-only source file, CopyProgram/Combi/SetListSlotAcross + PcgCompat same-model gate, combi timbre preview, download-a-copy buttons; checklist section 7 (hardware confirmed 2026-07-04) | 2026-06-04 | 2026-07-03 |
 | Differences report (T3) — PcgDiff byte-level compare of two open files (moved/renamed/edited/added/removed/replaced, reorg-aware move pairing, retarget details on slots); Differences tab + CSV | 2026-07-02 | 2026-07-04 |
+| Slot notes + re-point (T2 parity + polish) — description field decoded at slot+30 (512 ASCII chars, line breaks), Notes editor, notes on printed set lists + CSV; Load button re-points a slot's patch (name/notes preserved); checklist section 8 (hardware confirmed 2026-07-04) | 2026-07-02 | 2026-07-04 |

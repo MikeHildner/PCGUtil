@@ -30,6 +30,10 @@ public sealed class SetListSlot
     /// <summary>The Program or Combi this slot loads, decoded from the slot reference.</summary>
     public required SetListReference Reference { get; init; }
 
+    /// <summary>The slot's comment field (up to 512 ASCII chars, may contain line breaks) —
+    /// the per-song notes shown on the hardware's Set List display.</summary>
+    public required string Description { get; init; }
+
     public bool IsEmpty => Name.Length == 0;
 }
 

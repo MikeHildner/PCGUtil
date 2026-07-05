@@ -61,6 +61,11 @@ Status: **confirmed** on hardware (2026-07-04).
 - [ ] Copy a combi across: the destination recalls it, and its timbres play the destination's programs at those slots (compare with the Copy tab's timbre preview before downloading).
 - [ ] Copy a set-list slot across: the slot recalls whatever its reference points at in the destination file.
 
+## 8. Slot notes & re-point
+Status: **confirmed** on hardware (2026-07-04).
+- [ ] Set a slot's notes (Set Lists tab → Edit mode → **Notes**): the comment shows on the device's Set List display.
+- [ ] Re-point a slot (**Load** button) at a different combi, and at a program: the slot recalls the new patch; its name and notes stay put.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.

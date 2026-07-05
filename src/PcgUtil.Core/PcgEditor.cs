@@ -85,6 +85,58 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>Returns a copy with a slot's description (comment) field rewritten
+    /// (up to 512 ASCII chars, line breaks allowed).</summary>
+    public static byte[] SetSetListSlotDescription(PcgFile pcg, int setListIndex, int slot, string description)
+    {
+        var layout = GetLayout(pcg);
+        ValidateSlot(layout, setListIndex, slot, nameof(slot));
+
+        var data = (byte[])pcg.Data.Clone();
+        long offset = SlotOffset(layout, setListIndex, slot) + SetListReader.SlotDescriptionOffset;
+        PcgText.WriteFixedString(data, offset, SetListReader.SlotDescriptionLength, description ?? string.Empty);
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>
+    /// Returns a copy with a slot re-pointed at a different Program or Combi — the slot's name,
+    /// description, and other settings stay put; only the reference bytes change. For programs,
+    /// <paramref name="bank"/> is the bank <em>list index</em> (mapped to the hardware PcgId here);
+    /// for combis it's the direct bank index.
+    /// </summary>
+    public static byte[] RepointSetListSlot(PcgFile pcg, int setListIndex, int slot,
+                                            PcgItemKind kind, int bank, int index)
+    {
+        var layout = GetLayout(pcg);
+        ValidateSlot(layout, setListIndex, slot, nameof(slot));
+
+        int bankByte;
+        if (kind == PcgItemKind.Program)
+        {
+            var (_, _, count) = LocateBank(pcg, "PRG1", bank); // validates the bank list index
+            if (index < 0 || index >= count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            bankByte = PcgCatalog.ProgramBankPcgIdForIndex(bank);
+        }
+        else if (kind == PcgItemKind.Combi)
+        {
+            var (_, _, count) = LocateBank(pcg, "CMB1", bank);
+            if (index < 0 || index >= count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            bankByte = bank;
+        }
+        else
+        {
+            throw new ArgumentException("Slots can only be re-pointed at a Program or Combi.", nameof(kind));
+        }
+
+        var data = (byte[])pcg.Data.Clone();
+        long refOffset = SlotOffset(layout, setListIndex, slot) + SetListReader.SlotRefOffset;
+        data[refOffset] = (byte)((data[refOffset] & ~0x03) | (int)kind); // type in B0's low 2 bits
+        WriteSlotReference(data, refOffset, bankByte, index);
+        return Finalized(pcg, data);
+    }
+
     /// <summary>Returns a copy with a set list's name field rewritten (24 chars, ASCII).</summary>
     public static byte[] RenameSetList(PcgFile pcg, int setListIndex, string name)
     {

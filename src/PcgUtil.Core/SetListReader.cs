@@ -21,6 +21,8 @@ public static class SetListReader
     public const int SlotNameLength = 24;
     public const int SlotRefOffset = 24;     // reference follows the name
     public const int SlotRefLength = 6;
+    public const int SlotDescriptionOffset = 30;  // comment field fills the rest of the slot
+    public const int SlotDescriptionLength = 512; // 24 + 6 + 512 = 542 = SlotSize
 
     public static IReadOnlyList<SetList> Read(PcgFile pcg)
     {
@@ -61,6 +63,7 @@ public static class SetListReader
                     Index = j,
                     Name = PcgText.ReadFixedString(data, slotBase + SlotNameOffset, SlotNameLength),
                     Reference = DecodeReference(ReadBytes(data, slotBase + SlotRefOffset, SlotRefLength)),
+                    Description = PcgText.ReadFixedString(data, slotBase + SlotDescriptionOffset, SlotDescriptionLength),
                 });
             }
 

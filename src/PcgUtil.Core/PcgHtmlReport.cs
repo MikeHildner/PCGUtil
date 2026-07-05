@@ -61,12 +61,13 @@ public static class PcgHtmlReport
         body.Append(pageBreak ? "<h1 class=\"page-break\">" : "<h1>").Append(Esc(setList.DisplayName)).Append("</h1>");
         body.Append("<p class=\"sub\">Set List ").Append(setList.Index.ToString("D3"))
             .Append(", ").Append(songs.Count).Append(songs.Count == 1 ? " song" : " songs").Append("</p>");
-        body.Append("<table><thead><tr><th>Slot</th><th>Song</th><th>Loads</th></tr></thead><tbody>");
+        body.Append("<table><thead><tr><th>Slot</th><th>Song</th><th>Loads</th><th>Notes</th></tr></thead><tbody>");
         foreach (var slot in songs)
         {
             body.Append("<tr><td>").Append(slot.Index.ToString("D3")).Append("</td><td>")
                 .Append(Esc(slot.Name)).Append("</td><td>")
-                .Append(Esc(SlotLoads(slot, catalog))).Append("</td></tr>");
+                .Append(Esc(SlotLoads(slot, catalog))).Append("</td><td class=\"notes\">")
+                .Append(Esc(slot.Description)).Append("</td></tr>");
         }
         body.Append("</tbody></table>");
     }
@@ -96,6 +97,7 @@ public static class PcgHtmlReport
         sb.Append("table{border-collapse:collapse;width:100%;margin-bottom:1rem;}");
         sb.Append("th,td{border:1px solid #ccc;padding:4px 8px;text-align:left;font-size:.9rem;vertical-align:top;}");
         sb.Append("th{background:#f3f3f3;}");
+        sb.Append(".notes{white-space:pre-line;font-size:.85rem;color:#333;}");
         sb.Append("@media print{body{margin:0;}.page-break{page-break-before:always;}}");
         sb.Append("\n</style>\n</head>\n<body>\n").Append(body).Append("\n</body>\n</html>\n");
         return sb.ToString();

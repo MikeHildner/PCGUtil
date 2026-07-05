@@ -188,7 +188,7 @@
                             <th>Loads</th>
                             @if (_editMode)
                             {
-                                <th style="width:13rem">Edit</th>
+                                <th style="width:20rem">Edit</th>
                             }
                         </tr>
                     </thead>
@@ -206,6 +206,10 @@
                                     else
                                     {
                                         @(slot.IsEmpty ? "—" : slot.Name)
+                                        @if (!string.IsNullOrEmpty(slot.Description))
+                                        {
+                                            <div class="small text-body-secondary" style="white-space:pre-line">@slot.Description</div>
+                                        }
                                     }
                                 </td>
                                 <td>
@@ -229,6 +233,12 @@
                                                 disabled="@(slot.Index >= sl.Slots.Count - 1)" @onclick="() => MoveSlot(slot.Index, 1)">▼</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Copy this slot"
                                                 @onclick="() => StartCopy(slot)">Copy</button>
+                                        <button type="button" class="btn btn-sm @(_descSlot == slot.Index ? "btn-secondary" : "btn-outline-secondary") px-2"
+                                                title="Edit this slot's notes (shown on the device and printed set lists)"
+                                                @onclick="() => ToggleDescEditor(slot.Index)">Notes</button>
+                                        <button type="button" class="btn btn-sm @(_repointSlot == slot.Index ? "btn-secondary" : "btn-outline-secondary") px-2"
+                                                title="Change which Program/Combi this slot loads"
+                                                @onclick="() => ToggleRepoint(slot)">Load</button>
                                         @if (_copySource is not null)
                                         {
                                             <button type="button" class="btn btn-sm btn-outline-primary px-2" title="Paste here"
@@ -237,6 +247,73 @@
                                     </td>
                                 }
                             </tr>
+                            @if (_editMode && _descSlot == slot.Index)
+                            {
+                                <tr @key="@($"desc-{slot.Index}")">
+                                    <td></td>
+                                    <td colspan="3">
+                                        <label class="form-label small mb-1">
+                                            Notes for slot @slot.Index.ToString("D3")
+                                            <span class="text-body-secondary">— up to 512 chars, line breaks OK; shows on the device and printed set lists</span>
+                                        </label>
+                                        <textarea class="form-control form-control-sm" rows="3" maxlength="512"
+                                                  value="@slot.Description"
+                                                  @onchange="@(e => SetSlotDescription(slot.Index, e.Value?.ToString()))"></textarea>
+                                    </td>
+                                </tr>
+                            }
+                            @if (_editMode && _repointSlot == slot.Index)
+                            {
+                                <tr @key="@($"repoint-{slot.Index}")">
+                                    <td></td>
+                                    <td colspan="3">
+                                        <div class="d-flex align-items-end gap-2 flex-wrap">
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-sm @(_repointKind == PcgItemKind.Combi ? "btn-secondary" : "btn-outline-secondary")"
+                                                        @onclick="() => SetRepointKind(PcgItemKind.Combi)">Combi</button>
+                                                <button type="button" class="btn btn-sm @(_repointKind == PcgItemKind.Program ? "btn-secondary" : "btn-outline-secondary")"
+                                                        @onclick="() => SetRepointKind(PcgItemKind.Program)">Program</button>
+                                            </div>
+                                            <div>
+                                                <label class="form-label small mb-1">Bank</label>
+                                                <select class="form-select form-select-sm" @onchange="OnRepointBankChanged">
+                                                    @if (_repointKind == PcgItemKind.Program)
+                                                    {
+                                                        @for (var i = 0; i < _catalog!.ProgramBanks.Count; i++)
+                                                        {
+                                                            <option value="@i" selected="@(i == _repointBank)">@PcgBankLabels.Program(i)</option>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        @for (var i = 0; i < _catalog!.CombiBanks.Count; i++)
+                                                        {
+                                                            <option value="@i" selected="@(i == _repointBank)">@PcgBankLabels.Combi(i)</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="form-label small mb-1">Patch</label>
+                                                <select class="form-select form-select-sm" style="max-width:20rem" @onchange="OnRepointIndexChanged">
+                                                    @{
+                                                        var repointNames = _repointKind == PcgItemKind.Program
+                                                            ? _catalog!.ProgramBanks[_repointBank]
+                                                            : _catalog!.CombiBanks[_repointBank];
+                                                    }
+                                                    @for (var i = 0; i < repointNames.Count; i++)
+                                                    {
+                                                        <option value="@i" selected="@(i == _repointIndex)">@i.ToString("D3") — @(string.IsNullOrEmpty(repointNames[i]) ? "(empty)" : repointNames[i])</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-primary" @onclick="ApplyRepoint">Load this</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _repointSlot = null">Cancel</button>
+                                        </div>
+                                        <div class="small text-body-secondary mt-1">Changes what the slot loads — its name and notes stay put.</div>
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -1220,6 +1297,13 @@
     (int SetList, int Slot)? _copySource;
     string _copySourceName = string.Empty;
 
+    // Slot notes / re-point panels (one of each open at a time)
+    int? _descSlot;
+    int? _repointSlot;
+    PcgItemKind _repointKind = PcgItemKind.Combi;
+    int _repointBank;
+    int _repointIndex;
+
     // Combi reorganization state
     int _selectedCombiBank;
     (int Bank, int Index)? _combiCopySource;
@@ -1445,14 +1529,18 @@
     void OnSetListChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0 && idx < _setLists.Count)
+        {
             _selectedSetList = idx;
+            _descSlot = null;
+            _repointSlot = null;
+        }
     }
 
     async Task ExportCurrentSetListCsv()
     {
         var sl = _setLists[_selectedSetList];
         var sb = new StringBuilder();
-        sb.Append("slot,slot_name,kind,bank,number,loads\n");
+        sb.Append("slot,slot_name,kind,bank,number,loads,description\n");
         AppendSlotRows(sb, sl, includeSetListColumns: false);
         await Download($"setlist-{sl.Index:D3}.csv", "text/csv", sb.ToString());
     }
@@ -1460,7 +1548,7 @@
     async Task ExportAllSetListsCsv()
     {
         var sb = new StringBuilder();
-        sb.Append("set_list,set_list_name,slot,slot_name,kind,bank,number,loads\n");
+        sb.Append("set_list,set_list_name,slot,slot_name,kind,bank,number,loads,description\n");
         foreach (var sl in _setLists)
             AppendSlotRows(sb, sl, includeSetListColumns: true);
         await Download("setlists.csv", "text/csv", sb.ToString());
@@ -1477,7 +1565,8 @@
             sb.Append(slot.Index).Append(",\"").Append(Csv(slot.Name)).Append("\",")
               .Append(slot.Reference.Kind).Append(',')
               .Append(slot.Reference.Bank).Append(',')
-              .Append(slot.Reference.Index).Append(",\"").Append(Csv(target)).Append("\"\n");
+              .Append(slot.Reference.Index).Append(",\"").Append(Csv(target)).Append("\",\"")
+              .Append(Csv(slot.Description)).Append("\"\n");
         }
     }
 
@@ -1509,6 +1598,72 @@
     {
         _copySource = (_selectedSetList, slot.Index);
         _copySourceName = slot.IsEmpty ? $"slot {slot.Index:D3}" : slot.Name;
+    }
+
+    void ToggleDescEditor(int slot)
+    {
+        _repointSlot = null;
+        _descSlot = _descSlot == slot ? null : slot;
+    }
+
+    void SetSlotDescription(int slot, string? text)
+    {
+        if (_pcg is null) return;
+        ApplyEdit(PcgEditor.SetSetListSlotDescription(_pcg, _selectedSetList, slot, text ?? string.Empty));
+    }
+
+    void ToggleRepoint(SetListSlot slot)
+    {
+        _descSlot = null;
+        if (_repointSlot == slot.Index)
+        {
+            _repointSlot = null;
+            return;
+        }
+        _repointSlot = slot.Index;
+        var r = slot.Reference;
+        if (r.Kind == PcgItemKind.Program)
+        {
+            _repointKind = PcgItemKind.Program;
+            _repointBank = Math.Max(0, PcgCatalog.ProgramBankIndexForPcgId(r.Bank));
+            _repointIndex = r.Index;
+        }
+        else
+        {
+            _repointKind = PcgItemKind.Combi;
+            int combiBanks = Math.Max(1, _catalog?.CombiBanks.Count ?? 1);
+            _repointBank = r.Kind == PcgItemKind.Combi ? Math.Min(r.Bank, combiBanks - 1) : 0;
+            _repointIndex = r.Kind == PcgItemKind.Combi ? r.Index : 0;
+        }
+    }
+
+    void SetRepointKind(PcgItemKind kind)
+    {
+        _repointKind = kind;
+        _repointBank = 0;
+        _repointIndex = 0;
+    }
+
+    void OnRepointBankChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+        {
+            _repointBank = idx;
+            _repointIndex = 0;
+        }
+    }
+
+    void OnRepointIndexChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+            _repointIndex = idx;
+    }
+
+    void ApplyRepoint()
+    {
+        if (_pcg is null || _repointSlot is null) return;
+        ApplyEdit(PcgEditor.RepointSetListSlot(_pcg, _selectedSetList, _repointSlot.Value, _repointKind, _repointBank, _repointIndex));
+        _repointSlot = null;
     }
 
     void PasteInto(int slot)
