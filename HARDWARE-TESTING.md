@@ -56,7 +56,7 @@ Status: **confirmed** on hardware (2026-07-03).
 - [ ] **Compact** only moves init/empty slots to the end — every named patch keeps its relative order.
 
 ## 7. Cross-file copy
-Status: **pending**.
+Status: **confirmed** on hardware (2026-07-04).
 - [ ] Open a second backup as the source (Copy tab) and copy a program into a USER slot: the edited file loads and the copied program sounds like it did in the source file.
 - [ ] Copy a combi across: the destination recalls it, and its timbres play the destination's programs at those slots (compare with the Copy tab's timbre preview before downloading).
 - [ ] Copy a set-list slot across: the slot recalls whatever its reference points at in the destination file.

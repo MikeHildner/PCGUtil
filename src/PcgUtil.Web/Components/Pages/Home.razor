@@ -801,6 +801,83 @@
             break;
         }
 
+        case View.Differences:
+        {
+            <h2 class="h5">Differences</h2>
+            @if (_srcPcg is null || _srcCatalog is null)
+            {
+                <p class="text-body-secondary">
+                    Open a second <code>.PCG</code> as the read-only source on the
+                    <button type="button" class="btn btn-sm btn-outline-secondary align-baseline"
+                            @onclick="() => _view = View.Copy">Copy</button>
+                    tab, then come back — this view lists every program, combi, and set-list slot that
+                    differs between that file (before) and the file you're editing (after).
+                </p>
+            }
+            else
+            {
+                var compat = PcgCompat.Compare(_srcPcg, _pcg);
+                if (!compat.AllMatch)
+                {
+                    <div class="alert alert-danger">
+                        <strong>Record layouts differ</strong> (@compat.MismatchSummary) — these files don't
+                        appear to be from the same model, so they can't be compared.
+                    </div>
+                }
+                else
+                {
+                    var diff = _diffReport ??= PcgDiff.Compare(_srcPcg, _pcg);
+
+                    <p class="text-body-secondary small mb-2">
+                        Changes from <strong>@_srcFileName</strong> (before) to
+                        <strong>@_fileName</strong> (after)@(_dirty ? " — including your unsaved edits" : "").
+                        A <em>moved</em> entry is a byte-identical patch found at a new position (a reorg);
+                        <em>edited</em> referrers commonly accompany a move because their references were retargeted.
+                    </p>
+
+                    @if (diff.IsEmpty)
+                    {
+                        <div class="alert alert-success">
+                            The two files' programs, combis, and set lists are identical.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                            <div class="text-body-secondary small">
+                                Programs: @DiffSummary(diff.Programs) &nbsp;·&nbsp; Combis: @DiffSummary(diff.Combis)
+                                &nbsp;·&nbsp; Set-list slots: @DiffSummary(diff.SetListSlots)@(
+                                    diff.RenamedSetLists.Count > 0 ? $" · set lists renamed: {diff.RenamedSetLists.Count}" : "")
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportDifferencesCsv">CSV</button>
+                        </div>
+
+                        @DiffSection("Programs", diff.Programs, PcgBankLabels.Program)
+                        @DiffSection("Combis", diff.Combis, PcgBankLabels.Combi)
+                        @DiffSection("Set-list slots", diff.SetListSlots, sl => $"SL {sl:D3}")
+
+                        @if (diff.RenamedSetLists.Count > 0)
+                        {
+                            <h3 class="h6 mt-3">Renamed set lists (@diff.RenamedSetLists.Count)</h3>
+                            <table class="table table-sm table-hover align-middle">
+                                <thead><tr><th style="width:6rem">Set list</th><th>Name</th></tr></thead>
+                                <tbody>
+                                    @foreach (var e in diff.RenamedSetLists)
+                                    {
+                                        <tr>
+                                            <td>@e.Bank.ToString("D3")</td>
+                                            <td>@DisplayName(e.NameBefore) <span class="text-body-secondary">→</span> @DisplayName(e.NameAfter)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
         case View.Usage:
         {
             var usage = CurrentUsage;
@@ -1113,7 +1190,7 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Combis, Programs, Copy, Usage, Duplicates, Search, Strings, Tree }
+    enum View { Overview, SetLists, Combis, Programs, Copy, Differences, Usage, Duplicates, Search, Strings, Tree }
     enum UsageSort { BankNumber, Name, MostUsed }
     enum CrossKind { Programs, Combis, SetListSlots }
 
@@ -1177,6 +1254,7 @@
     int _crossDstBank;
     int _crossDstIndex;
     string? _crossLastCopy;
+    PcgDiffReport? _diffReport;                 // Differences tab cache; rebuilt after any edit
 
     IEnumerable<PcgString> FilteredStrings =>
         string.IsNullOrWhiteSpace(_search)
@@ -1235,6 +1313,7 @@
         _catalog = PcgCatalog.Build(_pcg);
         _combiRefCounts = PcgUsage.CombiReferenceCounts(_setLists);
         _usageReport = null; // rebuilt lazily the next time the Usage tab is viewed
+        _diffReport = null;  // likewise for the Differences tab
 
         var combiBankCount = _catalog.CombiBanks.Count;
         var programBankCount = _catalog.ProgramBanks.Count;
@@ -1301,6 +1380,7 @@
         View.Combis => "Combis",
         View.Programs => "Programs",
         View.Copy => "Copy",
+        View.Differences => "Differences",
         View.Usage => "Usage",
         View.Duplicates => "Duplicates",
         View.Search => "Search",
@@ -1573,6 +1653,7 @@
             _srcSetLists = SetListReader.Read(_srcPcg).ToList();
             _crossSrcBank = 0;
             _crossFilter = string.Empty;
+            _diffReport = null;
             CancelCrossSelection();
         }
         catch (Exception ex)
@@ -1594,6 +1675,7 @@
         _srcSetLists = new();
         _srcFileName = null;
         _srcError = null;
+        _diffReport = null;
         CancelCrossSelection();
     }
 
@@ -1709,6 +1791,98 @@
         CrossKind.Combis => $"{PcgBankLabels.Combi(_crossDstBank)} #{_crossDstIndex:D3}",
         _ => $"Set List {_crossDstBank:D3} slot {_crossDstIndex:D3}",
     };
+
+    // ----- Differences tab -----
+
+    // One section table (Programs / Combis / Set-list slots); bankLabel maps the Bank field.
+    private RenderFragment DiffSection(string title, IReadOnlyList<DiffEntry> entries, Func<int, string> bankLabel) => __builder =>
+    {
+        if (entries.Count == 0) return;
+        <h3 class="h6 mt-3">@title (@entries.Count)</h3>
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+                <tr>
+                    <th style="width:6.5rem">Change</th>
+                    <th style="width:11rem">Where</th>
+                    <th>Name</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in entries)
+                {
+                    <tr>
+                        <td><span class="badge @DiffBadgeClass(e.Kind)">@e.Kind.ToString().ToLowerInvariant()</span></td>
+                        <td class="text-nowrap">
+                            @bankLabel(e.Bank)
+                            @if (e.Kind == DiffKind.Moved)
+                            {
+                                <span> #@e.IndexBefore.ToString("D3") <span class="text-body-secondary">→</span> #@e.IndexAfter.ToString("D3")</span>
+                            }
+                            else
+                            {
+                                <span> #@e.IndexAfter.ToString("D3")</span>
+                            }
+                        </td>
+                        <td>
+                            @if (e.Kind is DiffKind.Renamed or DiffKind.Replaced)
+                            {
+                                <span>@DisplayName(e.NameBefore) <span class="text-body-secondary">→</span> @DisplayName(e.NameAfter)</span>
+                            }
+                            else if (e.Kind == DiffKind.Removed)
+                            {
+                                @DisplayName(e.NameBefore)
+                            }
+                            else
+                            {
+                                @DisplayName(e.NameAfter)
+                            }
+                        </td>
+                        <td class="small text-body-secondary">@e.Detail</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    };
+
+    static string DiffBadgeClass(DiffKind kind) => kind switch
+    {
+        DiffKind.Added => "text-bg-success",
+        DiffKind.Removed => "text-bg-danger",
+        DiffKind.Moved => "text-bg-info",
+        DiffKind.Renamed => "text-bg-warning",
+        DiffKind.Edited => "text-bg-primary",
+        _ => "text-bg-dark", // Replaced
+    };
+
+    static string DiffSummary(IReadOnlyList<DiffEntry> entries) =>
+        entries.Count == 0
+            ? "—"
+            : string.Join(" · ", entries.GroupBy(e => e.Kind).OrderBy(g => g.Key)
+                .Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()}"));
+
+    static string DisplayName(string name) => string.IsNullOrEmpty(name) ? "(unnamed)" : name;
+
+    async Task ExportDifferencesCsv()
+    {
+        if (_pcg is null || _srcPcg is null) return;
+        var diff = _diffReport ??= PcgDiff.Compare(_srcPcg, _pcg);
+        var sb = new StringBuilder();
+        sb.Append("section,kind,bank,index_before,index_after,name_before,name_after,detail\n");
+        void Rows(string section, IEnumerable<DiffEntry> entries)
+        {
+            foreach (var e in entries)
+                sb.Append(section).Append(',').Append(e.Kind).Append(',').Append(e.Bank).Append(',')
+                  .Append(e.IndexBefore).Append(',').Append(e.IndexAfter).Append(",\"")
+                  .Append(Csv(e.NameBefore)).Append("\",\"").Append(Csv(e.NameAfter)).Append("\",\"")
+                  .Append(Csv(e.Detail ?? string.Empty)).Append("\"\n");
+        }
+        Rows("program", diff.Programs);
+        Rows("combi", diff.Combis);
+        Rows("setlist_slot", diff.SetListSlots);
+        Rows("setlist_name", diff.RenamedSetLists);
+        await Download("differences.csv", "text/csv", sb.ToString());
+    }
 
     async Task DownloadDestinationCopy()
     {

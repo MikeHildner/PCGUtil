@@ -22,7 +22,6 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | [T4] Sysex .syx/.mid export ("send to hardware") | 2026-06-04 | — |
 | [T2] Set-list slot description field — decode + view/edit (multi-line comment) *(parity)* | 2026-07-02 | — |
 | [T2] More reports: combi content list, whole-file content list, DAW patch-list export *(parity)* | 2026-07-02 | — |
-| [T3] Differences report — compare two PCGs, list changed/moved patches *(parity; pairs with multi-file)* | 2026-07-02 | — |
 | [T3] Rule-based reference changer — bulk retarget program refs by pattern/rule *(parity)* | 2026-07-02 | — |
 | [T4] Bulk edit — select multiple combis/slots and edit shared fields at once *(parity)* | 2026-07-02 | — |
 | [T5] Multi-model coverage — detect model family from header; per-family format tables (currently one family) *(parity long-pole)* | 2026-07-02 | — |
@@ -56,4 +55,5 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | Publish to hildner.org/pcgutil — self-contained win-x86 (32-bit shared pool), PathBase-aware base href, scripted FTPS deploy (deploy/deploy-ftp.ps1); WebSocket transport verified live | 2026-07-02 | 2026-07-02 |
 | Landing-page card + app polish — PCG Util card on hildner.org index, template About link removed, hardware checklist exposed in sidebar (now wwwroot/hardware-testing.html) | 2026-07-02 | 2026-07-02 |
 | User-facing test page — served checklist rewritten for visitors (no dev statuses, file-agnostic wording, GitHub-issues report link); HARDWARE-TESTING.md stays the internal tracker | 2026-07-03 | 2026-07-03 |
-| Cross-file copy + clone (T3 multi-file model) — Copy tab with read-only source file, CopyProgram/Combi/SetListSlotAcross + PcgCompat same-model gate, combi timbre preview, download-a-copy buttons; checklist section 7 (hardware confirm pending) | 2026-06-04 | 2026-07-03 |
+| Cross-file copy + clone (T3 multi-file model) — Copy tab with read-only source file, CopyProgram/Combi/SetListSlotAcross + PcgCompat same-model gate, combi timbre preview, download-a-copy buttons; checklist section 7 (hardware confirmed 2026-07-04) | 2026-06-04 | 2026-07-03 |
+| Differences report (T3) — PcgDiff byte-level compare of two open files (moved/renamed/edited/added/removed/replaced, reorg-aware move pairing, retarget details on slots); Differences tab + CSV | 2026-07-02 | 2026-07-04 |
