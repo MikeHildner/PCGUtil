@@ -36,7 +36,7 @@
 @if (_pcg is not null)
 {
     <ul class="nav nav-tabs mb-3">
-        @foreach (var tab in Enum.GetValues<View>())
+        @foreach (var tab in Enum.GetValues<View>().Where(t => !AdvancedViews.Contains(t)))
         {
             <li class="nav-item">
                 <button type="button" class="nav-link @(_view == tab ? "active" : null)"
@@ -44,6 +44,26 @@
                     @TabLabel(tab)
                 </button>
             </li>
+        }
+        @{ var advancedOpen = _showAdvanced || AdvancedViews.Contains(_view); }
+        <li class="nav-item">
+            <button type="button" class="nav-link text-body-secondary"
+                    title="File internals — chunk structure, raw strings"
+                    @onclick="() => _showAdvanced = !advancedOpen">
+                @(advancedOpen ? "Advanced ▾" : "Advanced ▸")
+            </button>
+        </li>
+        @if (advancedOpen)
+        {
+            @foreach (var tab in AdvancedViews)
+            {
+                <li class="nav-item">
+                    <button type="button" class="nav-link @(_view == tab ? "active" : null)"
+                            @onclick="() => _view = tab">
+                        @TabLabel(tab)
+                    </button>
+                </li>
+            }
         }
     </ul>
 
@@ -1363,7 +1383,8 @@
             }
 
             _pcg = PcgReader.Parse(ms.ToArray());
-            _view = View.Overview;
+            _view = View.SetLists; // musicians first: "are my songs here?"
+            _showAdvanced = false;
             _dirty = false;
             _editMode = false;
             _copySource = null;
@@ -1457,9 +1478,13 @@
             : _pcg.TopLevel;
     }
 
+    // The technical tabs a musician shouldn't have to wade through; reachable via "Advanced".
+    static readonly View[] AdvancedViews = { View.Overview, View.Strings, View.Tree };
+    bool _showAdvanced;
+
     static string TabLabel(View v) => v switch
     {
-        View.Overview => "Overview",
+        View.Overview => "File info",
         View.SetLists => "Set Lists",
         View.Combis => "Combis",
         View.Programs => "Programs",
