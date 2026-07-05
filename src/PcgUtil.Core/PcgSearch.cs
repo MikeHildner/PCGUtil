@@ -6,6 +6,8 @@ public enum SearchHitKind
     Program,
     Combi,
     SetListSlot,
+    DrumKit,
+    WaveSequence,
 }
 
 /// <summary>A name match, with a human-readable location (bank label + number, or set-list/slot).</summary>
@@ -48,6 +50,22 @@ public static class PcgSearch
                 if (!slot.IsEmpty && Matches(slot.Name, q))
                     hits.Add(new SearchHit(
                         SearchHitKind.SetListSlot, slot.Name, $"Set List {setList.Index:D3} slot {slot.Index:D3}"));
+
+        for (int b = 0; b < catalog.DrumKitBanks.Count; b++)
+        {
+            var bank = catalog.DrumKitBanks[b];
+            for (int i = 0; i < bank.Count; i++)
+                if (Matches(bank[i], q))
+                    hits.Add(new SearchHit(SearchHitKind.DrumKit, bank[i], $"Drum kit bank {b:D2} #{i:D3}"));
+        }
+
+        for (int b = 0; b < catalog.WaveSequenceBanks.Count; b++)
+        {
+            var bank = catalog.WaveSequenceBanks[b];
+            for (int i = 0; i < bank.Count; i++)
+                if (Matches(bank[i], q))
+                    hits.Add(new SearchHit(SearchHitKind.WaveSequence, bank[i], $"Wave seq bank {b:D2} #{i:D3}"));
+        }
 
         return hits;
     }

@@ -115,6 +115,40 @@
                     }
                 </tbody>
             </table>
+
+            @if (_catalog is not null)
+            {
+                var drumKits = NamedBankItems(_catalog.DrumKitBanks);
+                var waveSeqs = NamedBankItems(_catalog.WaveSequenceBanks);
+                @if (drumKits.Count > 0)
+                {
+                    <details class="mb-2">
+                        <summary class="h6 d-inline">Drum kits (@drumKits.Count)</summary>
+                        <ul class="small mt-1">
+                            @foreach (var d in drumKits.Take(MaxRows))
+                            {
+                                <li>bank @d.Bank.ToString("D2") #@d.Index.ToString("D3") — @d.Name</li>
+                            }
+                        </ul>
+                    </details>
+                }
+                @if (waveSeqs.Count > 0)
+                {
+                    <details class="mb-2">
+                        <summary class="h6 d-inline">Wave sequences (@waveSeqs.Count)</summary>
+                        <ul class="small mt-1">
+                            @foreach (var w in waveSeqs.Take(MaxRows))
+                            {
+                                <li>bank @w.Bank.ToString("D2") #@w.Index.ToString("D3") — @w.Name</li>
+                            }
+                        </ul>
+                        @if (waveSeqs.Count > MaxRows)
+                        {
+                            <p class="text-body-secondary small">… showing first @MaxRows of @waveSeqs.Count.</p>
+                        }
+                    </details>
+                }
+            }
             break;
         }
 
@@ -391,6 +425,12 @@
                 <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
                     <h2 class="h5 mb-0">Combi bank @PcgBankLabels.Combi(_selectedCombiBank)</h2>
                     <div class="d-flex gap-2">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    title="Printable sheet: every combi in this bank with its timbre programs"
+                                    @onclick="ExportCombiContentsHtml">Print contents</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCombiContentsCsv">CSV</button>
+                        </div>
                         @if (_editMode)
                         {
                             <div class="btn-group">
@@ -439,6 +479,7 @@
                             <th style="width:4rem">#</th>
                             <th>Name</th>
                             <th style="width:6rem" title="Set-list slots that load this combi">Used by</th>
+                            <th style="width:6.5rem"></th>
                             @if (_editMode)
                             {
                                 <th style="width:13rem">Edit</th>
@@ -465,6 +506,13 @@
                                     }
                                 </td>
                                 <td>@(refs > 0 ? refs.ToString() : "")</td>
+                                <td>
+                                    @if (!isEmpty)
+                                    {
+                                        <button type="button" class="btn btn-sm @(_timbreCombi == idx ? "btn-secondary" : "btn-outline-secondary") px-2"
+                                                title="What's inside this combi" @onclick="() => ToggleTimbres(idx)">Timbres</button>
+                                    }
+                                </td>
                                 @if (_editMode)
                                 {
                                     <td class="text-nowrap">
@@ -482,6 +530,47 @@
                                     </td>
                                 }
                             </tr>
+                            @if (_timbreCombi == idx && _timbreDetail is not null)
+                            {
+                                var activeTimbres = _timbreDetail.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
+                                <tr @key="@($"timbres-{idx}")">
+                                    <td></td>
+                                    <td colspan="@(_editMode ? 4 : 3)">
+                                        @if (activeTimbres.Count == 0)
+                                        {
+                                            <span class="text-body-secondary small">No active timbres.</span>
+                                        }
+                                        else
+                                        {
+                                            <div class="small text-body-secondary mb-1">
+                                                @activeTimbres.Count of @CombiReader.TimbresPerCombi timbres active
+                                            </div>
+                                            <table class="table table-sm mb-1" style="max-width:36rem">
+                                                <thead>
+                                                    <tr><th style="width:3.5rem">T#</th><th style="width:5rem">Status</th><th>Program</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var t in activeTimbres)
+                                                    {
+                                                        <tr>
+                                                            <td>T@(t.Index + 1)</td>
+                                                            <td>@t.Status</td>
+                                                            <td>
+                                                                @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
+                                                                @{ var timbreProgram = _catalog?.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber); }
+                                                                @if (timbreProgram is not null)
+                                                                {
+                                                                    <span> — @timbreProgram</span>
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        }
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -1190,14 +1279,14 @@
             <div class="row g-2 mb-3">
                 <div class="col-md-6">
                     <input type="text" class="form-control form-control-sm"
-                           placeholder="search Program / Combi / Set List names…"
+                           placeholder="search Program / Combi / Set List / Drum kit / Wave seq names…"
                            @bind="_nameQuery" @bind:event="oninput" />
                 </div>
             </div>
 
             @if (string.IsNullOrWhiteSpace(_nameQuery))
             {
-                <p class="text-body-secondary small">Type to search names across Programs, Combis, and Set List slots.</p>
+                <p class="text-body-secondary small">Type to search names across Programs, Combis, Set List slots, Drum kits, and Wave Sequences.</p>
             }
             else
             {
@@ -1419,6 +1508,8 @@
         _combiRefCounts = PcgUsage.CombiReferenceCounts(_setLists);
         _usageReport = null; // rebuilt lazily the next time the Usage tab is viewed
         _diffReport = null;  // likewise for the Differences tab
+        _timbreCombi = null; // combi records may have moved
+        _timbreDetail = null;
 
         var combiBankCount = _catalog.CombiBanks.Count;
         var programBankCount = _catalog.ProgramBanks.Count;
@@ -1723,7 +1814,53 @@
         {
             _selectedCombiBank = idx;
             _combiFilter = string.Empty;
+            _timbreCombi = null;
+            _timbreDetail = null;
         }
+    }
+
+    // ----- Combi timbre inspector -----
+
+    int? _timbreCombi;
+    Combi? _timbreDetail;
+
+    void ToggleTimbres(int index)
+    {
+        if (_timbreCombi == index)
+        {
+            _timbreCombi = null;
+            _timbreDetail = null;
+            return;
+        }
+        _timbreCombi = index;
+        _timbreDetail = _pcg is null ? null
+            : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == _selectedCombiBank && c.Index == index);
+    }
+
+    async Task ExportCombiContentsHtml()
+    {
+        if (_pcg is null || _catalog is null) return;
+        var label = PcgBankLabels.Combi(_selectedCombiBank);
+        var combis = CombiReader.Read(_pcg).Where(c => c.Bank == _selectedCombiBank && !c.IsEmptyOrInit).ToList();
+        await Download($"combi-{label}-contents.html", "text/html", PcgHtmlReport.CombiContents(label, combis, _catalog));
+    }
+
+    async Task ExportCombiContentsCsv()
+    {
+        if (_pcg is null || _catalog is null) return;
+        var label = PcgBankLabels.Combi(_selectedCombiBank);
+        var sb = new StringBuilder();
+        sb.Append("combi_bank,combi_number,combi_name,timbre,status,program,program_name\n");
+        foreach (var combi in CombiReader.Read(_pcg).Where(c => c.Bank == _selectedCombiBank && !c.IsEmptyOrInit))
+            foreach (var t in combi.Timbres.Where(t => t.Status != TimbreStatus.Off))
+            {
+                var programLabel = PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId));
+                sb.Append(label).Append(',').Append(combi.Index).Append(",\"").Append(Csv(combi.Name)).Append("\",")
+                  .Append(t.Index + 1).Append(',').Append(t.Status).Append(',')
+                  .Append(programLabel).Append(" #").Append(t.ProgramNumber.ToString("D3")).Append(",\"")
+                  .Append(Csv(_catalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? string.Empty)).Append("\"\n");
+            }
+        await Download($"combi-{label}-contents.csv", "text/csv", sb.ToString());
     }
 
     void MoveCombi(int index, int delta)
@@ -2143,8 +2280,22 @@
         SearchHitKind.Program => "Program",
         SearchHitKind.Combi => "Combi",
         SearchHitKind.SetListSlot => "Set List",
+        SearchHitKind.DrumKit => "Drum kit",
+        SearchHitKind.WaveSequence => "Wave seq",
         _ => k.ToString(),
     };
+
+    // Named (non-init) items across a section's banks, for the File info browse lists.
+    static List<(int Bank, int Index, string Name)> NamedBankItems(IReadOnlyList<IReadOnlyList<string>> banks)
+    {
+        var items = new List<(int, int, string)>();
+        for (int b = 0; b < banks.Count; b++)
+            for (int i = 0; i < banks[b].Count; i++)
+                if (!string.IsNullOrEmpty(banks[b][i]) &&
+                    !banks[b][i].StartsWith("Init ", StringComparison.OrdinalIgnoreCase))
+                    items.Add((b, i, banks[b][i]));
+        return items;
+    }
 
     async Task Download(string fileName, string mime, string content) =>
         await JS.InvokeVoidAsync("pcgDownload", fileName, mime, content);

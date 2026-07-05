@@ -35,6 +35,41 @@ public static class PcgHtmlReport
         return Page("Set Lists", body.ToString());
     }
 
+    /// <summary>Printable "what's inside each combi" sheet for one bank: every named combi
+    /// with its active timbres and the programs they play.</summary>
+    public static string CombiContents(string bankLabel, IReadOnlyList<Combi> combis, PcgCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(combis);
+        ArgumentNullException.ThrowIfNull(catalog);
+        var body = new StringBuilder();
+        body.Append("<h1>Combi bank ").Append(Esc(bankLabel)).Append(" — contents</h1>");
+        body.Append("<p class=\"sub\">").Append(combis.Count)
+            .Append(combis.Count == 1 ? " combi" : " combis").Append("</p>");
+
+        foreach (var combi in combis)
+        {
+            var timbres = combi.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
+            body.Append("<h2 class=\"combi\">#").Append(combi.Index.ToString("D3")).Append(' ')
+                .Append(Esc(combi.Name)).Append("</h2>");
+            if (timbres.Count == 0)
+            {
+                body.Append("<p class=\"sub\">No active timbres.</p>");
+                continue;
+            }
+            body.Append("<table><thead><tr><th>Timbre</th><th>Status</th><th>Program</th></tr></thead><tbody>");
+            foreach (var t in timbres)
+            {
+                string label = PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId));
+                var name = catalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber);
+                body.Append("<tr><td>T").Append(t.Index + 1).Append("</td><td>").Append(t.Status)
+                    .Append("</td><td>").Append(Esc($"{label} #{t.ProgramNumber:D3}{(name is null ? "" : $" - {name}")}"))
+                    .Append("</td></tr>");
+            }
+            body.Append("</tbody></table>");
+        }
+        return Page($"Combi bank {bankLabel} - contents", body.ToString());
+    }
+
     public static string Usage(UsageReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
@@ -98,6 +133,7 @@ public static class PcgHtmlReport
         sb.Append("th,td{border:1px solid #ccc;padding:4px 8px;text-align:left;font-size:.9rem;vertical-align:top;}");
         sb.Append("th{background:#f3f3f3;}");
         sb.Append(".notes{white-space:pre-line;font-size:.85rem;color:#333;}");
+        sb.Append("h2.combi{font-size:1.05rem;margin:.9rem 0 .3rem;}");
         sb.Append("@media print{body{margin:0;}.page-break{page-break-before:always;}}");
         sb.Append("\n</style>\n</head>\n<body>\n").Append(body).Append("\n</body>\n</html>\n");
         return sb.ToString();

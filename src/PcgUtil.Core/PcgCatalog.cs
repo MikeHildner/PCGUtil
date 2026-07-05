@@ -15,6 +15,12 @@ public sealed class PcgCatalog
     public required IReadOnlyList<IReadOnlyList<string>> ProgramBanks { get; init; }
     public required IReadOnlyList<IReadOnlyList<string>> CombiBanks { get; init; }
 
+    /// <summary>Drum kit names per bank (<c>DBK1</c> under <c>DKT1</c>; same record layout).</summary>
+    public required IReadOnlyList<IReadOnlyList<string>> DrumKitBanks { get; init; }
+
+    /// <summary>Wave sequence names per bank (<c>WBK1</c> under <c>WSQ1</c>; same record layout).</summary>
+    public required IReadOnlyList<IReadOnlyList<string>> WaveSequenceBanks { get; init; }
+
     public static PcgCatalog Build(PcgFile pcg)
     {
         ArgumentNullException.ThrowIfNull(pcg);
@@ -22,6 +28,8 @@ public sealed class PcgCatalog
         {
             ProgramBanks = ReadSection(pcg, "PRG1"),
             CombiBanks = ReadSection(pcg, "CMB1"),
+            DrumKitBanks = ReadSection(pcg, "DKT1"),
+            WaveSequenceBanks = ReadSection(pcg, "WSQ1"),
         };
     }
 

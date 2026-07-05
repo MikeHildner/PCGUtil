@@ -14,13 +14,12 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | Task | Created | Completed |
 |------|---------|-----------|
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
-| Decode Drum Kit & Wave Sequence bank names (program/combi names done) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | Editing polish: clear/init a slot or combi; drag-to-position reorder | 2026-06-02 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
 | [T4] Parameter editing beyond names (program/combi params; global master tuning) | 2026-06-04 | — |
 | [T4] Sysex .syx/.mid export ("send to hardware") | 2026-06-04 | — |
-| [T2] More reports: combi content list, whole-file content list, DAW patch-list export *(parity)* | 2026-07-02 | — |
+| [T2] More reports: whole-file content list, DAW patch-list export *(parity; combi content list done 2026-07-04)* | 2026-07-02 | — |
 | [T3] Rule-based reference changer — bulk retarget program refs by pattern/rule *(parity)* | 2026-07-02 | — |
 | [T4] Bulk edit — select multiple combis/slots and edit shared fields at once *(parity)* | 2026-07-02 | — |
 | [T5] Multi-model coverage — detect model family from header; per-family format tables (currently one family) *(parity long-pole)* | 2026-07-02 | — |
@@ -58,3 +57,5 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 | Differences report (T3) — PcgDiff byte-level compare of two open files (moved/renamed/edited/added/removed/replaced, reorg-aware move pairing, retarget details on slots); Differences tab + CSV | 2026-07-02 | 2026-07-04 |
 | Slot notes + re-point (T2 parity + polish) — description field decoded at slot+30 (512 ASCII chars, line breaks), Notes editor, notes on printed set lists + CSV; Load button re-points a slot's patch (name/notes preserved); checklist section 8 (hardware confirmed 2026-07-04) | 2026-07-02 | 2026-07-04 |
 | Musician-first navigation — technical tabs (File info/Strings/Chunk tree) behind an "Advanced" expander; upload lands on Set Lists | 2026-07-04 | 2026-07-04 |
+| Combi timbre inspector + contents report — Timbres expander on Combis tab (per-timbre status + resolved program); printable bank contents sheet + CSV (T2 parity: combi content list) | 2026-07-04 | 2026-07-04 |
+| Drum Kit & Wave Sequence names — decoded into the catalog (same bank layout), searchable, browse lists on File info | 2026-06-02 | 2026-07-04 |
