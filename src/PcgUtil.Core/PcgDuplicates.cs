@@ -34,16 +34,18 @@ public static class PcgDuplicates
     private static IReadOnlyList<DuplicateGroup> Find(PcgFile pcg, string sectionId)
     {
         ArgumentNullException.ThrowIfNull(pcg);
-        var section = pcg.FindFirst(sectionId);
-        if (section is null)
+        var banks = PcgBankIdentity.CanonicalBanks(pcg, sectionId);
+        if (banks.Count == 0)
             return Array.Empty<DuplicateGroup>();
 
         var data = pcg.Data;
         var byName = new Dictionary<string, List<(int Bank, int Index, long Offset, int Size)>>(StringComparer.Ordinal);
 
-        for (int b = 0; b < section.Children.Count; b++)
+        for (int b = 0; b < banks.Count; b++)
         {
-            long baseOffset = section.Children[b].DataOffset;
+            if (banks[b] is not { } chunk)
+                continue; // bank not carried by this file
+            long baseOffset = chunk.DataOffset;
             if (baseOffset + SubHeaderSize > data.Length)
                 continue;
             int count = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset, 4));

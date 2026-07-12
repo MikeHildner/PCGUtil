@@ -68,16 +68,18 @@ public static class PcgDiff
                                              Func<string, bool> isPlaceholder)
     {
         var entries = new List<DiffEntry>();
-        var sectionA = before.FindFirst(sectionId);
-        var sectionB = after.FindFirst(sectionId);
-        if (sectionA is null || sectionB is null)
-            return entries;
+        var banksA = PcgBankIdentity.CanonicalBanks(before, sectionId);
+        var banksB = PcgBankIdentity.CanonicalBanks(after, sectionId);
 
-        int banks = Math.Min(sectionA.Children.Count, sectionB.Children.Count);
+        // Compare like with like: banks pair by canonical index, and a bank only one file
+        // carries has no counterpart to diff against.
+        int banks = Math.Min(banksA.Count, banksB.Count);
         for (int bank = 0; bank < banks; bank++)
         {
-            long baseA = sectionA.Children[bank].DataOffset;
-            long baseB = sectionB.Children[bank].DataOffset;
+            if (banksA[bank] is not { } chunkA || banksB[bank] is not { } chunkB)
+                continue;
+            long baseA = chunkA.DataOffset;
+            long baseB = chunkB.DataOffset;
             if (baseA + SubHeaderSize > before.Data.Length || baseB + SubHeaderSize > after.Data.Length)
                 continue;
             int count = ReadBe(before.Data, baseA);

@@ -127,7 +127,7 @@
                         <ul class="small mt-1">
                             @foreach (var d in drumKits.Take(MaxRows))
                             {
-                                <li>bank @d.Bank.ToString("D2") #@d.Index.ToString("D3") — @d.Name</li>
+                                <li>@PcgBankLabels.DrumKit(d.Bank) #@d.Index.ToString("D3") — @d.Name</li>
                             }
                         </ul>
                     </details>
@@ -139,7 +139,7 @@
                         <ul class="small mt-1">
                             @foreach (var w in waveSeqs.Take(MaxRows))
                             {
-                                <li>bank @w.Bank.ToString("D2") #@w.Index.ToString("D3") — @w.Name</li>
+                                <li>@PcgBankLabels.WaveSequence(w.Bank) #@w.Index.ToString("D3") — @w.Name</li>
                             }
                         </ul>
                         @if (waveSeqs.Count > MaxRows)
@@ -333,14 +333,14 @@
                                                 <select class="form-select form-select-sm" @onchange="OnRepointBankChanged">
                                                     @if (_repointKind == PcgItemKind.Program)
                                                     {
-                                                        @for (var i = 0; i < _catalog!.ProgramBanks.Count; i++)
+                                                        @foreach (var i in PresentBanks(_catalog!.ProgramBanks))
                                                         {
                                                             <option value="@i" selected="@(i == _repointBank)">@PcgBankLabels.Program(i)</option>
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        @for (var i = 0; i < _catalog!.CombiBanks.Count; i++)
+                                                        @foreach (var i in PresentBanks(_catalog!.CombiBanks))
                                                         {
                                                             <option value="@i" selected="@(i == _repointBank)">@PcgBankLabels.Combi(i)</option>
                                                         }
@@ -381,7 +381,7 @@
 
         case View.Combis:
         {
-            if (_catalog is null || _catalog.CombiBanks.Count == 0)
+            if (_catalog is null || _catalog.CombiBanks.All(b => b.Count == 0))
             {
                 <p class="text-body-secondary">No Combis found (this file has no <code>CMB1</code> chunk).</p>
             }
@@ -397,7 +397,7 @@
                     <div class="col-md-5">
                         <label class="form-label small mb-1">Combi bank</label>
                         <select class="form-select form-select-sm" @onchange="OnCombiBankChanged">
-                            @for (var i = 0; i < _catalog.CombiBanks.Count; i++)
+                            @foreach (var i in PresentBanks(_catalog.CombiBanks))
                             {
                                 <option value="@i" selected="@(i == _selectedCombiBank)">
                                     @PcgBankLabels.Combi(i) (@CountNonEmpty(_catalog.CombiBanks[i]) combis)
@@ -587,7 +587,7 @@
 
         case View.Programs:
         {
-            if (_catalog is null || _catalog.ProgramBanks.Count == 0)
+            if (_catalog is null || _catalog.ProgramBanks.All(b => b.Count == 0))
             {
                 <p class="text-body-secondary">No Programs found (this file has no <code>PRG1</code> chunk).</p>
             }
@@ -604,7 +604,7 @@
                     <div class="col-md-5">
                         <label class="form-label small mb-1">Program bank</label>
                         <select class="form-select form-select-sm" @onchange="OnProgramBankChanged">
-                            @for (var i = 0; i < _catalog.ProgramBanks.Count; i++)
+                            @foreach (var i in PresentBanks(_catalog.ProgramBanks))
                             {
                                 <option value="@i" selected="@(i == _selectedProgramBank)">
                                     @PcgBankLabels.Program(i) (@CountNonEmpty(_catalog.ProgramBanks[i]) programs)
@@ -830,14 +830,14 @@
                             <select class="form-select form-select-sm" @onchange="OnCrossSrcBankChanged">
                                 @if (_crossKind == CrossKind.Programs)
                                 {
-                                    @for (var i = 0; i < _srcCatalog.ProgramBanks.Count; i++)
+                                    @foreach (var i in PresentBanks(_srcCatalog.ProgramBanks))
                                     {
                                         <option value="@i" selected="@(i == _crossSrcBank)">@PcgBankLabels.Program(i) (@CountNonEmpty(_srcCatalog.ProgramBanks[i]))</option>
                                     }
                                 }
                                 else if (_crossKind == CrossKind.Combis)
                                 {
-                                    @for (var i = 0; i < _srcCatalog.CombiBanks.Count; i++)
+                                    @foreach (var i in PresentBanks(_srcCatalog.CombiBanks))
                                     {
                                         <option value="@i" selected="@(i == _crossSrcBank)">@PcgBankLabels.Combi(i) (@CountNonEmpty(_srcCatalog.CombiBanks[i]))</option>
                                     }
@@ -871,14 +871,14 @@
                                     <select class="form-select form-select-sm" @onchange="OnCrossDstBankChanged">
                                         @if (_crossKind == CrossKind.Programs)
                                         {
-                                            @for (var i = 0; i < _catalog!.ProgramBanks.Count; i++)
+                                            @foreach (var i in PresentBanks(_catalog!.ProgramBanks))
                                             {
                                                 <option value="@i" selected="@(i == _crossDstBank)">@PcgBankLabels.Program(i)</option>
                                             }
                                         }
                                         else if (_crossKind == CrossKind.Combis)
                                         {
-                                            @for (var i = 0; i < _catalog!.CombiBanks.Count; i++)
+                                            @foreach (var i in PresentBanks(_catalog!.CombiBanks))
                                             {
                                                 <option value="@i" selected="@(i == _crossDstBank)">@PcgBankLabels.Combi(i)</option>
                                             }
@@ -1511,13 +1511,9 @@
         _timbreCombi = null; // combi records may have moved
         _timbreDetail = null;
 
-        var combiBankCount = _catalog.CombiBanks.Count;
-        var programBankCount = _catalog.ProgramBanks.Count;
         if (preserveSelection)
         {
             _selectedSetList = Math.Clamp(_selectedSetList, 0, Math.Max(0, _setLists.Count - 1));
-            _selectedCombiBank = Math.Clamp(_selectedCombiBank, 0, Math.Max(0, combiBankCount - 1));
-            _selectedProgramBank = Math.Clamp(_selectedProgramBank, 0, Math.Max(0, programBankCount - 1));
         }
         else
         {
@@ -1526,6 +1522,9 @@
             _selectedCombiBank = 0;
             _selectedProgramBank = 0;
         }
+        // Either way, land on a bank the file carries (partial files skip banks).
+        _selectedCombiBank = SnapToPresent(_selectedCombiBank, _catalog.CombiBanks);
+        _selectedProgramBank = SnapToPresent(_selectedProgramBank, _catalog.ProgramBanks);
     }
 
     // Applies an edit (a new byte image) and refreshes, staying on the current set list.
@@ -1741,14 +1740,17 @@
         if (r.Kind == PcgItemKind.Program)
         {
             _repointKind = PcgItemKind.Program;
-            _repointBank = Math.Max(0, PcgCatalog.ProgramBankIndexForPcgId(r.Bank));
+            _repointBank = _catalog is null
+                ? 0
+                : SnapToPresent(PcgCatalog.ProgramBankIndexForPcgId(r.Bank), _catalog.ProgramBanks);
             _repointIndex = r.Index;
         }
         else
         {
             _repointKind = PcgItemKind.Combi;
-            int combiBanks = Math.Max(1, _catalog?.CombiBanks.Count ?? 1);
-            _repointBank = r.Kind == PcgItemKind.Combi ? Math.Min(r.Bank, combiBanks - 1) : 0;
+            _repointBank = r.Kind == PcgItemKind.Combi && _catalog is not null
+                ? SnapToPresent(r.Bank, _catalog.CombiBanks)
+                : 0;
             _repointIndex = r.Kind == PcgItemKind.Combi ? r.Index : 0;
         }
     }
@@ -1756,7 +1758,9 @@
     void SetRepointKind(PcgItemKind kind)
     {
         _repointKind = kind;
-        _repointBank = 0;
+        _repointBank = _catalog is null
+            ? 0
+            : SnapToPresent(0, kind == PcgItemKind.Program ? _catalog.ProgramBanks : _catalog.CombiBanks);
         _repointIndex = 0;
     }
 
@@ -1968,7 +1972,7 @@
             _srcPcg = PcgReader.Parse(ms.ToArray());
             _srcCatalog = PcgCatalog.Build(_srcPcg);
             _srcSetLists = SetListReader.Read(_srcPcg).ToList();
-            _crossSrcBank = 0;
+            _crossSrcBank = CrossSrcDefaultBank();
             _crossFilter = string.Empty;
             _diffReport = null;
             CancelCrossSelection();
@@ -1999,10 +2003,25 @@
     void SetCrossKind(CrossKind kind)
     {
         _crossKind = kind;
-        _crossSrcBank = 0;
+        _crossSrcBank = CrossSrcDefaultBank();
         _crossFilter = string.Empty;
         CancelCrossSelection();
     }
+
+    // First bank the source/destination file carries for the active cross-copy kind.
+    int CrossSrcDefaultBank() => _crossKind switch
+    {
+        CrossKind.Programs when _srcCatalog is not null => SnapToPresent(0, _srcCatalog.ProgramBanks),
+        CrossKind.Combis when _srcCatalog is not null => SnapToPresent(0, _srcCatalog.CombiBanks),
+        _ => 0,
+    };
+
+    int CrossDstDefaultBank() => _crossKind switch
+    {
+        CrossKind.Programs when _catalog is not null => SnapToPresent(0, _catalog.ProgramBanks),
+        CrossKind.Combis when _catalog is not null => SnapToPresent(0, _catalog.CombiBanks),
+        _ => 0,
+    };
 
     void SelectCrossItem(int index, string name)
     {
@@ -2010,7 +2029,7 @@
         _crossSelectedCombi = _crossKind == CrossKind.Combis && _srcPcg is not null
             ? CombiReader.Read(_srcPcg).FirstOrDefault(c => c.Bank == _crossSrcBank && c.Index == index)
             : null;
-        _crossDstBank = 0;
+        _crossDstBank = CrossDstDefaultBank();
         _crossDstIndex = 0;
         _crossLastCopy = null;
     }
@@ -2019,7 +2038,7 @@
     {
         _crossSelection = null;
         _crossSelectedCombi = null;
-        _crossDstBank = 0;
+        _crossDstBank = CrossDstDefaultBank();
         _crossDstIndex = 0;
         _crossLastCopy = null;
     }
@@ -2240,6 +2259,25 @@
             if (!string.IsNullOrEmpty(name))
                 count++;
         return count;
+    }
+
+    // Canonical bank indices the file actually carries. Partial files (vendor packs) leave
+    // absent banks as empty placeholders in the catalog; those aren't offered in pickers.
+    static IEnumerable<int> PresentBanks(IReadOnlyList<IReadOnlyList<string>> banks)
+    {
+        for (var i = 0; i < banks.Count; i++)
+            if (banks[i].Count > 0)
+                yield return i;
+    }
+
+    // Keeps a bank selection on a bank the file carries, preferring the desired index.
+    static int SnapToPresent(int desired, IReadOnlyList<IReadOnlyList<string>> banks)
+    {
+        if (desired >= 0 && desired < banks.Count && banks[desired].Count > 0)
+            return desired;
+        foreach (var i in PresentBanks(banks))
+            return i;
+        return 0;
     }
 
     // True when a patch row matches the Find box: empty query, a name substring, or a number match.

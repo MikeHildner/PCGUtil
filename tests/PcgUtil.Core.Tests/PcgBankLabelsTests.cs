@@ -23,10 +23,23 @@ public class PcgBankLabelsTests
     public void Combi_labels(int listIndex, string expected) =>
         Assert.Equal(expected, PcgBankLabels.Combi(listIndex));
 
+    [Theory]
+    [InlineData(0, "INT")]
+    [InlineData(1, "USER-A")]
+    [InlineData(7, "USER-G")]
+    [InlineData(8, "USER-AA")]
+    [InlineData(14, "USER-GG")]
+    public void DrumKit_and_wave_sequence_labels(int listIndex, string expected)
+    {
+        Assert.Equal(expected, PcgBankLabels.DrumKit(listIndex));
+        Assert.Equal(expected, PcgBankLabels.WaveSequence(listIndex));
+    }
+
     [Fact]
     public void Out_of_range_is_handled()
     {
         Assert.Equal("?", PcgBankLabels.Program(-1));
         Assert.Equal("bank 42", PcgBankLabels.Combi(42));
+        Assert.Equal("bank 15", PcgBankLabels.DrumKit(15));
     }
 }

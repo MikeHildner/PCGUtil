@@ -65,8 +65,8 @@ public sealed class PcgCatalog
     }
 
     // Program-bank references store a hardware PcgId, not a list index. On this hardware the program
-    // banks are I-A..I-F (PcgId 0..5), U-A..U-G (17..23), U-AA..U-GG (24..30), stored in the file
-    // in that order (list indices 0..19). Ids with no in-file bank (GM=6, gaps 7..16, virtual 31+)
+    // banks are I-A..I-F (PcgId 0..5), U-A..U-G (17..23), U-AA..U-GG (24..30), keyed at canonical
+    // list indices 0..19 by PcgBankIdentity. Ids with no in-file bank (GM=6, gaps 7..16, virtual 31+)
     // return -1. Verified against the sample: this resolves ~99.7% of combi timbres.
     public static int ProgramBankIndexForPcgId(int pcgId) => pcgId switch
     {
@@ -85,15 +85,13 @@ public sealed class PcgCatalog
 
     private const int BankNameLength = 24;
 
+    // Banks are keyed by canonical list index; a bank the file doesn't carry is an empty list.
     private static IReadOnlyList<IReadOnlyList<string>> ReadSection(PcgFile pcg, string sectionId)
     {
-        var section = pcg.FindFirst(sectionId);
-        if (section is null)
-            return Array.Empty<IReadOnlyList<string>>();
-
-        var banks = new List<IReadOnlyList<string>>(section.Children.Count);
-        foreach (var bank in section.Children)
-            banks.Add(ReadBankNames(pcg.Data, bank));
+        var chunks = PcgBankIdentity.CanonicalBanks(pcg, sectionId);
+        var banks = new List<IReadOnlyList<string>>(chunks.Count);
+        foreach (var bank in chunks)
+            banks.Add(bank is null ? Array.Empty<string>() : ReadBankNames(pcg.Data, bank));
         return banks;
     }
 

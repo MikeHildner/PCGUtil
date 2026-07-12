@@ -24,6 +24,22 @@ public static class PcgBankLabels
         _ => Fallback(listIndex),
     };
 
+    /// <summary>Label for a drum kit bank by its list index (matches <see cref="PcgCatalog.DrumKitBanks"/>).</summary>
+    public static string DrumKit(int listIndex) => AuxBank(listIndex);
+
+    /// <summary>Label for a wave sequence bank by its list index (matches <see cref="PcgCatalog.WaveSequenceBanks"/>).</summary>
+    public static string WaveSequence(int listIndex) => AuxBank(listIndex);
+
+    // Drum kits and wave sequences share one layout: a single INT bank, then USER-A..USER-G
+    // and USER-AA..USER-GG.
+    private static string AuxBank(int listIndex) => listIndex switch
+    {
+        0 => "INT",
+        >= 1 and <= 7 => $"USER-{(char)('A' + listIndex - 1)}",
+        >= 8 and <= 14 => DoubledUser(listIndex - 8),
+        _ => Fallback(listIndex),
+    };
+
     private static string DoubledUser(int i)
     {
         char c = (char)('A' + i);

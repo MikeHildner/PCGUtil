@@ -301,14 +301,18 @@ public static class PcgEditor
     }
 
     // Locates one bank's fixed-size record table (12-byte sub-header: count, record size).
+    // Banks are addressed by canonical list index; partial files may not carry every bank.
     private static (long RecordsStart, int RecordSize, int Count) LocateBank(PcgFile pcg, string sectionId, int bank)
     {
-        var section = pcg.FindFirst(sectionId)
-            ?? throw new InvalidOperationException($"File has no {sectionId} chunk.");
-        if (bank < 0 || bank >= section.Children.Count)
+        if (pcg.FindFirst(sectionId) is null)
+            throw new InvalidOperationException($"File has no {sectionId} chunk.");
+        var banks = PcgBankIdentity.CanonicalBanks(pcg, sectionId);
+        if (bank < 0 || bank >= banks.Count)
             throw new ArgumentOutOfRangeException(nameof(bank));
+        var chunk = banks[bank]
+            ?? throw new InvalidOperationException($"This file does not contain {sectionId} bank {bank}.");
 
-        long baseOffset = section.Children[bank].DataOffset;
+        long baseOffset = chunk.DataOffset;
         int count = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset, 4));
         int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset + 4, 4));
         long recordsStart = baseOffset + BankSubHeaderSize;

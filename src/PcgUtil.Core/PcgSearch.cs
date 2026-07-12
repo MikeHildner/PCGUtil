@@ -56,7 +56,7 @@ public static class PcgSearch
             var bank = catalog.DrumKitBanks[b];
             for (int i = 0; i < bank.Count; i++)
                 if (Matches(bank[i], q))
-                    hits.Add(new SearchHit(SearchHitKind.DrumKit, bank[i], $"Drum kit bank {b:D2} #{i:D3}"));
+                    hits.Add(new SearchHit(SearchHitKind.DrumKit, bank[i], $"Drum kit {PcgBankLabels.DrumKit(b)} #{i:D3}"));
         }
 
         for (int b = 0; b < catalog.WaveSequenceBanks.Count; b++)
@@ -64,7 +64,7 @@ public static class PcgSearch
             var bank = catalog.WaveSequenceBanks[b];
             for (int i = 0; i < bank.Count; i++)
                 if (Matches(bank[i], q))
-                    hits.Add(new SearchHit(SearchHitKind.WaveSequence, bank[i], $"Wave seq bank {b:D2} #{i:D3}"));
+                    hits.Add(new SearchHit(SearchHitKind.WaveSequence, bank[i], $"Wave seq {PcgBankLabels.WaveSequence(b)} #{i:D3}"));
         }
 
         return hits;

@@ -23,15 +23,15 @@ public static class CombiReader
     public static IReadOnlyList<Combi> Read(PcgFile pcg)
     {
         ArgumentNullException.ThrowIfNull(pcg);
-        var cmb = pcg.FindFirst("CMB1");
-        if (cmb is null)
-            return Array.Empty<Combi>();
+        var banks = PcgBankIdentity.CanonicalBanks(pcg, "CMB1");
 
         var data = pcg.Data;
         var combis = new List<Combi>();
-        for (int bank = 0; bank < cmb.Children.Count; bank++)
+        for (int bank = 0; bank < banks.Count; bank++)
         {
-            long baseOffset = cmb.Children[bank].DataOffset;
+            if (banks[bank] is not { } chunk)
+                continue; // bank not carried by this file
+            long baseOffset = chunk.DataOffset;
             if (baseOffset + SubHeaderSize > data.Length)
                 continue;
 
