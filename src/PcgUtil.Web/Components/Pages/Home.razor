@@ -532,43 +532,9 @@
                             </tr>
                             @if (_timbreCombi == idx && _timbreDetail is not null)
                             {
-                                var activeTimbres = _timbreDetail.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
                                 <tr @key="@($"timbres-{idx}")">
                                     <td></td>
-                                    <td colspan="@(_editMode ? 4 : 3)">
-                                        @if (activeTimbres.Count == 0)
-                                        {
-                                            <span class="text-body-secondary small">No active timbres.</span>
-                                        }
-                                        else
-                                        {
-                                            <div class="small text-body-secondary mb-1">
-                                                @activeTimbres.Count of @CombiReader.TimbresPerCombi timbres active
-                                            </div>
-                                            <table class="table table-sm mb-1" style="max-width:36rem">
-                                                <thead>
-                                                    <tr><th style="width:3.5rem">T#</th><th style="width:5rem">Status</th><th>Program</th></tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach (var t in activeTimbres)
-                                                    {
-                                                        <tr>
-                                                            <td>T@(t.Index + 1)</td>
-                                                            <td>@t.Status</td>
-                                                            <td>
-                                                                @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
-                                                                @{ var timbreProgram = _catalog?.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber); }
-                                                                @if (timbreProgram is not null)
-                                                                {
-                                                                    <span> — @timbreProgram</span>
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                    }
-                                                </tbody>
-                                            </table>
-                                        }
-                                    </td>
+                                    <td colspan="@(_editMode ? 4 : 3)">@TimbreTable(_timbreDetail, _catalog)</td>
                                 </tr>
                             }
                         }
@@ -964,7 +930,7 @@
                                 {
                                     <th>Loads</th>
                                 }
-                                <th style="width:6rem"></th>
+                                <th style="@(_crossKind == CrossKind.Combis ? "width:10rem" : "width:6rem")"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -977,8 +943,22 @@
                                     {
                                         <td class="small text-body-secondary">@row.Extra</td>
                                     }
-                                    <td><button type="button" class="btn btn-sm btn-outline-primary px-2" @onclick="() => SelectCrossItem(row.Index, row.Name)">Select</button></td>
+                                    <td class="text-nowrap">
+                                        @if (_crossKind == CrossKind.Combis)
+                                        {
+                                            <button type="button" class="btn btn-sm @(_crossTimbreIndex == row.Index ? "btn-secondary" : "btn-outline-secondary") px-2 me-1"
+                                                    title="What's inside this combi" @onclick="() => ToggleCrossTimbres(row.Index)">Timbres</button>
+                                        }
+                                        <button type="button" class="btn btn-sm btn-outline-primary px-2" @onclick="() => SelectCrossItem(row.Index, row.Name)">Select</button>
+                                    </td>
                                 </tr>
+                                @if (_crossKind == CrossKind.Combis && _crossTimbreIndex == row.Index && _crossTimbreDetail is not null)
+                                {
+                                    <tr @key="@($"cross-timbres-{row.Index}")">
+                                        <td></td>
+                                        <td colspan="2">@TimbreTable(_crossTimbreDetail, _srcCatalog)</td>
+                                    </tr>
+                                }
                             }
                         </tbody>
                     </table>
@@ -1841,6 +1821,43 @@
             : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == _selectedCombiBank && c.Index == index);
     }
 
+    // "What's inside this combi": active timbres with their programs, resolved against the
+    // given catalog (the main file's or the Copy tab's read-only source).
+    private RenderFragment TimbreTable(Combi combi, PcgCatalog? catalog) => __builder =>
+    {
+        var activeTimbres = combi.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
+        if (activeTimbres.Count == 0)
+        {
+            <span class="text-body-secondary small">No active timbres.</span>
+            return;
+        }
+        <div class="small text-body-secondary mb-1">
+            @activeTimbres.Count of @CombiReader.TimbresPerCombi timbres active
+        </div>
+        <table class="table table-sm mb-1" style="max-width:36rem">
+            <thead>
+                <tr><th style="width:3.5rem">T#</th><th style="width:5rem">Status</th><th>Program</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var t in activeTimbres)
+                {
+                    <tr>
+                        <td>T@(t.Index + 1)</td>
+                        <td>@t.Status</td>
+                        <td>
+                            @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
+                            @{ var timbreProgram = catalog?.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber); }
+                            @if (timbreProgram is not null)
+                            {
+                                <span> — @timbreProgram</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    };
+
     async Task ExportCombiContentsHtml()
     {
         if (_pcg is null || _catalog is null) return;
@@ -1975,6 +1992,7 @@
             _crossSrcBank = CrossSrcDefaultBank();
             _crossFilter = string.Empty;
             _diffReport = null;
+            ResetCrossTimbres();
             CancelCrossSelection();
         }
         catch (Exception ex)
@@ -1997,6 +2015,7 @@
         _srcFileName = null;
         _srcError = null;
         _diffReport = null;
+        ResetCrossTimbres();
         CancelCrossSelection();
     }
 
@@ -2005,7 +2024,30 @@
         _crossKind = kind;
         _crossSrcBank = CrossSrcDefaultBank();
         _crossFilter = string.Empty;
+        ResetCrossTimbres();
         CancelCrossSelection();
+    }
+
+    // Timbre inspector for source-file combis on the Copy tab (mirrors ToggleTimbres).
+    int? _crossTimbreIndex;
+    Combi? _crossTimbreDetail;
+
+    void ToggleCrossTimbres(int index)
+    {
+        if (_crossTimbreIndex == index)
+        {
+            ResetCrossTimbres();
+            return;
+        }
+        _crossTimbreIndex = index;
+        _crossTimbreDetail = _srcPcg is null ? null
+            : CombiReader.Read(_srcPcg).FirstOrDefault(c => c.Bank == _crossSrcBank && c.Index == index);
+    }
+
+    void ResetCrossTimbres()
+    {
+        _crossTimbreIndex = null;
+        _crossTimbreDetail = null;
     }
 
     // First bank the source/destination file carries for the active cross-copy kind.
@@ -2062,6 +2104,7 @@
         if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
         {
             _crossSrcBank = idx;
+            ResetCrossTimbres();
             _crossFilter = string.Empty;
             CancelCrossSelection();
         }
