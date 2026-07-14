@@ -31,7 +31,10 @@ $remotePath = $secrets.remotePath.Trim('/')  # e.g. "pcgutil"
 if (-not $SkipPublish) {
     Write-Host "Publishing self-contained win-x86 to $outDir ..."
     if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
-    dotnet publish (Join-Path $repoRoot 'src/PcgUtil.Web') -c Release -r win-x86 --self-contained true -o $outDir --nologo
+    # ReadyToRun matters beyond startup speed: the host's FTP upload scanner false-positives
+    # on plain IL builds of this app's assemblies (post-transfer 550, file discarded), and the
+    # R2R binary layout is what gets a clean pass (diagnosed 2026-07-14).
+    dotnet publish (Join-Path $repoRoot 'src/PcgUtil.Web') -c Release -r win-x86 --self-contained true -p:PublishReadyToRun=true -o $outDir --nologo
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)." }
 }
 if (-not (Test-Path (Join-Path $outDir 'web.config'))) { throw "No web.config in $outDir - publish output looks wrong." }
