@@ -27,3 +27,7 @@ deploy/out/
 
 ## Large sample data (kept out of the repo)
 files/
+
+## Reference material (hardware manuals, screen photos)
+kronos-manuals/
+kronos-ss/
