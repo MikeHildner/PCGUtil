@@ -209,6 +209,77 @@ public static class PcgEditor
         return Finalized(destination, data);
     }
 
+    /// <summary>
+    /// Applies a <see cref="DeepCopyPlan"/>: copies the plan's combi <em>and</em> the programs
+    /// its timbres reference (planned copies into free slots; planned reuses point at programs
+    /// the destination already holds), then rewrites the copied combi's timbre bytes to the new
+    /// addresses so the copy keeps its sound. All writes land in one buffer with one checksum
+    /// recompute. Timbres the plan skipped, and all KARMA settings, travel byte-for-byte.
+    /// </summary>
+    public static byte[] CopyCombiDeepAcross(PcgFile source, PcgFile destination,
+                                             int dstBank, int dstIndex, DeepCopyPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(plan);
+        if (plan.Error is not null)
+            throw new InvalidOperationException(plan.Error);
+
+        var (srcCombiOffset, srcCombiSize) = LocateCombi(source, plan.SourceBank, plan.SourceIndex);
+        var (dstCombiOffset, dstCombiSize) = LocateCombi(destination, dstBank, dstIndex);
+        RequireSameRecordSize("Combi", srcCombiSize, dstCombiSize);
+
+        // Locate and re-validate every program mapping against the *current* destination —
+        // a stale plan (slots filled or records changed since planning) must fail loudly
+        // rather than overwrite something real.
+        var writes = new List<(long SrcOffset, long DstOffset, int Size)>();
+        var claimed = new HashSet<(int Bank, int Index)>();
+        foreach (var m in plan.Programs)
+        {
+            var (srcOffset, srcSize) = LocateProgram(source, m.SourceBank, m.SourceIndex);
+            var (dstOffset, dstSize) = LocateProgram(destination, m.DestinationBank, m.DestinationIndex);
+            RequireSameRecordSize("Program", srcSize, dstSize);
+
+            if (m.Action == DeepCopyProgramAction.Copy)
+            {
+                var occupant = PcgText.ReadFixedString(destination.Data, dstOffset, BankNameLength);
+                if (!PcgOrganizer.IsProgramPlaceholder(occupant) || !claimed.Add((m.DestinationBank, m.DestinationIndex)))
+                    throw new InvalidOperationException(
+                        "The plan no longer matches the destination file — recompute it and try again.");
+                writes.Add((srcOffset, dstOffset, srcSize));
+            }
+            else if (!source.Data.AsSpan((int)srcOffset, srcSize)
+                         .SequenceEqual(destination.Data.AsSpan((int)dstOffset, dstSize)))
+            {
+                throw new InvalidOperationException(
+                    "The plan no longer matches the destination file — recompute it and try again.");
+            }
+        }
+
+        var data = (byte[])destination.Data.Clone();
+        foreach (var (srcOffset, dstOffset, size) in writes)
+            Array.Copy(source.Data, srcOffset, data, dstOffset, size);
+        Array.Copy(source.Data, srcCombiOffset, data, dstCombiOffset, dstCombiSize);
+
+        // Re-point the copied combi's timbres at where their programs landed. Writes go by
+        // the plan's timbre indices, never by byte matching, so skipped timbres that happen
+        // to share an address are left alone.
+        foreach (var m in plan.Programs)
+        {
+            byte pcgId = (byte)PcgCatalog.ProgramBankPcgIdForIndex(m.DestinationBank);
+            foreach (var t in m.Timbres)
+            {
+                long tOff = dstCombiOffset + CombiReader.TimbresOffset + (long)t * CombiReader.TimbreStride;
+                if (CombiReader.TimbresOffset + (t + 1) * CombiReader.TimbreStride > dstCombiSize)
+                    throw new InvalidOperationException($"Timbre {t + 1} lies outside the combi record.");
+                data[tOff] = (byte)m.DestinationIndex;
+                data[tOff + 1] = pcgId;
+            }
+        }
+
+        return Finalized(destination, data);
+    }
+
     /// <summary>Returns a copy with a combi's name field rewritten (24 chars, ASCII).</summary>
     public static byte[] RenameCombi(PcgFile pcg, int bank, int index, string name)
     {
@@ -302,7 +373,8 @@ public static class PcgEditor
 
     // Locates one bank's fixed-size record table (12-byte sub-header: count, record size).
     // Banks are addressed by canonical list index; partial files may not carry every bank.
-    private static (long RecordsStart, int RecordSize, int Count) LocateBank(PcgFile pcg, string sectionId, int bank)
+    // Internal so PcgDeepCopy can address records without re-parsing sub-headers.
+    internal static (long RecordsStart, int RecordSize, int Count) LocateBank(PcgFile pcg, string sectionId, int bank)
     {
         if (pcg.FindFirst(sectionId) is null)
             throw new InvalidOperationException($"File has no {sectionId} chunk.");

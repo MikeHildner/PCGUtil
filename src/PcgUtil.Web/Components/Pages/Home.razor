@@ -880,35 +880,120 @@
                                         }
                                     </select>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-primary" @onclick="DoCrossCopy">Copy</button>
+                                @if (!(_crossKind == CrossKind.Combis && _crossDeepMode))
+                                {
+                                    <button type="button" class="btn btn-sm btn-primary" @onclick="DoCrossCopy">Copy</button>
+                                }
                                 <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelCrossSelection">Cancel</button>
                             </div>
                             <div class="small mt-1">Copying <strong>overwrites</strong> the destination slot shown above.</div>
                             @if (_crossKind == CrossKind.Combis && _crossSelectedCombi is not null)
                             {
-                                var timbres = _crossSelectedCombi.Timbres.Where(t => t.UsesInternalProgram).ToList();
-                                var matching = timbres.Count(t =>
-                                    (_srcCatalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)")
-                                    == (_catalog!.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)"));
-                                <div class="small mt-2">
-                                    In the destination this combi will play whatever lives at its timbres' program slots:
-                                    <strong>@matching of @timbres.Count</strong> internal timbres currently resolve to the
-                                    same program name in both files.
-                                    <details class="mt-1">
-                                        <summary class="text-body-secondary">show timbres</summary>
-                                        <ul class="mb-0">
-                                            @foreach (var t in timbres)
-                                            {
-                                                var srcName = _srcCatalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)";
-                                                var dstName = _catalog!.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)";
-                                                <li>
-                                                    T@(t.Index + 1): @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
-                                                    — source '@srcName'@(srcName == dstName ? " (same in destination)" : $" vs destination '{dstName}'")
-                                                </li>
-                                            }
-                                        </ul>
-                                    </details>
+                                <div class="btn-group btn-group-sm mt-2">
+                                    <button type="button" class="btn @(!_crossDeepMode ? "btn-secondary" : "btn-outline-secondary")"
+                                            @onclick="() => SetCrossDeepMode(false)">Combi only</button>
+                                    <button type="button" class="btn @(_crossDeepMode ? "btn-secondary" : "btn-outline-secondary")"
+                                            title="Also copy the programs this combi's timbres reference, so it keeps its sound"
+                                            @onclick="() => SetCrossDeepMode(true)">Combi + its programs</button>
                                 </div>
+                                @if (!_crossDeepMode)
+                                {
+                                    var timbres = _crossSelectedCombi.Timbres.Where(t => t.UsesInternalProgram).ToList();
+                                    var matching = timbres.Count(t =>
+                                        (_srcCatalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)")
+                                        == (_catalog!.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)"));
+                                    <div class="small mt-2">
+                                        In the destination this combi will play whatever lives at its timbres' program slots:
+                                        <strong>@matching of @timbres.Count</strong> internal timbres currently resolve to the
+                                        same program name in both files.
+                                        <details class="mt-1">
+                                            <summary class="text-body-secondary">show timbres</summary>
+                                            <ul class="mb-0">
+                                                @foreach (var t in timbres)
+                                                {
+                                                    var srcName = _srcCatalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)";
+                                                    var dstName = _catalog!.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)";
+                                                    <li>
+                                                        T@(t.Index + 1): @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
+                                                        — source '@srcName'@(srcName == dstName ? " (same in destination)" : $" vs destination '{dstName}'")
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </details>
+                                    </div>
+                                }
+                                else
+                                {
+                                    var plan = CurrentDeepPlan();
+                                    <div class="small mt-2">
+                                        <div class="d-flex align-items-end gap-2 flex-wrap mb-1">
+                                            <div>
+                                                <label class="form-label small mb-1">Its programs go to</label>
+                                                <select class="form-select form-select-sm" @onchange="OnCrossDeepProgBankChanged">
+                                                    @foreach (var i in PresentBanks(_catalog!.ProgramBanks))
+                                                    {
+                                                        <option value="@i" selected="@(i == _crossDeepProgBank)">
+                                                            @PcgBankLabels.Program(i) (@PcgDeepCopy.FreeProgramSlots(_catalog.ProgramBanks[i]).Count free)
+                                                        </option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            @if (plan is not null)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-primary" disabled="@(!plan.CanApply)" @onclick="DoCrossCopy">
+                                                    Apply — copy combi + @plan.Copies.Count() program(s)
+                                                </button>
+                                            }
+                                        </div>
+                                        @if (plan is not null)
+                                        {
+                                            @if (plan.Error is not null)
+                                            {
+                                                <div class="alert alert-warning py-1 px-2 my-1">@plan.Error</div>
+                                            }
+                                            <ul class="my-1">
+                                                @foreach (var m in plan.Copies)
+                                                {
+                                                    <li>
+                                                        <strong>@m.Name</strong> — @PcgBankLabels.Program(m.SourceBank) #@m.SourceIndex.ToString("D3")
+                                                        → @(m.DestinationIndex >= 0 ? $"{PcgBankLabels.Program(m.DestinationBank)} #{m.DestinationIndex:D3}" : "(no free slot)")
+                                                        <span class="text-body-secondary">T@(string.Join(", T", m.Timbres.Select(t => t + 1)))</span>
+                                                    </li>
+                                                }
+                                                @foreach (var m in plan.Reused)
+                                                {
+                                                    <li>
+                                                        <strong>@m.Name</strong> — reuses @PcgBankLabels.Program(m.DestinationBank) #@m.DestinationIndex.ToString("D3")
+                                                        <span class="text-body-secondary">(identical program already in this file) T@(string.Join(", T", m.Timbres.Select(t => t + 1)))</span>
+                                                    </li>
+                                                }
+                                            </ul>
+                                            @if (plan.Skips.Count > 0)
+                                            {
+                                                <details class="mb-1">
+                                                    <summary class="text-body-secondary">@plan.Skips.Count timbre(s) left as-is</summary>
+                                                    <ul class="mb-0">
+                                                        @foreach (var s in plan.Skips)
+                                                        {
+                                                            <li>T@(s.Timbre + 1): @DeepSkipText(s)</li>
+                                                        }
+                                                    </ul>
+                                                </details>
+                                            }
+                                            @if (plan.UsesUserKarmaGes)
+                                            {
+                                                var userGes = _crossSelectedCombi.KarmaGeIds
+                                                    .Where(id => id >= Combi.KarmaUserGeBase).Distinct()
+                                                    .Select(Combi.KarmaGeLabel);
+                                                <div class="text-body-secondary">
+                                                    This combi drives KARMA with user GE(s) @string.Join(", ", userGes) — user GEs live
+                                                    in the pack's <code>.KGE</code> file, which a <code>.PCG</code> copy can't carry. The combi
+                                                    still copies; KARMA plays differently until that <code>.KGE</code> is loaded on the instrument.
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                }
                             }
                         </div>
                     }
@@ -1486,9 +1571,10 @@
         _setLists = SetListReader.Read(_pcg).ToList();
         _catalog = PcgCatalog.Build(_pcg);
         _combiRefCounts = PcgUsage.CombiReferenceCounts(_setLists);
-        _usageReport = null; // rebuilt lazily the next time the Usage tab is viewed
-        _diffReport = null;  // likewise for the Differences tab
-        _timbreCombi = null; // combi records may have moved
+        _usageReport = null;  // rebuilt lazily the next time the Usage tab is viewed
+        _diffReport = null;   // likewise for the Differences tab
+        _crossDeepPlan = null; // free slots / records may have changed
+        _timbreCombi = null;  // combi records may have moved
         _timbreDetail = null;
 
         if (preserveSelection)
@@ -1505,6 +1591,7 @@
         // Either way, land on a bank the file carries (partial files skip banks).
         _selectedCombiBank = SnapToPresent(_selectedCombiBank, _catalog.CombiBanks);
         _selectedProgramBank = SnapToPresent(_selectedProgramBank, _catalog.ProgramBanks);
+        _crossDeepProgBank = SnapToPresent(_crossDeepProgBank, _catalog.ProgramBanks);
     }
 
     // Applies an edit (a new byte image) and refreshes, staying on the current set list.
@@ -2045,6 +2132,7 @@
             _crossSrcBank = CrossSrcDefaultBank();
             _crossFilter = string.Empty;
             _diffReport = null;
+            _crossDeepMode = false;
             ResetCrossTimbres();
             CancelCrossSelection();
         }
@@ -2068,6 +2156,7 @@
         _srcFileName = null;
         _srcError = null;
         _diffReport = null;
+        _crossDeepMode = false;
         ResetCrossTimbres();
         CancelCrossSelection();
     }
@@ -2124,6 +2213,7 @@
         _crossSelectedCombi = _crossKind == CrossKind.Combis && _srcPcg is not null
             ? CombiReader.Read(_srcPcg).FirstOrDefault(c => c.Bank == _crossSrcBank && c.Index == index)
             : null;
+        _crossDeepPlan = null;
         _crossDstBank = CrossDstDefaultBank();
         _crossDstIndex = 0;
         _crossLastCopy = null;
@@ -2133,6 +2223,7 @@
     {
         _crossSelection = null;
         _crossSelectedCombi = null;
+        _crossDeepPlan = null;
         _crossDstBank = CrossDstDefaultBank();
         _crossDstIndex = 0;
         _crossLastCopy = null;
@@ -2142,6 +2233,18 @@
     {
         if (_pcg is null || _srcPcg is null || _crossSelection is null) return;
         var sel = _crossSelection.Value;
+
+        if (_crossKind == CrossKind.Combis && _crossDeepMode)
+        {
+            if (CurrentDeepPlan() is not { CanApply: true } plan) return;
+            ApplyEdit(PcgEditor.CopyCombiDeepAcross(_srcPcg, _pcg, _crossDstBank, _crossDstIndex, plan));
+            _crossLastCopy = $"Copied '{sel.Name}' to {CrossDstLabel()} with {plan.Copies.Count()} program(s) into "
+                + PcgBankLabels.Program(plan.ProgramBank)
+                + (plan.Reused.Any() ? $" ({plan.Reused.Count()} already there, reused)" : "")
+                + " — download the edited .PCG when you're done.";
+            return;
+        }
+
         var edited = _crossKind switch
         {
             CrossKind.Programs => PcgEditor.CopyProgramAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex),
@@ -2151,6 +2254,62 @@
         ApplyEdit(edited);
         _crossLastCopy = $"Copied '{sel.Name}' to {CrossDstLabel()} — pick another destination to copy again, or download the edited .PCG.";
     }
+
+    // ----- Deep copy (combi + the programs its timbres reference) -----
+
+    bool _crossDeepMode;
+    int _crossDeepProgBank;
+    DeepCopyPlan? _crossDeepPlan;
+
+    void SetCrossDeepMode(bool deep)
+    {
+        _crossDeepMode = deep;
+        if (deep)
+            _crossDeepProgBank = DefaultDeepProgramBank();
+        _crossDeepPlan = null;
+    }
+
+    void OnCrossDeepProgBankChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+        {
+            _crossDeepProgBank = idx;
+            _crossDeepPlan = null;
+        }
+    }
+
+    // Present program bank with the most free slots (ties go to the lowest index).
+    int DefaultDeepProgramBank()
+    {
+        if (_catalog is null) return 0;
+        int best = 0, bestFree = -1;
+        foreach (var i in PresentBanks(_catalog.ProgramBanks))
+        {
+            int free = PcgDeepCopy.FreeProgramSlots(_catalog.ProgramBanks[i]).Count;
+            if (free > bestFree)
+            {
+                best = i;
+                bestFree = free;
+            }
+        }
+        return best;
+    }
+
+    DeepCopyPlan? CurrentDeepPlan()
+    {
+        if (!_crossDeepMode || _crossKind != CrossKind.Combis || _pcg is null || _srcPcg is null
+            || _crossSelection is not { } sel)
+            return null;
+        return _crossDeepPlan ??= PcgDeepCopy.Plan(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDeepProgBank);
+    }
+
+    static string DeepSkipText(DeepCopyTimbreSkip s) => s.Reason switch
+    {
+        DeepCopySkipReason.ExternalStatus => "off/external — plays no internal program",
+        DeepCopySkipReason.Unresolved =>
+            $"points at {PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(s.ProgramBankPcgId))} #{s.ProgramNumber:D3}, which isn't in the source file — left as-is",
+        _ => "points at an Init/empty placeholder program — left as-is",
+    };
 
     void OnCrossSrcBankChanged(ChangeEventArgs e)
     {

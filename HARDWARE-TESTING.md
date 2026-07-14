@@ -66,6 +66,13 @@ Status: **confirmed** on hardware (2026-07-04).
 - [ ] Set a slot's notes (Set Lists tab → Edit mode → **Notes**): the comment shows on the device's Set List display.
 - [ ] Re-point a slot (**Load** button) at a different combi, and at a program: the slot recalls the new patch; its name and notes stay put.
 
+## 9. Deep copy (combi + its programs)
+Status: **pending**.
+- [ ] Deep-copy a combi from a second file ("Combi + its programs" on the Copy tab): the destination recalls it and it sounds like it did in the source file (compare a shallow "Combi only" copy of the same combi to hear the difference).
+- [ ] The copied programs landed only in the chosen bank's free (Init/empty) slots — no named program was overwritten.
+- [ ] Deep-copy a second combi from the same source: shared programs are reused (plan preview says "reuses"), not copied twice.
+- [ ] If the plan warned about user KARMA GEs, load the source's matching .KGE; KARMA then plays as in the source.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.

@@ -12,6 +12,9 @@ namespace PcgUtil.Core;
 /// Per timbre: program number @ +0, bank PcgId @ +1, MIDI channel / status @ +2 (bits 0–4 /
 /// 5–7), volume @ +5, transpose @ +7 (signed), detune @ +8 (LE16, cents), mute @ +34 bit 7,
 /// key zone top/bottom @ +37/+38, velocity zone top/bottom @ +40/+41.
+/// The four KARMA modules' GE selects are LE16 at record offsets 1814/2558/3302/4046
+/// (flat id: 0–2047 preset, 2048+ user — see <see cref="Combi.KarmaGeLabel"/>); verified by
+/// matching a vendor pack's MIDI-converted GEs to the combis that play them.
 /// Offsets re-derived from PCG Tools and verified against real files — program resolution at
 /// ~99.7%, and key/velocity zones match a vendor pack's prose zone descriptions exactly
 /// (e.g. "F#3 to B3 velocity has tight bell" decodes to keys 54–59, velocity 89–127).
@@ -25,6 +28,7 @@ public static class CombiReader
     private const int SubHeaderSize = 12;
     private const int TempoOffset = 1304;
     private const int CategoryOffset = 4790;
+    private static readonly int[] KarmaGeSelectOffsets = { 1814, 2558, 3302, 4046 };
 
     public static IReadOnlyList<Combi> Read(PcgFile pcg)
     {
@@ -64,6 +68,10 @@ public static class CombiReader
                     Tempo = recordSize >= TempoOffset + 2
                         ? BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan((int)record + TempoOffset, 2)) / 100m
                         : 0m,
+                    KarmaGeIds = KarmaGeSelectOffsets
+                        .Where(o => recordSize >= o + 2)
+                        .Select(o => (int)BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan((int)record + o, 2)))
+                        .ToList(),
                     Timbres = ReadTimbres(data, record, recordSize),
                 });
             }

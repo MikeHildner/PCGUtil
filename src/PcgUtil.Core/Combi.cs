@@ -27,6 +27,29 @@ public sealed class Combi
     /// <summary>Combi tempo in BPM (40.00–300.00), or 0 when the record carries none.</summary>
     public required decimal Tempo { get; init; }
 
+    /// <summary>
+    /// GE select of each of the four KARMA modules (A–D). 0–2047 = preset GE (part of the
+    /// system software); <see cref="KarmaUserGeBase"/> + bank×128 + number = user GE
+    /// (USER-A..L) — user GEs live in a .KGE file, which a .PCG can't carry.
+    /// Fewer than four entries when the record is too short to hold them.
+    /// </summary>
+    public required IReadOnlyList<int> KarmaGeIds { get; init; }
+
+    public const int KarmaUserGeBase = 2048;
+
+    /// <summary>True when any KARMA module selects a user GE (needs its .KGE loaded).</summary>
+    public bool UsesUserKarmaGes => KarmaGeIds.Any(id => id >= KarmaUserGeBase);
+
+    /// <summary>Display label for a GE select: "preset 0123" or "USER-A 096".</summary>
+    public static string KarmaGeLabel(int geId)
+    {
+        if (geId < KarmaUserGeBase)
+            return $"preset {geId:D4}";
+        int bank = (geId - KarmaUserGeBase) / 128;
+        int number = (geId - KarmaUserGeBase) % 128;
+        return $"USER-{(char)('A' + bank)} {number:D3}";
+    }
+
     public bool IsEmpty => Name.Length == 0;
 
     /// <summary>

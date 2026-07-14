@@ -81,11 +81,10 @@ public class CombiReaderTests
     [Fact]
     public void Vendor_pack_zones_match_their_prose_descriptions()
     {
-        var path = FindVendorPack();
-        if (path is null)
+        if (VendorPack.Parse() is not { } pack)
             return;
 
-        var combis = CombiReader.Read(PcgReader.Parse(File.ReadAllBytes(path)));
+        var combis = CombiReader.Read(pack);
 
         var main = combis.Single(c => c.Name == "TAKEONME-MAIN");
         var theme = main.Timbres[0];
@@ -121,17 +120,34 @@ public class CombiReaderTests
         Assert.Equal("User 16", CombiCategories.Name(16));
     }
 
-    private static string? FindVendorPack()
+    // GE selects live at LE16 offsets 1814/2558/3302/4046 — every combi must decode four
+    // ids inside the hardware's flat 0..3583 space (2048 presets + 12×128 user).
+    [Fact]
+    public void Karma_ge_ids_decode_within_hardware_range()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var filesDir = Path.Combine(dir.FullName, "files");
-            if (Directory.Exists(filesDir))
-                return Directory.EnumerateFiles(filesDir, "AUDORA*.PCG", SearchOption.AllDirectories)
-                    .FirstOrDefault();
-            dir = dir.Parent;
-        }
-        return null;
+        var combis = CombiReader.Read(Sample.Parse());
+        Assert.All(combis, c => Assert.Equal(4, c.KarmaGeIds.Count));
+        Assert.All(combis, c => Assert.All(c.KarmaGeIds, id => Assert.InRange(id, 0, 3583)));
     }
+
+    // The vendor pack's "MONEY4FREE OPEN" drives KARMA with its MIDI-converted user GE
+    // U-A 096 — the byte-level link between the .PCG and its companion .KGE.
+    [Fact]
+    public void Vendor_pack_combi_references_its_user_ge()
+    {
+        if (VendorPack.Parse() is not { } pack)
+            return;
+
+        var money = CombiReader.Read(pack).Single(c => c.Name == "MONEY4FREE OPEN");
+        Assert.Contains(Combi.KarmaUserGeBase + 96, money.KarmaGeIds);
+        Assert.True(money.UsesUserKarmaGes);
+    }
+
+    [Theory]
+    [InlineData(0, "preset 0000")]
+    [InlineData(2047, "preset 2047")]
+    [InlineData(2144, "USER-A 096")]
+    [InlineData(3583, "USER-L 127")]
+    public void Karma_ge_labels(int geId, string expected) =>
+        Assert.Equal(expected, Combi.KarmaGeLabel(geId));
 }

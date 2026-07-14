@@ -33,3 +33,28 @@ internal static class Sample
             $"No sample *.PCG found in a files/ directory walking up from {AppContext.BaseDirectory}");
     }
 }
+
+/// <summary>
+/// Locates the optional vendor-pack PCG (a partial file carrying only a few USER banks) under
+/// files/. Tests that depend on it must silently pass when it's absent — unlike the main
+/// sample, it isn't required.
+/// </summary>
+internal static class VendorPack
+{
+    public static string? Find()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var filesDir = System.IO.Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+                return Directory.EnumerateFiles(filesDir, "AUDORA*.PCG", SearchOption.AllDirectories)
+                    .FirstOrDefault();
+            dir = dir.Parent;
+        }
+        return null;
+    }
+
+    public static PcgFile? Parse() =>
+        Find() is { } path ? PcgReader.Parse(File.ReadAllBytes(path)) : null;
+}
