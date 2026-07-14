@@ -1821,29 +1821,73 @@
             : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == _selectedCombiBank && c.Index == index);
     }
 
-    // "What's inside this combi": active timbres with their programs, resolved against the
-    // given catalog (the main file's or the Copy tab's read-only source).
+    // "What's inside this combi": category/tempo header, a key-zone map of the splits and
+    // layers, and the timbre table — programs resolved against the given catalog (the main
+    // file's or the Copy tab's read-only source).
     private RenderFragment TimbreTable(Combi combi, PcgCatalog? catalog) => __builder =>
     {
         var activeTimbres = combi.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
-        if (activeTimbres.Count == 0)
+        <div class="small text-body-secondary mb-1">
+            @CombiCategories.Name(combi.Category)@(combi.Tempo > 0 ? $" · {combi.Tempo:0.##} BPM" : "")@(combi.Favorite ? " · ★ favorite" : "")
+            · @activeTimbres.Count of @CombiReader.TimbresPerCombi timbres active
+        </div>
+        @if (activeTimbres.Count == 0)
         {
             <span class="text-body-secondary small">No active timbres.</span>
             return;
         }
-        <div class="small text-body-secondary mb-1">
-            @activeTimbres.Count of @CombiReader.TimbresPerCombi timbres active
+
+        <div class="mb-2" style="max-width:44rem">
+            @foreach (var t in activeTimbres)
+            {
+                var left = Pct(t.BottomKey * 100.0 / 128);
+                var width = Pct((t.TopKey - t.BottomKey + 1) * 100.0 / 128);
+                var label = $"{PcgNotes.Name(t.BottomKey)}–{PcgNotes.Name(t.TopKey)}"
+                    + (t.HasVelocityZone ? $" · vel {t.BottomVelocity}–{t.TopVelocity}" : "");
+                <div class="d-flex align-items-center" style="height:1.4rem">
+                    <div class="small text-body-secondary text-end pe-2 flex-shrink-0" style="width:2.6rem">T@(t.Index + 1)</div>
+                    <div class="position-relative flex-grow-1" style="height:1.15rem">
+                        <div class="position-absolute top-0 bottom-0 rounded @(t.Mute ? "opacity-25" : null)"
+                             style="left:@(left)%; width:@(width)%; background:var(--bs-primary-bg-subtle); border:1px solid var(--bs-primary-border-subtle);"></div>
+                        @if (t.BottomKey > 96)
+                        {
+                            <span class="position-absolute small text-nowrap @(t.Mute ? "text-body-tertiary" : null)"
+                                  style="right:0; line-height:1.15rem;">@label@(t.Mute ? " · muted" : "")</span>
+                        }
+                        else
+                        {
+                            <span class="position-absolute small text-nowrap @(t.Mute ? "text-body-tertiary" : null)"
+                                  style="left:@(left)%; padding-left:.3rem; line-height:1.15rem;">@label@(t.Mute ? " · muted" : "")</span>
+                        }
+                    </div>
+                </div>
+            }
+            <div class="d-flex" style="height:1rem">
+                <div class="flex-shrink-0" style="width:2.6rem"></div>
+                <div class="position-relative flex-grow-1 border-top">
+                    <span class="position-absolute small text-body-tertiary" style="left:0">C-1</span>
+                    <span class="position-absolute small text-body-tertiary" style="left:28.1%">C2</span>
+                    <span class="position-absolute small text-body-tertiary" style="left:46.9%">C4</span>
+                    <span class="position-absolute small text-body-tertiary" style="left:65.6%">C6</span>
+                    <span class="position-absolute small text-body-tertiary" style="right:0">G9</span>
+                </div>
+            </div>
         </div>
-        <table class="table table-sm mb-1" style="max-width:36rem">
+
+        <table class="table table-sm mb-1" style="max-width:52rem">
             <thead>
-                <tr><th style="width:3.5rem">T#</th><th style="width:5rem">Status</th><th>Program</th></tr>
+                <tr>
+                    <th style="width:3.5rem">T#</th><th style="width:5rem">Status</th><th>Program</th>
+                    <th style="width:6.5rem">Keys</th><th style="width:5.5rem">Vel</th>
+                    <th style="width:3.5rem">Ch</th><th style="width:3.5rem">Vol</th><th style="width:4rem">Xpose</th>
+                </tr>
             </thead>
             <tbody>
                 @foreach (var t in activeTimbres)
                 {
-                    <tr>
+                    <tr class="@(t.Mute ? "opacity-50" : null)">
                         <td>T@(t.Index + 1)</td>
-                        <td>@t.Status</td>
+                        <td>@t.Status@(t.Mute ? " 🔇" : "")</td>
                         <td>
                             @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
                             @{ var timbreProgram = catalog?.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber); }
@@ -1852,11 +1896,20 @@
                                 <span> — @timbreProgram</span>
                             }
                         </td>
+                        <td class="@(t.HasKeyZone ? null : "text-body-tertiary")">@PcgNotes.Name(t.BottomKey)–@PcgNotes.Name(t.TopKey)</td>
+                        <td class="@(t.HasVelocityZone ? null : "text-body-tertiary")">@t.BottomVelocity–@t.TopVelocity</td>
+                        <td>@(t.MidiChannel == 16 ? "Gch" : (t.MidiChannel + 1).ToString())</td>
+                        <td>@t.Volume</td>
+                        <td class="@(t.Transpose == 0 ? "text-body-tertiary" : null)">@(t.Transpose == 0 ? "—" : t.Transpose.ToString("+0;-0"))</td>
                     </tr>
                 }
             </tbody>
         </table>
     };
+
+    // CSS percentages must use invariant formatting regardless of server culture.
+    static string Pct(double value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
     async Task ExportCombiContentsHtml()
     {
