@@ -205,6 +205,17 @@ public static class PcgDeepCopy
         return free;
     }
 
+    /// <summary>Indices of a combi bank's free (Init/empty) slots, ascending.</summary>
+    public static IReadOnlyList<int> FreeCombiSlots(IReadOnlyList<string> bankNames)
+    {
+        ArgumentNullException.ThrowIfNull(bankNames);
+        var free = new List<int>();
+        for (int i = 0; i < bankNames.Count; i++)
+            if (Combi.IsEmptyOrInitName(bankNames[i]))
+                free.Add(i);
+        return free;
+    }
+
     private static void ValidateChosenBank(PcgCatalog dstCatalog, int? bank, ProgramBankType role)
     {
         if (bank is null)

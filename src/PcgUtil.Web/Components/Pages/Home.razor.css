@@ -28,3 +28,13 @@
 .task-card-icon {
     color: var(--bs-primary);
 }
+
+/* Add-sounds wizard step breadcrumb */
+.wizard-steps span {
+    margin-right: 1.25rem;
+}
+
+.wizard-steps .wizard-step-active {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}

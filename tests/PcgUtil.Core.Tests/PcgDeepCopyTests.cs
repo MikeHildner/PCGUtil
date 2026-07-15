@@ -207,6 +207,16 @@ public class PcgDeepCopyTests
     }
 
     [Fact]
+    public void FreeCombiSlots_finds_init_slots()
+    {
+        var catalog = PcgCatalog.Build(Sample.Parse());
+
+        // USER-D (bank 10) is entirely "Init Combi" in the sample; INT-A is factory-full.
+        Assert.Equal(Enumerable.Range(0, 128), PcgDeepCopy.FreeCombiSlots(catalog.CombiBanks[DstCombiBank]));
+        Assert.Empty(PcgDeepCopy.FreeCombiSlots(catalog.CombiBanks[0]));
+    }
+
+    [Fact]
     public void FreeProgramSlots_are_ascending_placeholders()
     {
         var catalog = PcgCatalog.Build(Sample.Parse());

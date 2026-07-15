@@ -35,7 +35,7 @@
 @if (_pcg is not null)
 {
     <ul class="nav nav-tabs mb-3">
-        @foreach (var tab in Enum.GetValues<View>().Where(t => !AdvancedViews.Contains(t)))
+        @foreach (var tab in Enum.GetValues<View>().Where(t => !AdvancedViews.Contains(t) && !HiddenViews.Contains(t)))
         {
             <li class="nav-item">
                 <button type="button" class="nav-link @(_view == tab ? "active" : null)"
@@ -106,6 +106,267 @@
                     </div>
                 }
             </div>
+            break;
+        }
+
+        case View.AddSounds:
+        {
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                <h2 class="h4 mb-0">Add sounds from another file</h2>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _view = View.Home">← Start</button>
+            </div>
+            <div class="wizard-steps small text-body-secondary mb-3">
+                <span class="@(_addStep == AddStep.Source ? "wizard-step-active" : null)">1 · Choose file</span>
+                <span class="@(_addStep == AddStep.Pick ? "wizard-step-active" : null)">2 · Pick the song</span>
+                <span class="@(_addStep == AddStep.Review ? "wizard-step-active" : null)">3 · Review</span>
+                <span class="@(_addStep == AddStep.Done ? "wizard-step-active" : null)">4 · Done</span>
+            </div>
+
+            @switch (_addStep)
+            {
+                case AddStep.Source:
+                {
+                    @if (_srcPcg is not null)
+                    {
+                        <div class="card mb-3" style="max-width:36rem">
+                            <div class="card-body">
+                                <div class="fw-semibold">@_srcFileName</div>
+                                <div class="small text-body-secondary mb-2">
+                                    @Format.Bytes(_srcPcg.Length) — read-only; this file is never changed.
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" @onclick="() => _addStep = AddStep.Pick">Use this file</button>
+                            </div>
+                        </div>
+                        <label class="form-label small">Or choose a different file</label>
+                    }
+                    else
+                    {
+                        <p class="text-body-secondary" style="max-width:44rem">
+                            Open the file that has the sounds you want — a purchased pack or another backup.
+                            It's only read, never changed.
+                        </p>
+                    }
+                    <div style="max-width:36rem">
+                        <InputFile OnChange="OnAddSourceSelected" accept=".PCG,.pcg" class="form-control form-control-sm" />
+                        @if (_srcLoading)
+                        {
+                            <div class="mt-2 text-body-secondary small">
+                                <span class="spinner-border spinner-border-sm" role="status"></span> Reading the file …
+                            </div>
+                        }
+                        @if (_srcError is not null)
+                        {
+                            <div class="alert alert-danger mt-2 mb-0 small">@_srcError</div>
+                        }
+                    </div>
+                    break;
+                }
+
+                case AddStep.Pick:
+                {
+                    var songs = SrcCombis
+                        .Where(c => !c.IsEmptyOrInit)
+                        .Where(c => string.IsNullOrWhiteSpace(_addFilter)
+                            || c.Name.Contains(_addFilter.Trim(), StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    <div class="d-flex align-items-end gap-3 flex-wrap mb-2">
+                        <div>
+                            <label class="form-label small mb-1">Find</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="song name…"
+                                   @bind="_addFilter" @bind:event="oninput" />
+                        </div>
+                        <div class="small text-body-secondary pb-1">@songs.Count song(s) in @_srcFileName</div>
+                    </div>
+                    <table class="table table-sm table-hover align-middle" style="max-width:56rem">
+                        <thead>
+                            <tr>
+                                <th>Song</th>
+                                <th style="width:9rem">Where</th>
+                                <th style="width:13rem">Info</th>
+                                <th style="width:11rem"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in songs.Take(MaxRows))
+                            {
+                                <tr @key="@($"add-{c.Bank}-{c.Index}")">
+                                    <td>@c.Name</td>
+                                    <td class="small text-body-secondary">@PcgBankLabels.Combi(c.Bank) #@c.Index.ToString("D3")</td>
+                                    <td class="small text-body-secondary">
+                                        @CombiCategories.Name(c.Category)@(c.Tempo > 0 ? $" · {c.Tempo:0.##} BPM" : "")
+                                    </td>
+                                    <td class="text-nowrap">
+                                        <button type="button"
+                                                class="btn btn-sm @(_addTimbreOpen == (c.Bank, c.Index) ? "btn-secondary" : "btn-outline-secondary") px-2 me-1"
+                                                title="What's inside this song" @onclick="() => ToggleAddTimbres(c)">Timbres</button>
+                                        <button type="button" class="btn btn-sm btn-primary px-2" @onclick="() => ChooseAddSong(c)">Choose</button>
+                                    </td>
+                                </tr>
+                                @if (_addTimbreOpen == (c.Bank, c.Index) && _addTimbreDetail is not null)
+                                {
+                                    <tr @key="@($"add-timbres-{c.Bank}-{c.Index}")">
+                                        <td></td>
+                                        <td colspan="3">@TimbreTable(_addTimbreDetail, _srcCatalog)</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                    break;
+                }
+
+                case AddStep.Review:
+                {
+                    if (_addSelection is not { } sel || _srcPcg is null || _catalog is null)
+                    {
+                        <p class="text-body-secondary">Pick a song first.</p>
+                        break;
+                    }
+                    var plan = CurrentAddPlan();
+                    var occupant = _addDstBank < _catalog.CombiBanks.Count && _addDstIndex < _catalog.CombiBanks[_addDstBank].Count
+                        ? _catalog.CombiBanks[_addDstBank][_addDstIndex] : "";
+                    var destFree = Combi.IsEmptyOrInitName(occupant);
+                    <div style="max-width:46rem">
+                        <p class="mb-2">
+                            <strong>@sel.Name</strong> will be added as a new combi at
+                            <strong>@PcgBankLabels.Combi(_addDstBank) #@_addDstIndex.ToString("D3")</strong>@(destFree ? " (an empty slot)." : ".")
+                            @if (!destFree)
+                            {
+                                <span class="text-danger"> This will overwrite '@occupant'.</span>
+                            }
+                        </p>
+                        @if (plan is not null)
+                        {
+                            @foreach (var g in plan.Copies.GroupBy(m => m.DestinationBank).Where(g => g.Key >= 0))
+                            {
+                                <p class="mb-1">
+                                    <strong>@g.Count() sound(s)</strong> travel with it into empty slots of
+                                    <strong>@PcgBankLabels.Program(g.Key)</strong> (@(ProgramTypeTag(_catalog, g.Key).TrimEnd(',', ' ')) bank).
+                                </p>
+                            }
+                            @if (plan.Reused.Any())
+                            {
+                                <p class="mb-1"><strong>@plan.Reused.Count() sound(s)</strong> are already in this file and will be shared.</p>
+                            }
+                            @if (plan.Skips.Count > 0)
+                            {
+                                <details class="small mb-2">
+                                    <summary class="text-body-secondary">@plan.Skips.Count timbre(s) left as they are</summary>
+                                    <ul class="mb-0">
+                                        @foreach (var s in plan.Skips)
+                                        {
+                                            <li>T@(s.Timbre + 1): @DeepSkipText(s)</li>
+                                        }
+                                    </ul>
+                                </details>
+                            }
+                            <details class="small mb-2">
+                                <summary class="text-body-secondary">Exactly what will be copied</summary>
+                                <ul class="mb-0">
+                                    @foreach (var m in plan.Copies)
+                                    {
+                                        <li>@m.Name — @PcgBankLabels.Program(m.SourceBank) #@m.SourceIndex.ToString("D3")
+                                            → @(m.DestinationIndex >= 0 ? $"{PcgBankLabels.Program(m.DestinationBank)} #{m.DestinationIndex:D3}" : "(no free slot)")</li>
+                                    }
+                                    @foreach (var m in plan.Reused)
+                                    {
+                                        <li>@m.Name — shares @PcgBankLabels.Program(m.DestinationBank) #@m.DestinationIndex.ToString("D3")</li>
+                                    }
+                                </ul>
+                            </details>
+                            @if (plan.UsesUserKarmaGes)
+                            {
+                                var geLabels = SrcCombis.FirstOrDefault(c => c.Bank == sel.Bank && c.Index == sel.Index)?.KarmaGeIds
+                                    .Where(id => id >= Combi.KarmaUserGeBase).Distinct().Select(Combi.KarmaGeLabel) ?? Enumerable.Empty<string>();
+                                <div class="alert alert-info py-2 px-3 small mb-2">
+                                    This song drives KARMA with user GE(s) @string.Join(", ", geLabels).
+                                    Load the pack's <code>.KGE</code> file on the instrument too, or KARMA will play differently.
+                                </div>
+                            }
+                            @if (plan.Error is not null)
+                            {
+                                <div class="alert alert-warning py-2 px-3 small mb-2">@plan.Error</div>
+                            }
+                        }
+                        @if (_addError is not null)
+                        {
+                            <div class="alert alert-warning py-2 px-3 small mb-2">@_addError</div>
+                        }
+                        <details class="mb-3">
+                            <summary class="text-body-secondary small">Adjust locations</summary>
+                            <div class="d-flex align-items-end gap-2 flex-wrap mt-2">
+                                <div>
+                                    <label class="form-label small mb-1">Combi bank</label>
+                                    <select class="form-select form-select-sm" @onchange="OnAddDstBankChanged">
+                                        @foreach (var i in PresentBanks(_catalog.CombiBanks))
+                                        {
+                                            <option value="@i" selected="@(i == _addDstBank)">@PcgBankLabels.Combi(i)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label small mb-1">Slot <span class="text-body-secondary">(current occupant shown)</span></label>
+                                    <select class="form-select form-select-sm" style="max-width:20rem" @onchange="OnAddDstIndexChanged">
+                                        @for (var i = 0; i < _catalog.CombiBanks[_addDstBank].Count; i++)
+                                        {
+                                            var nm = _catalog.CombiBanks[_addDstBank][i];
+                                            <option value="@i" selected="@(i == _addDstIndex)">@i.ToString("D3") — @(string.IsNullOrEmpty(nm) ? "(empty)" : nm)</option>
+                                        }
+                                    </select>
+                                </div>
+                                @if (plan is not null)
+                                {
+                                    @foreach (var bankType in new[] { ProgramBankType.Exi, ProgramBankType.Hd1 })
+                                    {
+                                        if (!plan.Needs(bankType))
+                                            continue;
+                                        var typeLabel = PcgBankIdentity.TypeLabel(bankType);
+                                        var selectedBank = bankType == ProgramBankType.Hd1 ? _crossDeepHd1Bank : _crossDeepExiBank;
+                                        <div>
+                                            <label class="form-label small mb-1">@typeLabel sounds go to</label>
+                                            <select class="form-select form-select-sm" @onchange="e => OnCrossDeepBankChanged(bankType, e)">
+                                                @foreach (var i in PresentBanks(_catalog.ProgramBanks))
+                                                {
+                                                    if (_catalog.ProgramBankTypes[i] != bankType)
+                                                        continue;
+                                                    <option value="@i" selected="@(i == selectedBank)">
+                                                        @PcgBankLabels.Program(i) (@typeLabel, @PcgDeepCopy.FreeProgramSlots(_catalog.ProgramBanks[i]).Count free)
+                                                    </option>
+                                                }
+                                            </select>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </details>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => _addStep = AddStep.Pick">← Back</button>
+                            <button type="button" class="btn btn-primary" disabled="@(plan is null || !plan.CanApply)" @onclick="ApplyAddSong">
+                                Add it — combi to @PcgBankLabels.Combi(_addDstBank) #@_addDstIndex.ToString("D3") + @(plan?.Copies.Count() ?? 0) sound(s)
+                            </button>
+                        </div>
+                    </div>
+                    break;
+                }
+
+                case AddStep.Done:
+                {
+                    <div style="max-width:46rem">
+                        <div class="alert alert-success">@_addLastResult</div>
+                        <div class="d-flex gap-2 flex-wrap mb-3">
+                            <button type="button" class="btn btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                            <button type="button" class="btn btn-outline-primary" @onclick="AddAnotherSong">Add another song</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => _view = View.SetLists">Put it in a set list</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => _view = View.Home">Back to Start</button>
+                        </div>
+                        <p class="small text-body-secondary">
+                            On the instrument: load the downloaded file with <strong>.PCG Contents: All</strong>.
+                            Your added song and its sounds land in the banks shown in the review step.
+                        </p>
+                    </div>
+                    break;
+                }
+            }
             break;
         }
 
@@ -1503,7 +1764,7 @@
 }
 
 @code {
-    enum View { Home, SetLists, Combis, Programs, Copy, Differences, Usage, Duplicates, Search, Overview, Strings, Tree }
+    enum View { Home, SetLists, Combis, Programs, Copy, Differences, Usage, Duplicates, Search, AddSounds, Overview, Strings, Tree }
     enum UsageSort { BankNumber, Name, MostUsed }
     enum CrossKind { Programs, Combis, SetListSlots }
 
@@ -1636,6 +1897,7 @@
         _usageReport = null;  // rebuilt lazily the next time the Usage tab is viewed
         _diffReport = null;   // likewise for the Differences tab
         _crossDeepPlan = null; // free slots / records may have changed
+        _addPlan = null;       // wizard plan too
         _timbreCombi = null;  // combi records may have moved
         _timbreDetail = null;
 
@@ -1700,6 +1962,9 @@
 
     // The technical tabs a musician shouldn't have to wade through; reachable via "Advanced".
     static readonly View[] AdvancedViews = { View.Overview, View.Strings, View.Tree };
+
+    // Views reachable from Start cards (or in-flow links) only — no tab of their own.
+    static readonly View[] HiddenViews = { View.AddSounds };
     bool _showAdvanced;
 
     // ----- Start page: task cards in musician language, each opening a workspace -----
@@ -1716,7 +1981,7 @@
         new TaskCardDef("Add sounds from another file",
             "Bring a song you bought — or built on another backup — into this file, with everything it needs to sound right.",
             "<path fill-rule='evenodd' d='M3.5 6a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1 0-1h2A1.5 1.5 0 0 1 14 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-8A1.5 1.5 0 0 1 3.5 5h2a.5.5 0 0 1 0 1z'/><path fill-rule='evenodd' d='M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z'/>",
-            () => { _view = View.Copy; SetCrossKind(CrossKind.Combis); }),
+            OpenAddSounds),
         new TaskCardDef("Explore this file",
             "Browse set lists, see each combi's splits and layers, find any sound by name.",
             "<path d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0'/>",
@@ -1738,6 +2003,7 @@
     static string TabLabel(View v) => v switch
     {
         View.Home => "Start",
+        View.AddSounds => "Add sounds",
         View.Overview => "File info",
         View.SetLists => "Set Lists",
         View.Combis => "Combis",
@@ -2230,6 +2496,9 @@
             _crossFilter = string.Empty;
             _diffReport = null;
             _crossDeepMode = false;
+            _srcCombis = null;      // wizard song list re-reads the new source
+            _addSelection = null;   // a prior selection points into the old file
+            _addPlan = null;
             ResetCrossTimbres();
             CancelCrossSelection();
         }
@@ -2256,6 +2525,7 @@
         _crossDeepMode = false;
         ResetCrossTimbres();
         CancelCrossSelection();
+        ResetAddWizard();
     }
 
     void SetCrossKind(CrossKind kind)
@@ -2407,6 +2677,7 @@
             else
                 _crossDeepExiBank = idx;
             _crossDeepPlan = null;
+            _addPlan = null; // shared program-bank choices feed the wizard plan too
         }
     }
 
@@ -2460,6 +2731,148 @@
             $"points at {PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(s.ProgramBankPcgId))} #{s.ProgramNumber:D3}, which isn't in the source file — left as-is",
         _ => "points at an Init/empty placeholder program — left as-is",
     };
+
+    // ----- "Add sounds from another file" wizard (guided deep copy) -----
+
+    enum AddStep { Source, Pick, Review, Done }
+
+    AddStep _addStep;
+    (int Bank, int Index, string Name)? _addSelection;
+    (int Bank, int Index)? _addTimbreOpen;
+    Combi? _addTimbreDetail;
+    int _addDstBank;
+    int _addDstIndex;
+    DeepCopyPlan? _addPlan;
+    string _addFilter = "";
+    string? _addLastResult;
+    string? _addError;
+    IReadOnlyList<Combi>? _srcCombis;
+
+    // Source-file combis, decoded once per loaded source.
+    IReadOnlyList<Combi> SrcCombis =>
+        _srcCombis ??= _srcPcg is null ? Array.Empty<Combi>() : CombiReader.Read(_srcPcg);
+
+    void OpenAddSounds()
+    {
+        _view = View.AddSounds;
+        _addStep = _srcPcg is null ? AddStep.Source : AddStep.Pick;
+        _addError = null;
+        _addLastResult = null;
+    }
+
+    async Task OnAddSourceSelected(InputFileChangeEventArgs e)
+    {
+        await OnSourceFileSelected(e);
+        if (_srcPcg is not null)
+            _addStep = AddStep.Pick;
+    }
+
+    void ToggleAddTimbres(Combi c)
+    {
+        if (_addTimbreOpen == (c.Bank, c.Index))
+        {
+            _addTimbreOpen = null;
+            _addTimbreDetail = null;
+            return;
+        }
+        _addTimbreOpen = (c.Bank, c.Index);
+        _addTimbreDetail = c;
+    }
+
+    void ChooseAddSong(Combi c)
+    {
+        _addSelection = (c.Bank, c.Index, c.Name);
+        (_addDstBank, _addDstIndex) = FirstFreeCombiSlot() ?? (0, 0);
+        _crossDeepHd1Bank = DefaultDeepProgramBank(ProgramBankType.Hd1);
+        _crossDeepExiBank = DefaultDeepProgramBank(ProgramBankType.Exi);
+        _addPlan = null;
+        _addError = null;
+        _addStep = AddStep.Review;
+    }
+
+    // First empty (Init) combi slot the destination carries, searching banks in order.
+    (int Bank, int Index)? FirstFreeCombiSlot()
+    {
+        if (_catalog is null)
+            return null;
+        foreach (var b in PresentBanks(_catalog.CombiBanks))
+        {
+            var free = PcgDeepCopy.FreeCombiSlots(_catalog.CombiBanks[b]);
+            if (free.Count > 0)
+                return (b, free[0]);
+        }
+        return null;
+    }
+
+    DeepCopyPlan? CurrentAddPlan()
+    {
+        if (_pcg is null || _srcPcg is null || _addSelection is not { } sel)
+            return null;
+        _crossDeepHd1Bank = SanitizeDeepBank(_crossDeepHd1Bank, ProgramBankType.Hd1);
+        _crossDeepExiBank = SanitizeDeepBank(_crossDeepExiBank, ProgramBankType.Exi);
+        return _addPlan ??= PcgDeepCopy.Plan(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDeepHd1Bank, _crossDeepExiBank);
+    }
+
+    void OnAddDstBankChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+        {
+            _addDstBank = idx;
+            var free = _catalog is not null ? PcgDeepCopy.FreeCombiSlots(_catalog.CombiBanks[idx]) : Array.Empty<int>();
+            _addDstIndex = free.Count > 0 ? free[0] : 0;
+        }
+    }
+
+    void OnAddDstIndexChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
+            _addDstIndex = idx;
+    }
+
+    void ApplyAddSong()
+    {
+        if (_pcg is null || _srcPcg is null || _addSelection is not { } sel)
+            return;
+        if (CurrentAddPlan() is not { CanApply: true } plan)
+            return;
+        try
+        {
+            ApplyEdit(PcgEditor.CopyCombiDeepAcross(_srcPcg, _pcg, _addDstBank, _addDstIndex, plan));
+            _addLastResult = $"'{sel.Name}' is now at {PcgBankLabels.Combi(_addDstBank)} #{_addDstIndex:D3}"
+                + (plan.Copies.Any() ? $", with {plan.Copies.Count()} sound(s) copied into your file" : "")
+                + (plan.Reused.Any() ? $" ({plan.Reused.Count()} shared with sounds already there)" : "")
+                + ".";
+            _addError = null;
+            _addStep = AddStep.Done;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _addError = ex.Message; // stale plan / type guard — shown on the review step
+        }
+    }
+
+    void AddAnotherSong()
+    {
+        _addSelection = null;
+        _addPlan = null;
+        _addError = null;
+        _addTimbreOpen = null;
+        _addTimbreDetail = null;
+        _addStep = AddStep.Pick;
+    }
+
+    void ResetAddWizard()
+    {
+        _addStep = AddStep.Source;
+        _addSelection = null;
+        _addTimbreOpen = null;
+        _addTimbreDetail = null;
+        _addPlan = null;
+        _addFilter = "";
+        _addLastResult = null;
+        _addError = null;
+        _srcCombis = null;
+    }
 
     void OnCrossSrcBankChanged(ChangeEventArgs e)
     {
