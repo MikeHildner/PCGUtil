@@ -64,8 +64,9 @@ public class PcgDiffTests
         var before = Sample.Parse();
         var catalog = PcgCatalog.Build(before);
 
-        // Destination 1: a factory "Init Program" placeholder.
-        var (initBank, initIndex) = FindPlaceholderProgram(catalog);
+        // Destination 1: a factory "Init Program" placeholder in a bank of the source's
+        // engine type (INT-A is EXi; program moves can't cross HD-1/EXi banks).
+        var (initBank, initIndex) = FindPlaceholderProgram(catalog, ProgramBankType.Exi);
         var afterAdd = PcgReader.Parse(PcgEditor.CopyProgram(Sample.Parse(), 0, 0, initBank, initIndex));
         var added = Assert.Single(PcgDiff.Compare(before, afterAdd).Programs);
         Assert.Equal(DiffKind.Added, added.Kind);
@@ -73,11 +74,12 @@ public class PcgDiffTests
         Assert.Equal(initIndex, added.IndexAfter);
         Assert.Equal("Berlin Grand SW2 U.C.", added.NameAfter);
 
-        // Destination 2: a real, differently-named patch.
-        var afterReplace = PcgReader.Parse(PcgEditor.CopyProgram(Sample.Parse(), 0, 0, 8, 1));
+        // Destination 2: a real, differently-named patch in another EXi bank.
+        var (realBank, realIndex) = FindRealProgram(catalog, ProgramBankType.Exi, avoidName: "Berlin Grand SW2 U.C.");
+        var afterReplace = PcgReader.Parse(PcgEditor.CopyProgram(Sample.Parse(), 0, 0, realBank, realIndex));
         var replaced = Assert.Single(PcgDiff.Compare(before, afterReplace).Programs);
         Assert.Equal(DiffKind.Replaced, replaced.Kind);
-        Assert.Equal(catalog.ProgramBanks[8][1], replaced.NameBefore);
+        Assert.Equal(catalog.ProgramBanks[realBank][realIndex], replaced.NameBefore);
         Assert.Equal("Berlin Grand SW2 U.C.", replaced.NameAfter);
     }
 
@@ -133,13 +135,35 @@ public class PcgDiffTests
         Assert.Throws<InvalidOperationException>(() => PcgDiff.Compare(pristine, patched));
     }
 
-    private static (int Bank, int Index) FindPlaceholderProgram(PcgCatalog catalog)
+    private static (int Bank, int Index) FindPlaceholderProgram(PcgCatalog catalog, ProgramBankType type)
     {
         for (int b = 0; b < catalog.ProgramBanks.Count; b++)
+        {
+            if (catalog.ProgramBankTypes[b] != type)
+                continue;
             for (int i = 0; i < catalog.ProgramBanks[b].Count; i++)
                 if (PcgOrganizer.IsProgramPlaceholder(catalog.ProgramBanks[b][i]) &&
                     !string.IsNullOrEmpty(catalog.ProgramBanks[b][i]))
                     return (b, i);
-        throw new InvalidOperationException("Sample has no named init-placeholder program.");
+        }
+        throw new InvalidOperationException("Sample has no named init-placeholder program of that type.");
+    }
+
+    // A real (non-placeholder) program in a bank of the given type, in a bank other than
+    // INT-A (the copy source) and with a name different from the copied program's.
+    private static (int Bank, int Index) FindRealProgram(PcgCatalog catalog, ProgramBankType type, string avoidName)
+    {
+        for (int b = 1; b < catalog.ProgramBanks.Count; b++)
+        {
+            if (catalog.ProgramBankTypes[b] != type)
+                continue;
+            for (int i = 0; i < catalog.ProgramBanks[b].Count; i++)
+            {
+                var name = catalog.ProgramBanks[b][i];
+                if (!PcgOrganizer.IsProgramPlaceholder(name) && name != avoidName)
+                    return (b, i);
+            }
+        }
+        throw new InvalidOperationException("Sample has no real program of that type outside INT-A.");
     }
 }

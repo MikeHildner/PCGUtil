@@ -120,6 +120,39 @@ public class PcgBankIdentityTests
         Assert.False(PcgCompat.Compare(partial, otherModel).ProgramsMatch);
     }
 
+    // ----- Program bank engine types (PBK1 = HD-1, MBK1 = EXi) -----
+
+    // Pins against the sample (this instrument's user-configured types) and the vendor
+    // pack. The published factory types confirm the chunk-id mapping via the INT banks:
+    // INT-A ships EXi, INT-B ships HD-1.
+    [Fact]
+    public void Program_bank_types_decode_from_chunk_ids()
+    {
+        var pcg = Sample.Parse();
+        Assert.Equal(ProgramBankType.Exi, PcgBankIdentity.ProgramBankType(pcg, 0));  // INT-A
+        Assert.Equal(ProgramBankType.Hd1, PcgBankIdentity.ProgramBankType(pcg, 1));  // INT-B
+        Assert.Equal(ProgramBankType.Exi, PcgBankIdentity.ProgramBankType(pcg, 15)); // USER-CC
+        Assert.Equal(ProgramBankType.Hd1, PcgBankIdentity.ProgramBankType(pcg, 19)); // USER-GG
+
+        var catalog = PcgCatalog.Build(pcg);
+        Assert.Equal(catalog.ProgramBanks.Count, catalog.ProgramBankTypes.Count);
+        Assert.Equal(ProgramBankType.Hd1, catalog.ProgramBankTypes[19]);
+    }
+
+    [Fact]
+    public void Vendor_pack_bank_types_differ_from_the_sample()
+    {
+        if (VendorPack.Parse() is not { } pack)
+            return;
+
+        // The pack's U-EE is EXi while the sample's U-EE is HD-1 — types are per-file.
+        Assert.Equal(ProgramBankType.Exi, PcgBankIdentity.ProgramBankType(pack, 17));
+        Assert.Equal(ProgramBankType.Hd1, PcgBankIdentity.ProgramBankType(pack, 18));
+        Assert.Equal(ProgramBankType.Hd1, PcgBankIdentity.ProgramBankType(Sample.Parse(), 17));
+
+        Assert.Null(PcgBankIdentity.ProgramBankType(pack, 0)); // bank absent from the pack
+    }
+
     // ----- Full dump (sample): canonical order equals stored order -----
 
     [Fact]

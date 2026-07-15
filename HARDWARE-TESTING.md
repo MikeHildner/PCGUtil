@@ -70,6 +70,7 @@ Status: **confirmed** on hardware (2026-07-04).
 Status: **pending**.
 - [ ] Deep-copy a combi from a second file ("Combi + its programs" on the Copy tab): the destination recalls it and it sounds like it did in the source file (compare a shallow "Combi only" copy of the same combi to hear the difference).
 - [ ] The copied programs landed only in the chosen bank's free (Init/empty) slots — no named program was overwritten.
+- [ ] Each program landed in a bank of its own engine type (the app offers matching HD-1/EXi banks only) and the file loads without "File unavailable".
 - [ ] Deep-copy a second combi from the same source: shared programs are reused (plan preview says "reuses"), not copied twice.
 - [ ] If the plan warned about user KARMA GEs, load the source's matching .KGE; KARMA then plays as in the source.
 

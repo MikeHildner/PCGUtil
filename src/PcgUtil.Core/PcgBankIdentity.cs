@@ -3,6 +3,20 @@ using System.Buffers.Binary;
 namespace PcgUtil.Core;
 
 /// <summary>
+/// A program bank's engine type, recorded as the bank's chunk id: <c>PBK1</c> = HD-1,
+/// <c>MBK1</c> = EXi (verified against the published factory bank types and by hardware
+/// load tests). Types are per-file and user-changeable — the same bank letter can be HD-1
+/// in one file and EXi in another — and record bytes are engine-specific: a program moved
+/// into a bank of the other type makes the instrument refuse the whole file
+/// ("File unavailable"). Every program-record move must therefore stay within one type.
+/// </summary>
+public enum ProgramBankType
+{
+    Hd1,
+    Exi,
+}
+
+/// <summary>
 /// Identifies which hardware bank each bank chunk holds. A bank chunk's data begins with a
 /// 12-byte sub-header — record count, record size, then a big-endian <em>bank-identity word</em>
 /// at offset +8. Encoding (verified against a full dump and a vendor pack that ships only
@@ -97,4 +111,31 @@ public static class PcgBankIdentity
             slots[i] = children[i];
         return slots;
     }
+
+    /// <summary>
+    /// The engine type of a program bank (by canonical list index), or null when the file
+    /// doesn't carry the bank or its chunk id is unrecognized.
+    /// </summary>
+    public static ProgramBankType? ProgramBankType(PcgFile pcg, int bankIndex)
+    {
+        var banks = CanonicalBanks(pcg, "PRG1");
+        if (bankIndex < 0 || bankIndex >= banks.Count)
+            return null;
+        return TypeFromChunkId(banks[bankIndex]?.Id);
+    }
+
+    internal static ProgramBankType? TypeFromChunkId(string? chunkId) => chunkId switch
+    {
+        "PBK1" => Core.ProgramBankType.Hd1,
+        "MBK1" => Core.ProgramBankType.Exi,
+        _ => null,
+    };
+
+    /// <summary>Display label: "HD-1" or "EXi".</summary>
+    public static string TypeLabel(ProgramBankType type) =>
+        type == Core.ProgramBankType.Hd1 ? "HD-1" : "EXi";
+
+    /// <summary>Label with its indefinite article: "an HD-1" / "an EXi".</summary>
+    public static string TypeLabelWithArticle(ProgramBankType type) =>
+        $"an {TypeLabel(type)}";
 }

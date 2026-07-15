@@ -236,6 +236,10 @@ public static class PcgEditor
         var claimed = new HashSet<(int Bank, int Index)>();
         foreach (var m in plan.Programs)
         {
+            if (PcgBankIdentity.ProgramBankType(destination, m.DestinationBank) != m.Type)
+                throw new InvalidOperationException(
+                    $"{PcgBankLabels.Program(m.DestinationBank)} is not a {PcgBankIdentity.TypeLabel(m.Type)} bank — " +
+                    "recompute the plan and try again.");
             var (srcOffset, srcSize) = LocateProgram(source, m.SourceBank, m.SourceIndex);
             var (dstOffset, dstSize) = LocateProgram(destination, m.DestinationBank, m.DestinationIndex);
             RequireSameRecordSize("Program", srcSize, dstSize);
@@ -448,6 +452,7 @@ public static class PcgEditor
     public static byte[] SwapPrograms(PcgFile pcg, int bankA, int indexA, int bankB, int indexB)
     {
         ArgumentNullException.ThrowIfNull(pcg);
+        RequireSameProgramBankType(pcg, bankA, pcg, bankB);
         var (offsetA, size) = LocateProgram(pcg, bankA, indexA);
         var (offsetB, sizeB) = LocateProgram(pcg, bankB, indexB);
 
@@ -466,6 +471,7 @@ public static class PcgEditor
     public static byte[] CopyProgram(PcgFile pcg, int srcBank, int srcIndex, int dstBank, int dstIndex)
     {
         ArgumentNullException.ThrowIfNull(pcg);
+        RequireSameProgramBankType(pcg, srcBank, pcg, dstBank);
         var (src, size) = LocateProgram(pcg, srcBank, srcIndex);
         var (dst, dstSize) = LocateProgram(pcg, dstBank, dstIndex);
 
@@ -484,6 +490,7 @@ public static class PcgEditor
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
+        RequireSameProgramBankType(source, srcBank, destination, dstBank);
         var (srcOffset, srcSize) = LocateProgram(source, srcBank, srcIndex);
         var (dstOffset, dstSize) = LocateProgram(destination, dstBank, dstIndex);
         RequireSameRecordSize("Program", srcSize, dstSize);
@@ -501,6 +508,21 @@ public static class PcgEditor
             throw new InvalidOperationException(
                 $"{what} records differ in size ({srcSize} vs {dstSize} bytes) — " +
                 "the files don't appear to be from the same model.");
+    }
+
+    // Program records are engine-specific (HD-1 vs EXi, carried by the bank chunk id); the
+    // hardware refuses a file whose records sit in a bank of the other type. Unknown types
+    // (positional-fallback files) are not blocked — only a definite mismatch is.
+    internal static void RequireSameProgramBankType(PcgFile source, int srcBank, PcgFile destination, int dstBank)
+    {
+        var srcType = PcgBankIdentity.ProgramBankType(source, srcBank);
+        var dstType = PcgBankIdentity.ProgramBankType(destination, dstBank);
+        if (srcType is null || dstType is null || srcType == dstType)
+            return;
+        throw new InvalidOperationException(
+            $"{PcgBankLabels.Program(dstBank)} is {PcgBankIdentity.TypeLabelWithArticle(dstType.Value)} bank but the source " +
+            $"program is {PcgBankIdentity.TypeLabel(srcType.Value)} — the instrument refuses mixed banks. " +
+            $"Pick {PcgBankIdentity.TypeLabelWithArticle(srcType.Value)} destination bank.");
     }
 
     /// <summary>Returns a copy with a program's name field rewritten (24 chars, ASCII).</summary>

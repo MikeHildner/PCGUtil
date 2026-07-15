@@ -573,7 +573,7 @@
                             @foreach (var i in PresentBanks(_catalog.ProgramBanks))
                             {
                                 <option value="@i" selected="@(i == _selectedProgramBank)">
-                                    @PcgBankLabels.Program(i) (@CountNonEmpty(_catalog.ProgramBanks[i]) programs)
+                                    @PcgBankLabels.Program(i) (@ProgramTypeTag(_catalog, i)@CountNonEmpty(_catalog.ProgramBanks[i]) programs)
                                 </option>
                             }
                         </select>
@@ -634,8 +634,15 @@
 
                 @if (_programCopySource is not null)
                 {
+                    var pasteTypeOk = _catalog.ProgramBankTypes[_programCopySource.Value.Bank] == _catalog.ProgramBankTypes[_selectedProgramBank];
                     <div class="alert alert-info d-flex justify-content-between align-items-center py-1 px-2 small">
-                        <span>Copying program <strong>@_programCopySourceName</strong> — click <em>Paste</em> on a target.</span>
+                        <span>
+                            Copying program <strong>@_programCopySourceName</strong> (@ProgramTypeTag(_catalog, _programCopySource.Value.Bank)from @PcgBankLabels.Program(_programCopySource.Value.Bank)) — click <em>Paste</em> on a target.
+                            @if (!pasteTypeOk)
+                            {
+                                <strong> This bank has the other engine type — pick an @(ProgramTypeTag(_catalog, _programCopySource.Value.Bank).TrimEnd(',', ' ')) bank to paste into.</strong>
+                            }
+                        </span>
                         <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _programCopySource = null">Cancel</button>
                     </div>
                 }
@@ -683,7 +690,9 @@
                                                 @onclick="() => StartProgramCopy(idx)">Copy</button>
                                         @if (_programCopySource is not null)
                                         {
-                                            <button type="button" class="btn btn-sm btn-outline-primary px-2" title="Paste here"
+                                            var pasteOk = _catalog.ProgramBankTypes[_programCopySource!.Value.Bank] == _catalog.ProgramBankTypes[_selectedProgramBank];
+                                            <button type="button" class="btn btn-sm btn-outline-primary px-2" disabled="@(!pasteOk)"
+                                                    title="@(pasteOk ? "Paste here" : "This bank's engine type (HD-1/EXi) differs from the copied program's bank")"
                                                     @onclick="() => PasteProgramInto(idx)">Paste</button>
                                         }
                                     </td>
@@ -798,7 +807,7 @@
                                 {
                                     @foreach (var i in PresentBanks(_srcCatalog.ProgramBanks))
                                     {
-                                        <option value="@i" selected="@(i == _crossSrcBank)">@PcgBankLabels.Program(i) (@CountNonEmpty(_srcCatalog.ProgramBanks[i]))</option>
+                                        <option value="@i" selected="@(i == _crossSrcBank)">@PcgBankLabels.Program(i) (@ProgramTypeTag(_srcCatalog, i)@CountNonEmpty(_srcCatalog.ProgramBanks[i]))</option>
                                     }
                                 }
                                 else if (_crossKind == CrossKind.Combis)
@@ -837,9 +846,13 @@
                                     <select class="form-select form-select-sm" @onchange="OnCrossDstBankChanged">
                                         @if (_crossKind == CrossKind.Programs)
                                         {
+                                            var srcType = _srcCatalog?.ProgramBankTypes.ElementAtOrDefault(sel.Bank);
                                             @foreach (var i in PresentBanks(_catalog!.ProgramBanks))
                                             {
-                                                <option value="@i" selected="@(i == _crossDstBank)">@PcgBankLabels.Program(i)</option>
+                                                @* Program records can't cross HD-1/EXi banks — offer matching-type banks only. *@
+                                                if (srcType is not null && _catalog.ProgramBankTypes[i] != srcType)
+                                                    continue;
+                                                <option value="@i" selected="@(i == _crossDstBank)">@PcgBankLabels.Program(i) (@ProgramTypeTag(_catalog, i)@CountNonEmpty(_catalog.ProgramBanks[i]))</option>
                                             }
                                         }
                                         else if (_crossKind == CrossKind.Combis)
@@ -927,21 +940,30 @@
                                     var plan = CurrentDeepPlan();
                                     <div class="small mt-2">
                                         <div class="d-flex align-items-end gap-2 flex-wrap mb-1">
-                                            <div>
-                                                <label class="form-label small mb-1">Its programs go to</label>
-                                                <select class="form-select form-select-sm" @onchange="OnCrossDeepProgBankChanged">
-                                                    @foreach (var i in PresentBanks(_catalog!.ProgramBanks))
-                                                    {
-                                                        <option value="@i" selected="@(i == _crossDeepProgBank)">
-                                                            @PcgBankLabels.Program(i) (@PcgDeepCopy.FreeProgramSlots(_catalog.ProgramBanks[i]).Count free)
-                                                        </option>
-                                                    }
-                                                </select>
-                                            </div>
+                                            @foreach (var bankType in new[] { ProgramBankType.Exi, ProgramBankType.Hd1 })
+                                            {
+                                                if (plan is null || !plan.Needs(bankType))
+                                                    continue;
+                                                var typeLabel = PcgBankIdentity.TypeLabel(bankType);
+                                                var selectedBank = bankType == ProgramBankType.Hd1 ? _crossDeepHd1Bank : _crossDeepExiBank;
+                                                <div>
+                                                    <label class="form-label small mb-1">@typeLabel programs go to</label>
+                                                    <select class="form-select form-select-sm" @onchange="e => OnCrossDeepBankChanged(bankType, e)">
+                                                        @foreach (var i in PresentBanks(_catalog!.ProgramBanks))
+                                                        {
+                                                            if (_catalog.ProgramBankTypes[i] != bankType)
+                                                                continue;
+                                                            <option value="@i" selected="@(i == selectedBank)">
+                                                                @PcgBankLabels.Program(i) (@typeLabel, @PcgDeepCopy.FreeProgramSlots(_catalog.ProgramBanks[i]).Count free)
+                                                            </option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                            }
                                             @if (plan is not null)
                                             {
                                                 <button type="button" class="btn btn-sm btn-primary" disabled="@(!plan.CanApply)" @onclick="DoCrossCopy">
-                                                    Apply — copy combi + @plan.Copies.Count() program(s)
+                                                    Apply — copy combi to @CrossDstLabel() + @plan.Copies.Count() program(s)
                                                 </button>
                                             }
                                         </div>
@@ -1000,7 +1022,7 @@
 
                     @if (_crossLastCopy is not null)
                     {
-                        <div class="alert alert-success py-1 px-2 small">@_crossLastCopy</div>
+                        <div class="alert @(_crossLastCopyIsError ? "alert-warning" : "alert-success") py-1 px-2 small">@_crossLastCopy</div>
                     }
 
                     <div class="text-body-secondary small mb-1">
@@ -1591,7 +1613,8 @@
         // Either way, land on a bank the file carries (partial files skip banks).
         _selectedCombiBank = SnapToPresent(_selectedCombiBank, _catalog.CombiBanks);
         _selectedProgramBank = SnapToPresent(_selectedProgramBank, _catalog.ProgramBanks);
-        _crossDeepProgBank = SnapToPresent(_crossDeepProgBank, _catalog.ProgramBanks);
+        _crossDeepHd1Bank = SanitizeDeepBank(_crossDeepHd1Bank, ProgramBankType.Hd1);
+        _crossDeepExiBank = SanitizeDeepBank(_crossDeepExiBank, ProgramBankType.Exi);
     }
 
     // Applies an edit (a new byte image) and refreshes, staying on the current set list.
@@ -2215,6 +2238,14 @@
             : null;
         _crossDeepPlan = null;
         _crossDstBank = CrossDstDefaultBank();
+        // Program records can't cross HD-1/EXi banks; land the default on a matching bank.
+        if (_crossKind == CrossKind.Programs && _srcCatalog is not null && _catalog is not null
+            && _srcCatalog.ProgramBankTypes.ElementAtOrDefault(_crossSrcBank) is { } srcType)
+        {
+            _crossDstBank = PresentBanks(_catalog.ProgramBanks)
+                .Where(i => _catalog.ProgramBankTypes[i] == srcType)
+                .DefaultIfEmpty(_crossDstBank).First();
+        }
         _crossDstIndex = 0;
         _crossLastCopy = null;
     }
@@ -2231,6 +2262,24 @@
 
     void DoCrossCopy()
     {
+        try
+        {
+            DoCrossCopyCore();
+            _crossLastCopyIsError = false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Editor guards (bank type, stale plan, record layout) refuse rather than
+            // corrupt; surface the reason instead of dropping the circuit.
+            _crossLastCopy = ex.Message;
+            _crossLastCopyIsError = true;
+        }
+    }
+
+    bool _crossLastCopyIsError;
+
+    void DoCrossCopyCore()
+    {
         if (_pcg is null || _srcPcg is null || _crossSelection is null) return;
         var sel = _crossSelection.Value;
 
@@ -2238,8 +2287,10 @@
         {
             if (CurrentDeepPlan() is not { CanApply: true } plan) return;
             ApplyEdit(PcgEditor.CopyCombiDeepAcross(_srcPcg, _pcg, _crossDstBank, _crossDstIndex, plan));
-            _crossLastCopy = $"Copied '{sel.Name}' to {CrossDstLabel()} with {plan.Copies.Count()} program(s) into "
-                + PcgBankLabels.Program(plan.ProgramBank)
+            var into = string.Join(" and ", plan.Copies.Select(m => m.DestinationBank).Distinct()
+                .Select(b => PcgBankLabels.Program(b)));
+            _crossLastCopy = $"Copied '{sel.Name}' to {CrossDstLabel()} with {plan.Copies.Count()} program(s)"
+                + (into.Length > 0 ? $" into {into}" : "")
                 + (plan.Reused.Any() ? $" ({plan.Reused.Count()} already there, reused)" : "")
                 + " — download the edited .PCG when you're done.";
             return;
@@ -2258,33 +2309,44 @@
     // ----- Deep copy (combi + the programs its timbres reference) -----
 
     bool _crossDeepMode;
-    int _crossDeepProgBank;
+    int? _crossDeepHd1Bank;  // destination for newly copied HD-1 programs
+    int? _crossDeepExiBank;  // destination for newly copied EXi programs
     DeepCopyPlan? _crossDeepPlan;
 
     void SetCrossDeepMode(bool deep)
     {
         _crossDeepMode = deep;
         if (deep)
-            _crossDeepProgBank = DefaultDeepProgramBank();
+        {
+            _crossDeepHd1Bank = DefaultDeepProgramBank(ProgramBankType.Hd1);
+            _crossDeepExiBank = DefaultDeepProgramBank(ProgramBankType.Exi);
+        }
         _crossDeepPlan = null;
     }
 
-    void OnCrossDeepProgBankChanged(ChangeEventArgs e)
+    void OnCrossDeepBankChanged(ProgramBankType type, ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var idx) && idx >= 0)
         {
-            _crossDeepProgBank = idx;
+            if (type == ProgramBankType.Hd1)
+                _crossDeepHd1Bank = idx;
+            else
+                _crossDeepExiBank = idx;
             _crossDeepPlan = null;
         }
     }
 
-    // Present program bank with the most free slots (ties go to the lowest index).
-    int DefaultDeepProgramBank()
+    // Present program bank of the given engine type with the most free slots
+    // (ties go to the lowest index); null when the file has no bank of that type.
+    int? DefaultDeepProgramBank(ProgramBankType type)
     {
-        if (_catalog is null) return 0;
-        int best = 0, bestFree = -1;
+        if (_catalog is null) return null;
+        int? best = null;
+        int bestFree = -1;
         foreach (var i in PresentBanks(_catalog.ProgramBanks))
         {
+            if (_catalog.ProgramBankTypes[i] != type)
+                continue;
             int free = PcgDeepCopy.FreeProgramSlots(_catalog.ProgramBanks[i]).Count;
             if (free > bestFree)
             {
@@ -2300,7 +2362,21 @@
         if (!_crossDeepMode || _crossKind != CrossKind.Combis || _pcg is null || _srcPcg is null
             || _crossSelection is not { } sel)
             return null;
-        return _crossDeepPlan ??= PcgDeepCopy.Plan(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDeepProgBank);
+        _crossDeepHd1Bank = SanitizeDeepBank(_crossDeepHd1Bank, ProgramBankType.Hd1);
+        _crossDeepExiBank = SanitizeDeepBank(_crossDeepExiBank, ProgramBankType.Exi);
+        return _crossDeepPlan ??= PcgDeepCopy.Plan(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDeepHd1Bank, _crossDeepExiBank);
+    }
+
+    // Keeps a per-type deep-copy bank choice valid (present + right engine type); falls
+    // back to the type's default bank when the choice no longer holds.
+    int? SanitizeDeepBank(int? bank, ProgramBankType type)
+    {
+        if (_catalog is not null && bank is { } b
+            && b >= 0 && b < _catalog.ProgramBanks.Count
+            && _catalog.ProgramBanks[b].Count > 0
+            && _catalog.ProgramBankTypes[b] == type)
+            return bank;
+        return DefaultDeepProgramBank(type);
     }
 
     static string DeepSkipText(DeepCopyTimbreSkip s) => s.Reason switch
@@ -2524,6 +2600,13 @@
             if (banks[i].Count > 0)
                 yield return i;
     }
+
+    // "EXi, " / "HD-1, " prefix for program-bank labels; empty when the type is unknown.
+    static string ProgramTypeTag(PcgCatalog? catalog, int bank) =>
+        catalog is not null && bank >= 0 && bank < catalog.ProgramBankTypes.Count
+            && catalog.ProgramBankTypes[bank] is { } t
+            ? $"{PcgBankIdentity.TypeLabel(t)}, "
+            : "";
 
     // Keeps a bank selection on a bank the file carries, preferring the desired index.
     static int SnapToPresent(int desired, IReadOnlyList<IReadOnlyList<string>> banks)

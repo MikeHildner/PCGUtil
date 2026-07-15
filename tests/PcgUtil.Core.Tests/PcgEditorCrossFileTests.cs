@@ -13,10 +13,11 @@ public class PcgEditorCrossFileTests
         var source = PcgReader.Parse(PcgEditor.RenameProgram(Sample.Parse(), 0, 0, "Xfile Prog Zz9"));
         var destination = Sample.Parse();
 
-        var edited = PcgEditor.CopyProgramAcross(source, 0, 0, destination, 8, 5);
+        // INT-A is EXi, so the destination must be an EXi bank too (USER-CC = 15).
+        var edited = PcgEditor.CopyProgramAcross(source, 0, 0, destination, 15, 5);
         var catalog = PcgCatalog.Build(PcgReader.Parse(edited));
 
-        Assert.Equal("Xfile Prog Zz9", catalog.ProgramBanks[8][5]);           // landed
+        Assert.Equal("Xfile Prog Zz9", catalog.ProgramBanks[15][5]);          // landed
         Assert.Equal("Berlin Grand SW2 U.C.", catalog.ProgramBanks[0][0]);    // destination (0,0) untouched
         Assert.Equal("Xfile Prog Zz9",
             PcgCatalog.Build(source).ProgramBanks[0][0]);                     // source unchanged
@@ -60,7 +61,7 @@ public class PcgEditorCrossFileTests
     {
         var source = PcgReader.Parse(PcgEditor.RenameProgram(Sample.Parse(), 0, 0, "Xfile Sum Zz9"));
         var destination = Sample.Parse();
-        var edited = PcgEditor.CopyProgramAcross(source, 0, 0, destination, 8, 5);
+        var edited = PcgEditor.CopyProgramAcross(source, 0, 0, destination, 15, 5); // EXi → EXi
 
         foreach (var chunk in destination.EnumerateChunks())
         {

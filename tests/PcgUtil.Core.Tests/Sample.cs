@@ -3,8 +3,10 @@ using PcgUtil.Core;
 namespace PcgUtil.Core.Tests;
 
 /// <summary>Locates and loads the sample PCG for tests: the first *.PCG (by name) in the
-/// repo's untracked <c>files/</c> directory. Content assertions are pinned to whatever file
-/// is there, so swapping in a new sample means re-pinning the expected values.</summary>
+/// repo's untracked <c>files/</c> directory, skipping derived artifacts (names containing
+/// "edited" or "test") so app-produced downloads sitting next to the pristine export don't
+/// change what the suite pins against. Content assertions are pinned to whatever file is
+/// there, so swapping in a new sample means re-pinning the expected values.</summary>
 internal static class Sample
 {
     public static string Path { get; } = Find();
@@ -22,6 +24,12 @@ internal static class Sample
             if (Directory.Exists(filesDir))
             {
                 var candidate = Directory.EnumerateFiles(filesDir, "*.PCG")
+                    .Where(p =>
+                    {
+                        var name = System.IO.Path.GetFileName(p);
+                        return !name.Contains("edited", StringComparison.OrdinalIgnoreCase)
+                            && !name.StartsWith("test", StringComparison.OrdinalIgnoreCase);
+                    })
                     .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
                     .FirstOrDefault();
                 if (candidate is not null)

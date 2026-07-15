@@ -13,6 +13,11 @@ namespace PcgUtil.Core;
 public sealed class PcgCatalog
 {
     public required IReadOnlyList<IReadOnlyList<string>> ProgramBanks { get; init; }
+
+    /// <summary>Engine type per program bank (parallel to <see cref="ProgramBanks"/>);
+    /// null = bank absent from the file.</summary>
+    public required IReadOnlyList<ProgramBankType?> ProgramBankTypes { get; init; }
+
     public required IReadOnlyList<IReadOnlyList<string>> CombiBanks { get; init; }
 
     /// <summary>Drum kit names per bank (<c>DBK1</c> under <c>DKT1</c>; same record layout).</summary>
@@ -24,9 +29,11 @@ public sealed class PcgCatalog
     public static PcgCatalog Build(PcgFile pcg)
     {
         ArgumentNullException.ThrowIfNull(pcg);
+        var programChunks = PcgBankIdentity.CanonicalBanks(pcg, "PRG1");
         return new PcgCatalog
         {
             ProgramBanks = ReadSection(pcg, "PRG1"),
+            ProgramBankTypes = programChunks.Select(c => PcgBankIdentity.TypeFromChunkId(c?.Id)).ToList(),
             CombiBanks = ReadSection(pcg, "CMB1"),
             DrumKitBanks = ReadSection(pcg, "DKT1"),
             WaveSequenceBanks = ReadSection(pcg, "WSQ1"),
