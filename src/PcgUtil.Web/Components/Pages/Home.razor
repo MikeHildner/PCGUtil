@@ -10,9 +10,8 @@
 <h1 class="mb-3">PCG Util</h1>
 
 <p class="text-body-secondary">
-    Upload a <code>.PCG</code> file to inspect its chunk structure and embedded names
-    (Set Lists, Programs, Combis, Drum Kits, Wave Sequences, Global). The file is parsed in
-    server memory and is not saved to disk.
+    Open a <code>.PCG</code> backup from your workstation to organize set lists, explore your
+    sounds, and move songs between files. Files are read in memory — nothing is saved on the server.
 </p>
 
 <div class="card mb-4">
@@ -69,6 +68,47 @@
 
     @switch (_view)
     {
+        case View.Home:
+        {
+            <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2 mb-1">
+                <h2 class="h4 mb-0">What would you like to do?</h2>
+                <span class="small text-body-secondary">
+                    @_fileName · @Format.Bytes(_pcg.Length)
+                    @if (_dirty)
+                    {
+                        <span class="badge text-bg-warning ms-1">unsaved edits</span>
+                    }
+                </span>
+            </div>
+            <p class="text-body-secondary small">
+                Your backup stays untouched — every change lands in a new file you download.
+            </p>
+            @if (_dirty)
+            {
+                <div class="alert alert-success d-flex justify-content-between align-items-center py-2 px-3 small mb-3">
+                    <span>Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file.</span>
+                    <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+                </div>
+            }
+            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-3">
+                @foreach (var card in TaskCards())
+                {
+                    <div class="col">
+                        <button type="button" class="task-card card h-100 w-100 text-start" @onclick="card.Open">
+                            <div class="card-body">
+                                <svg class="task-card-icon" viewBox="0 0 16 16" fill="currentColor" width="22" height="22" aria-hidden="true">
+                                    @((MarkupString)card.IconPaths)
+                                </svg>
+                                <div class="fw-semibold mt-2">@card.Title</div>
+                                <div class="small text-body-secondary mt-1">@card.Blurb</div>
+                            </div>
+                        </button>
+                    </div>
+                }
+            </div>
+            break;
+        }
+
         case View.Overview:
         {
             <div class="row g-3 mb-4">
@@ -1463,7 +1503,7 @@
 }
 
 @code {
-    enum View { Overview, SetLists, Combis, Programs, Copy, Differences, Usage, Duplicates, Search, Strings, Tree }
+    enum View { Home, SetLists, Combis, Programs, Copy, Differences, Usage, Duplicates, Search, Overview, Strings, Tree }
     enum UsageSort { BankNumber, Name, MostUsed }
     enum CrossKind { Programs, Combis, SetListSlots }
 
@@ -1474,7 +1514,7 @@
     string? _fileName;
     string? _error;
     bool _loading;
-    View _view = View.Overview;
+    View _view = View.Home;
 
     List<(PcgChunk Chunk, int Depth)> _chunkChoices = new();
     PcgChunk? _selectedChunk;
@@ -1559,7 +1599,7 @@
             }
 
             _pcg = PcgReader.Parse(ms.ToArray());
-            _view = View.SetLists; // musicians first: "are my songs here?"
+            _view = View.Home; // land on the task cards: "what would you like to do?"
             _showAdvanced = false;
             _dirty = false;
             _editMode = false;
@@ -1662,8 +1702,42 @@
     static readonly View[] AdvancedViews = { View.Overview, View.Strings, View.Tree };
     bool _showAdvanced;
 
+    // ----- Start page: task cards in musician language, each opening a workspace -----
+
+    sealed record TaskCardDef(string Title, string Blurb, string IconPaths, Action Open);
+
+    // Icon path data from Bootstrap Icons (MIT) — inline so no icon font is needed.
+    TaskCardDef[] TaskCards() => new[]
+    {
+        new TaskCardDef("Prepare a gig",
+            "Reorder your set list, rename songs, add performance notes, print a cheat sheet.",
+            "<path fill-rule='evenodd' d='M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5'/><path d='M1.713 11.865v-.474H2c.217 0 .363-.137.363-.317 0-.185-.158-.31-.361-.31-.223 0-.367.152-.373.31h-.59c.016-.467.373-.787.986-.787.588-.002.954.291.957.703a.595.595 0 0 1-.492.594v.033a.615.615 0 0 1 .569.631c.003.533-.502.8-1.051.8-.656 0-1-.37-1.008-.794h.582c.008.178.186.306.422.309.254 0 .424-.145.422-.35-.002-.195-.155-.348-.414-.348h-.3zm-.004-4.699h-.604v-.035c0-.408.295-.844.958-.844.583 0 .96.326.96.756 0 .389-.257.617-.476.848l-.537.572v.03h1.054V9H1.143v-.395l.957-.99c.138-.142.293-.304.293-.508 0-.18-.147-.32-.342-.32a.33.33 0 0 0-.342.338zM2.564 5h-.635V2.924h-.031l-.598.42v-.567l.629-.443h.635z'/>",
+            () => _view = View.SetLists),
+        new TaskCardDef("Add sounds from another file",
+            "Bring a song you bought — or built on another backup — into this file, with everything it needs to sound right.",
+            "<path fill-rule='evenodd' d='M3.5 6a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1 0-1h2A1.5 1.5 0 0 1 14 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-8A1.5 1.5 0 0 1 3.5 5h2a.5.5 0 0 1 0 1z'/><path fill-rule='evenodd' d='M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z'/>",
+            () => { _view = View.Copy; SetCrossKind(CrossKind.Combis); }),
+        new TaskCardDef("Explore this file",
+            "Browse set lists, see each combi's splits and layers, find any sound by name.",
+            "<path d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0'/>",
+            () => _view = View.Combis),
+        new TaskCardDef("Tidy up",
+            "Sort banks A–Z, push empty slots to the end, find duplicates and sounds nothing uses.",
+            "<path d='M9.5 2.672a.5.5 0 1 0 1 0V.843a.5.5 0 0 0-1 0zm4.5.035A.5.5 0 0 0 13.293 2L12 3.293a.5.5 0 1 0 .707.707zM7.293 4A.5.5 0 1 0 8 3.293L6.707 2A.5.5 0 0 0 6 2.707zm-.621 2.5a.5.5 0 1 0 0-1H4.843a.5.5 0 1 0 0 1zm8.485 0a.5.5 0 1 0 0-1h-1.829a.5.5 0 0 0 0 1zM13.293 10A.5.5 0 1 0 14 9.293L12.707 8a.5.5 0 1 0-.707.707zM9.5 11.157a.5.5 0 0 0 1 0V9.328a.5.5 0 0 0-1 0zm1.854-5.097a.5.5 0 0 0 0-.706l-.708-.708a.5.5 0 0 0-.707 0L8.646 5.94a.5.5 0 0 0 0 .707l.708.708a.5.5 0 0 0 .707 0l1.293-1.293Zm-3 3a.5.5 0 0 0 0-.706l-.708-.708a.5.5 0 0 0-.707 0L.646 13.94a.5.5 0 0 0 0 .707l.708.708a.5.5 0 0 0 .707 0z'/>",
+            () => _view = View.Usage),
+        new TaskCardDef("Compare two backups",
+            "See exactly what changed between this file and an older one.",
+            "<path fill-rule='evenodd' d='M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5m14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5'/>",
+            () => _view = View.Differences),
+        new TaskCardDef("Under the hood",
+            "File structure, raw data, and the hardware test checklist — for the curious.",
+            "<path d='M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0'/><path d='M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z'/>",
+            () => _view = View.Overview),
+    };
+
     static string TabLabel(View v) => v switch
     {
+        View.Home => "Start",
         View.Overview => "File info",
         View.SetLists => "Set Lists",
         View.Combis => "Combis",
