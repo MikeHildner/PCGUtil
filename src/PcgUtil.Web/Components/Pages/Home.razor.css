@@ -49,3 +49,36 @@
     color: var(--bs-body-color);
     font-weight: 600;
 }
+
+/* One swipeable row of tabs on phones instead of a three-row wrap. */
+@media (max-width: 767.98px) {
+    .nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .nav-tabs .nav-link {
+        white-space: nowrap;
+    }
+}
+
+/* Zone map rows (heights live here so touch sizing can override them). */
+.zone-bar-row {
+    height: 1.4rem;
+}
+
+.zone-bar-lane {
+    height: 1.15rem;
+}
+
+/* Touch/small screens: chunkier zone-map bars. */
+@media (pointer: coarse), (max-width: 991.98px) {
+    .zone-bar-row {
+        height: 1.65rem;
+    }
+
+    .zone-bar-lane {
+        height: 1.4rem;
+    }
+}

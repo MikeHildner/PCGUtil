@@ -193,8 +193,8 @@
                         <thead>
                             <tr>
                                 <th>Song</th>
-                                <th style="width:9rem">Where</th>
-                                <th style="width:13rem">Info</th>
+                                <th style="width:9rem" class="d-none d-sm-table-cell">Where</th>
+                                <th style="width:13rem" class="d-none d-md-table-cell">Info</th>
                                 <th style="width:11rem"></th>
                             </tr>
                         </thead>
@@ -203,8 +203,8 @@
                             {
                                 <tr @key="@($"add-{c.Bank}-{c.Index}")">
                                     <td>@c.Name</td>
-                                    <td class="small text-body-secondary">@PcgBankLabels.Combi(c.Bank) #@c.Index.ToString("D3")</td>
-                                    <td class="small text-body-secondary">
+                                    <td class="small text-body-secondary d-none d-sm-table-cell">@PcgBankLabels.Combi(c.Bank) #@c.Index.ToString("D3")</td>
+                                    <td class="small text-body-secondary d-none d-md-table-cell">
                                         @CombiCategories.Name(c.Category)@(c.Tempo > 0 ? $" · {c.Tempo:0.##} BPM" : "")
                                     </td>
                                     <td class="text-nowrap">
@@ -583,9 +583,9 @@
                                 @if (_editMode)
                                 {
                                     <td class="text-nowrap">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up"
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up" aria-label="Move up"
                                                 disabled="@(slot.Index == 0)" @onclick="() => MoveSlot(slot.Index, -1)">▲</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down"
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down" aria-label="Move down"
                                                 disabled="@(slot.Index >= sl.Slots.Count - 1)" @onclick="() => MoveSlot(slot.Index, 1)">▼</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Copy this slot"
                                                 @onclick="() => StartCopy(slot)">Copy</button>
@@ -769,7 +769,7 @@
                         <tr>
                             <th style="width:4rem">#</th>
                             <th>Name</th>
-                            <th style="width:6rem" title="Set-list slots that load this combi">Used by</th>
+                            <th style="width:6rem" class="d-none d-md-table-cell" title="Set-list slots that load this combi">Used by</th>
                             <th style="width:6.5rem"></th>
                             @if (_editMode)
                             {
@@ -796,7 +796,7 @@
                                         @(isEmpty ? "—" : name)
                                     }
                                 </td>
-                                <td>@(refs > 0 ? refs.ToString() : "")</td>
+                                <td class="d-none d-md-table-cell">@(refs > 0 ? refs.ToString() : "")</td>
                                 <td>
                                     @if (!isEmpty)
                                     {
@@ -807,9 +807,9 @@
                                 @if (_editMode)
                                 {
                                     <td class="text-nowrap">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up"
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up" aria-label="Move up"
                                                 disabled="@(idx == 0)" @onclick="() => MoveCombi(idx, -1)">▲</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down"
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down" aria-label="Move down"
                                                 disabled="@(idx >= bank.Count - 1)" @onclick="() => MoveCombi(idx, 1)">▼</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Copy this combi"
                                                 @onclick="() => StartCombiCopy(idx)">Copy</button>
@@ -932,7 +932,7 @@
                         <tr>
                             <th style="width:4rem">#</th>
                             <th>Name</th>
-                            <th style="width:6rem" title="Combi timbres + program-type set-list slots that use this program">Used by</th>
+                            <th style="width:6rem" class="d-none d-md-table-cell" title="Combi timbres + program-type set-list slots that use this program">Used by</th>
                             @if (_editMode)
                             {
                                 <th style="width:13rem">Edit</th>
@@ -958,13 +958,13 @@
                                         @(isEmpty ? "—" : name)
                                     }
                                 </td>
-                                <td>@(refs > 0 ? refs.ToString() : "")</td>
+                                <td class="d-none d-md-table-cell">@(refs > 0 ? refs.ToString() : "")</td>
                                 @if (_editMode)
                                 {
                                     <td class="text-nowrap">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up"
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up" aria-label="Move up"
                                                 disabled="@(idx == 0)" @onclick="() => MoveProgram(idx, -1)">▲</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down"
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down" aria-label="Move down"
                                                 disabled="@(idx >= bank.Count - 1)" @onclick="() => MoveProgram(idx, 1)">▼</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Copy this program"
                                                 @onclick="() => StartProgramCopy(idx)">Copy</button>
@@ -1305,7 +1305,7 @@
                                 <th>Name</th>
                                 @if (_crossKind == CrossKind.SetListSlots)
                                 {
-                                    <th>Loads</th>
+                                    <th class="d-none d-md-table-cell">Loads</th>
                                 }
                                 <th style="@(_crossKind == CrossKind.Combis ? "width:10rem" : "width:6rem")"></th>
                             </tr>
@@ -1318,7 +1318,7 @@
                                     <td>@row.Name</td>
                                     @if (_crossKind == CrossKind.SetListSlots)
                                     {
-                                        <td class="small text-body-secondary">@row.Extra</td>
+                                        <td class="small text-body-secondary d-none d-md-table-cell">@row.Extra</td>
                                     }
                                     <td class="text-nowrap">
                                         @if (_crossKind == CrossKind.Combis)
@@ -1498,7 +1498,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead>
                     <tr>
-                        <th style="width:5rem">Bank</th>
+                        <th style="width:5rem" class="d-none d-md-table-cell">Bank</th>
                         <th style="width:4rem">#</th>
                         <th>Program</th>
                         <th style="width:4rem" class="text-end">Refs</th>
@@ -1509,7 +1509,7 @@
                     @foreach (var p in programsView)
                     {
                         <tr>
-                            <td>@PcgBankLabels.Program(p.BankIndex)</td>
+                            <td class="d-none d-md-table-cell">@PcgBankLabels.Program(p.BankIndex)</td>
                             <td>@p.Number.ToString("D3")</td>
                             <td>@(string.IsNullOrEmpty(p.Name) ? "—" : p.Name)</td>
                             <td class="text-end">@p.ReferenceCount</td>
@@ -2265,9 +2265,9 @@
                 var width = Pct((t.TopKey - t.BottomKey + 1) * 100.0 / 128);
                 var label = $"{PcgNotes.Name(t.BottomKey)}–{PcgNotes.Name(t.TopKey)}"
                     + (t.HasVelocityZone ? $" · vel {t.BottomVelocity}–{t.TopVelocity}" : "");
-                <div class="d-flex align-items-center" style="height:1.4rem">
+                <div class="d-flex align-items-center zone-bar-row">
                     <div class="small text-body-secondary text-end pe-2 flex-shrink-0" style="width:2.6rem">T@(t.Index + 1)</div>
-                    <div class="position-relative flex-grow-1" style="height:1.15rem">
+                    <div class="position-relative flex-grow-1 zone-bar-lane">
                         <div class="position-absolute top-0 bottom-0 rounded @(t.Mute ? "opacity-25" : null)"
                              style="left:@(left)%; width:@(width)%; background:var(--bs-primary-bg-subtle); border:1px solid var(--bs-primary-border-subtle);"></div>
                         @if (t.BottomKey > 96)
@@ -2300,7 +2300,7 @@
                 <tr>
                     <th style="width:3.5rem">T#</th><th style="width:5rem">Status</th><th>Program</th>
                     <th style="width:6.5rem">Keys</th><th style="width:5.5rem">Vel</th>
-                    <th style="width:3.5rem">Ch</th><th style="width:3.5rem">Vol</th><th style="width:4rem">Xpose</th>
+                    <th style="width:3.5rem" class="d-none d-md-table-cell">Ch</th><th style="width:3.5rem" class="d-none d-md-table-cell">Vol</th><th style="width:4rem" class="d-none d-md-table-cell">Xpose</th>
                 </tr>
             </thead>
             <tbody>
@@ -2319,9 +2319,9 @@
                         </td>
                         <td class="@(t.HasKeyZone ? null : "text-body-tertiary")">@PcgNotes.Name(t.BottomKey)–@PcgNotes.Name(t.TopKey)</td>
                         <td class="@(t.HasVelocityZone ? null : "text-body-tertiary")">@t.BottomVelocity–@t.TopVelocity</td>
-                        <td>@(t.MidiChannel == 16 ? "Gch" : (t.MidiChannel + 1).ToString())</td>
-                        <td>@t.Volume</td>
-                        <td class="@(t.Transpose == 0 ? "text-body-tertiary" : null)">@(t.Transpose == 0 ? "—" : t.Transpose.ToString("+0;-0"))</td>
+                        <td class="d-none d-md-table-cell">@(t.MidiChannel == 16 ? "Gch" : (t.MidiChannel + 1).ToString())</td>
+                        <td class="d-none d-md-table-cell">@t.Volume</td>
+                        <td class="d-none d-md-table-cell @(t.Transpose == 0 ? "text-body-tertiary" : null)">@(t.Transpose == 0 ? "—" : t.Transpose.ToString("+0;-0"))</td>
                     </tr>
                 }
             </tbody>
@@ -2930,7 +2930,7 @@
                     <th style="width:6.5rem">Change</th>
                     <th style="width:11rem">Where</th>
                     <th>Name</th>
-                    <th>Detail</th>
+                    <th class="d-none d-md-table-cell">Detail</th>
                 </tr>
             </thead>
             <tbody>
@@ -2963,7 +2963,7 @@
                                 @DisplayName(e.NameAfter)
                             }
                         </td>
-                        <td class="small text-body-secondary">@e.Detail</td>
+                        <td class="small text-body-secondary d-none d-md-table-cell">@e.Detail</td>
                     </tr>
                 }
             </tbody>

@@ -77,6 +77,36 @@ html, body {
     box-shadow: 0 0 0 0.1rem var(--bs-body-bg), 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5);
 }
 
+/* ---- Comfortable targets on touch and small screens (music-stand mode) ----
+   The width clause mirrors pointer:coarse so tablets always qualify and the
+   behavior is testable by resizing. Taller table rows are the intended trade. */
+@media (pointer: coarse), (max-width: 991.98px) {
+    .btn-sm {
+        min-height: 2.75rem; /* ≥44px */
+        padding: 0.45rem 0.9rem;
+    }
+
+    .form-select-sm,
+    .form-control-sm {
+        min-height: 2.75rem;
+        font-size: 1rem;
+    }
+
+    .form-check-input {
+        width: 1.35em;
+        height: 1.35em;
+    }
+
+    .nav-tabs .nav-link {
+        padding: 0.65rem 1rem;
+    }
+
+    .table > :not(caption) > * > * {
+        padding-top: 0.55rem;
+        padding-bottom: 0.55rem;
+    }
+}
+
 .content {
     padding-top: 1.1rem;
 }

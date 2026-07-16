@@ -37,7 +37,9 @@ main {
         text-overflow: ellipsis;
     }
 
-@media (max-width: 640.98px) {
+/* Sidebar collapses through tablet portrait (≤991px) so tables get the full width;
+   the fixed sidebar only returns on desktop. */
+@media (max-width: 991.98px) {
     .top-row {
         justify-content: space-between;
     }
@@ -45,9 +47,14 @@ main {
     .top-row ::deep a, .top-row ::deep .btn-link {
         margin-left: 0;
     }
+
+    article {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
 }
 
-@media (min-width: 641px) {
+@media (min-width: 992px) {
     .page {
         flex-direction: row;
     }
