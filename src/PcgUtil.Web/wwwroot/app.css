@@ -1,19 +1,80 @@
-html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+/* ---- Typeface: Inter (self-hosted, OFL — see fonts/LICENSE.txt) ---- */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('fonts/Inter-Regular.woff2') format('woff2');
 }
 
-a, .btn-link {
-    color: #006bb7;
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('fonts/Inter-SemiBold.woff2') format('woff2');
+}
+
+html, body {
+    font-family: 'Inter', system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+.fw-semibold, .fw-bold, b, strong, th {
+    font-weight: 600;
+}
+
+/* ---- Accent: indigo, in both themes (Bootstrap 5.3 CSS-variable overrides) ---- */
+:root, [data-bs-theme=light] {
+    --bs-primary: #4f46e5;
+    --bs-primary-rgb: 79, 70, 229;
+    --bs-link-color: #4f46e5;
+    --bs-link-color-rgb: 79, 70, 229;
+    --bs-link-hover-color: #4338ca;
+    --bs-link-hover-color-rgb: 67, 56, 202;
+    --bs-primary-bg-subtle: #e0e7ff;
+    --bs-primary-border-subtle: #c7d2fe;
+    --bs-focus-ring-color: rgba(79, 70, 229, 0.25);
+}
+
+[data-bs-theme=dark] {
+    --bs-primary: #818cf8;
+    --bs-primary-rgb: 129, 140, 248;
+    --bs-link-color: #a5b4fc;
+    --bs-link-color-rgb: 165, 180, 252;
+    --bs-link-hover-color: #c7d2fe;
+    --bs-link-hover-color-rgb: 199, 210, 254;
+    --bs-primary-bg-subtle: #312e81;
+    --bs-primary-border-subtle: #4338ca;
+    --bs-focus-ring-color: rgba(129, 140, 248, 0.3);
 }
 
 .btn-primary {
-    color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    --bs-btn-bg: #4f46e5;
+    --bs-btn-border-color: #4f46e5;
+    --bs-btn-hover-bg: #4338ca;
+    --bs-btn-hover-border-color: #4338ca;
+    --bs-btn-active-bg: #3730a3;
+    --bs-btn-active-border-color: #3730a3;
+    --bs-btn-disabled-bg: #4f46e5;
+    --bs-btn-disabled-border-color: #4f46e5;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: #4f46e5;
+    --bs-btn-border-color: #4f46e5;
+    --bs-btn-hover-bg: #4f46e5;
+    --bs-btn-hover-border-color: #4f46e5;
+    --bs-btn-active-bg: #4338ca;
+    --bs-btn-active-border-color: #4338ca;
+}
+
+[data-bs-theme=dark] .btn-outline-primary {
+    --bs-btn-color: #a5b4fc;
+    --bs-btn-border-color: #818cf8;
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem var(--bs-body-bg), 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5);
 }
 
 .content {

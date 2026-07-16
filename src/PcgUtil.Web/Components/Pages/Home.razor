@@ -7,33 +7,61 @@
 
 <PageTitle>PCG Util</PageTitle>
 
-<h1 class="mb-3">PCG Util</h1>
+@if (_pcg is null)
+{
+    <h1 class="mb-3">PCG Util</h1>
 
-<p class="text-body-secondary">
-    Open a <code>.PCG</code> backup from your workstation to organize set lists, explore your
-    sounds, and move songs between files. Files are read in memory — nothing is saved on the server.
-</p>
+    <p class="text-body-secondary">
+        Open a <code>.PCG</code> backup from your workstation to organize set lists, explore your
+        sounds, and move songs between files. Files are read in memory — nothing is saved on the server.
+    </p>
 
-<div class="card mb-4">
-    <div class="card-body">
-        <label class="form-label fw-semibold">Choose a .PCG file</label>
-        <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="form-control" />
-        @if (_loading)
-        {
-            <div class="mt-2 text-body-secondary">
-                <span class="spinner-border spinner-border-sm" role="status"></span>
-                Reading and parsing @_fileName …
-            </div>
-        }
-        @if (_error is not null)
-        {
-            <div class="alert alert-danger mt-3 mb-0">@_error</div>
-        }
+    <div class="card mb-4" style="max-width:44rem">
+        <div class="card-body">
+            <label class="form-label fw-semibold">Choose a .PCG file</label>
+            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="form-control" />
+            @if (_loading)
+            {
+                <div class="mt-2 text-body-secondary">
+                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                    Reading and parsing @_fileName …
+                </div>
+            }
+            @if (_error is not null)
+            {
+                <div class="alert alert-danger mt-3 mb-0">@_error</div>
+            }
+        </div>
     </div>
-</div>
+}
 
 @if (_pcg is not null)
 {
+    <div class="file-header d-flex align-items-center gap-2 flex-wrap">
+        <span class="fw-semibold text-truncate" style="max-width:20rem" title="@_fileName">@_fileName</span>
+        <span class="small text-body-secondary">@Format.Bytes(_pcg.Length)</span>
+        @if (_dirty)
+        {
+            <span class="badge text-bg-warning" title="Edits are held in memory until you download the new file">unsaved edits</span>
+            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
+        }
+        @if (_loading)
+        {
+            <span class="small text-body-secondary">
+                <span class="spinner-border spinner-border-sm" role="status"></span> Reading @_fileName …
+            </span>
+        }
+        @if (_error is not null)
+        {
+            <span class="small text-danger">@_error</span>
+        }
+        <span class="ms-auto"></span>
+        <label class="btn btn-sm btn-outline-secondary mb-0">
+            Open another file
+            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="d-none" />
+        </label>
+    </div>
+
     <ul class="nav nav-tabs mb-3">
         @foreach (var tab in Enum.GetValues<View>().Where(t => !AdvancedViews.Contains(t) && !HiddenViews.Contains(t)))
         {
@@ -70,26 +98,10 @@
     {
         case View.Home:
         {
-            <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2 mb-1">
-                <h2 class="h4 mb-0">What would you like to do?</h2>
-                <span class="small text-body-secondary">
-                    @_fileName · @Format.Bytes(_pcg.Length)
-                    @if (_dirty)
-                    {
-                        <span class="badge text-bg-warning ms-1">unsaved edits</span>
-                    }
-                </span>
-            </div>
+            <h2 class="h4 mb-1">What would you like to do?</h2>
             <p class="text-body-secondary small">
                 Your backup stays untouched — every change lands in a new file you download.
             </p>
-            @if (_dirty)
-            {
-                <div class="alert alert-success d-flex justify-content-between align-items-center py-2 px-3 small mb-3">
-                    <span>Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file.</span>
-                    <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
-                </div>
-            }
             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-3">
                 @foreach (var card in TaskCards())
                 {
@@ -505,10 +517,6 @@
                         <h2 class="h5 mb-0">@sl.DisplayName</h2>
                     }
                     <div class="d-flex gap-2">
-                        @if (_dirty)
-                        {
-                            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
-                        }
                         <div class="btn-group">
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportCurrentSetListCsv">CSV: this</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExportAllSetListsCsv">CSV: all</button>
@@ -743,19 +751,8 @@
                                         @onclick="CompactCombiBank">Compact</button>
                             </div>
                         }
-                        @if (_dirty)
-                        {
-                            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
-                        }
                     </div>
                 </div>
-
-                @if (_dirty)
-                {
-                    <p class="text-success small mb-2">
-                        Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file. The uploaded file is never modified.
-                    </p>
-                }
 
                 @if (!string.IsNullOrWhiteSpace(_combiFilter))
                 {
@@ -910,19 +907,8 @@
                                         @onclick="CompactProgramBank">Compact</button>
                             </div>
                         }
-                        @if (_dirty)
-                        {
-                            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
-                        }
                     </div>
                 </div>
-
-                @if (_dirty)
-                {
-                    <p class="text-success small mb-2">
-                        Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file. The uploaded file is never modified.
-                    </p>
-                }
 
                 @if (!string.IsNullOrWhiteSpace(_programFilter))
                 {
@@ -1067,16 +1053,6 @@
                     </div>
                 </div>
             </div>
-
-            @if (_dirty)
-            {
-                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                    <p class="text-success small mb-0">
-                        Unsaved edits held in memory — click <strong>Download edited .PCG</strong> to save a new file.
-                    </p>
-                    <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
-                </div>
-            }
 
             @if (_srcPcg is not null && _srcCatalog is not null)
             {
@@ -2229,7 +2205,8 @@
         var baseName = string.IsNullOrEmpty(_fileName)
             ? "edited"
             : System.IO.Path.GetFileNameWithoutExtension(_fileName);
-        await SaveBytes($"{baseName}-edited.PCG", _pcg.Data);
+        // Time-stamped so repeated saves stop colliding as "(1) (2)" in Downloads.
+        await SaveBytes($"{baseName}-edited-{DateTime.Now:HHmm}.PCG", _pcg.Data);
     }
 
     async Task SaveBytes(string fileName, byte[] bytes)

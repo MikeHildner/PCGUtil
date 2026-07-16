@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     @* Base href follows the IIS application path (e.g. /pcgutil/ on the shared host, / locally). *@
     <base href="@BaseHref" />
+    @* Apply the saved theme before any CSS paints, so dark mode doesn't flash white.
+       pcgCycleTheme/pcgApplyTheme in download.js keep this in sync afterwards. *@
+    <script>
+        (function () {
+            var pref = null;
+            try { pref = localStorage.getItem('pcgTheme'); } catch (e) { }
+            var dark = pref ? pref === 'dark'
+                : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+        })();
+    </script>
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />

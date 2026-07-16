@@ -19,5 +19,13 @@
                 <span class="bi bi-check2-square-nav-menu" aria-hidden="true"></span> Hardware tests
             </a>
         </div>
+        <div class="nav-item px-3 mt-auto">
+            @* The layout renders statically, so the theme toggle is plain JS (download.js). *@
+            <button type="button" class="nav-link theme-toggle" onclick="pcgCycleTheme()"
+                    title="Switch between light, dark, and follow-the-OS">
+                <span class="bi bi-half-circle-nav-menu" aria-hidden="true"></span>
+                <span id="theme-toggle-label">Theme: auto</span>
+            </button>
+        </div>
     </nav>
 </div>
