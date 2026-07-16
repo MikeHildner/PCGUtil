@@ -95,7 +95,8 @@ public static class PcgDeepCopy
         ArgumentNullException.ThrowIfNull(destination);
 
         var combi = CombiReader.Read(source).FirstOrDefault(c => c.Bank == srcBank && c.Index == srcIndex)
-            ?? throw new InvalidOperationException($"The source file has no combi at bank {srcBank} #{srcIndex}.");
+            ?? throw new InvalidOperationException(
+                $"The source file has no combi at {PcgBankLabels.Combi(srcBank)} #{srcIndex:D3}.");
 
         var srcCatalog = PcgCatalog.Build(source);
         var dstCatalog = PcgCatalog.Build(destination);

@@ -381,21 +381,42 @@ public static class PcgEditor
     internal static (long RecordsStart, int RecordSize, int Count) LocateBank(PcgFile pcg, string sectionId, int bank)
     {
         if (pcg.FindFirst(sectionId) is null)
-            throw new InvalidOperationException($"File has no {sectionId} chunk.");
+            throw new InvalidOperationException($"This file has no {SectionNoun(sectionId)} data.");
         var banks = PcgBankIdentity.CanonicalBanks(pcg, sectionId);
         if (bank < 0 || bank >= banks.Count)
             throw new ArgumentOutOfRangeException(nameof(bank));
         var chunk = banks[bank]
-            ?? throw new InvalidOperationException($"This file does not contain {sectionId} bank {bank}.");
+            ?? throw new InvalidOperationException(
+                $"This file doesn't carry {SectionNoun(sectionId)} bank {SectionBankLabel(sectionId, bank)}.");
 
         long baseOffset = chunk.DataOffset;
         int count = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset, 4));
         int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset + 4, 4));
         long recordsStart = baseOffset + BankSubHeaderSize;
         if (count < 0 || recordSize <= 0 || recordsStart + (long)count * recordSize > pcg.Data.Length)
-            throw new InvalidOperationException($"{sectionId} bank {bank} record table is out of bounds.");
+            throw new InvalidOperationException(
+                $"{SectionNoun(sectionId)} bank {SectionBankLabel(sectionId, bank)} looks damaged — try re-exporting the backup.");
         return (recordsStart, recordSize, count);
     }
+
+    // Musician-facing names for the sections whose errors can surface in the UI.
+    private static string SectionNoun(string sectionId) => sectionId switch
+    {
+        "PRG1" => "program",
+        "CMB1" => "combi",
+        "DKT1" => "drum kit",
+        "WSQ1" => "wave sequence",
+        _ => sectionId,
+    };
+
+    private static string SectionBankLabel(string sectionId, int bank) => sectionId switch
+    {
+        "PRG1" => PcgBankLabels.Program(bank),
+        "CMB1" => PcgBankLabels.Combi(bank),
+        "DKT1" => PcgBankLabels.DrumKit(bank),
+        "WSQ1" => PcgBankLabels.WaveSequence(bank),
+        _ => bank.ToString(),
+    };
 
     private static void RetargetCombiReferences(byte[] data, SetListLayout layout, int bankA, int indexA, int bankB, int indexB)
     {
@@ -714,7 +735,7 @@ public static class PcgEditor
     {
         ArgumentNullException.ThrowIfNull(pcg);
         var sbk = pcg.FindFirst("SBK1")
-            ?? throw new InvalidOperationException("File has no SBK1 (Set List) chunk.");
+            ?? throw new InvalidOperationException("This file has no set lists.");
 
         long baseOffset = sbk.DataOffset;
         int count = (int)BinaryPrimitives.ReadUInt32BigEndian(pcg.Data.AsSpan((int)baseOffset, 4));

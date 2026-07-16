@@ -469,7 +469,7 @@
         {
             if (_setLists.Count == 0)
             {
-                <p class="text-body-secondary">No Set Lists found (this file has no <code>SBK1</code> chunk).</p>
+                <p class="text-body-secondary">This file doesn't contain any set lists.</p>
             }
             else
             {
@@ -685,7 +685,7 @@
         {
             if (_catalog is null || _catalog.CombiBanks.All(b => b.Count == 0))
             {
-                <p class="text-body-secondary">No Combis found (this file has no <code>CMB1</code> chunk).</p>
+                <p class="text-body-secondary">This file doesn't contain any combis.</p>
             }
             else
             {
@@ -737,10 +737,10 @@
                         {
                             <div class="btn-group">
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        title="Sort this bank by name (A–Z, init/empty slots last) — references follow"
+                                        title="Sort this bank A–Z (empty slots go last) — every song keeps its sound"
                                         @onclick="SortCombiBank">Sort A–Z</button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        title="Push init/empty slots to the end — references follow"
+                                        title="Move empty slots to the end — every song keeps its sound"
                                         @onclick="CompactCombiBank">Compact</button>
                             </div>
                         }
@@ -832,10 +832,10 @@
                     </tbody>
                 </table>
                 <p class="text-body-secondary small">
-                    Reorder (▲▼) swaps two combis and automatically retargets the set-list slots that use them, so your
-                    songs keep their sound. "Used by" is how many set-list slots load each combi. Copy overwrites the target.
-                    <strong>Sort A–Z</strong> / <strong>Compact</strong> reorganize the whole bank (init/empty slots go last),
-                    retargeting references the same way. Use <strong>Find</strong> to jump to a combi by name or number;
+                    Reorder (▲▼) swaps two combis; the set lists that use them follow automatically, so your songs keep
+                    their sound. "Used by" is how many set-list slots load each combi. Copy overwrites the target.
+                    <strong>Sort A–Z</strong> / <strong>Compact</strong> reorganize the whole bank the same safe way
+                    (empty slots go last). Use <strong>Find</strong> to jump to a combi by name or number;
                     clear it before reordering so you can see the neighbour a swap will hit.
                 </p>
             }
@@ -846,7 +846,7 @@
         {
             if (_catalog is null || _catalog.ProgramBanks.All(b => b.Count == 0))
             {
-                <p class="text-body-secondary">No Programs found (this file has no <code>PRG1</code> chunk).</p>
+                <p class="text-body-secondary">This file doesn't contain any programs.</p>
             }
             else
             {
@@ -893,10 +893,10 @@
                         {
                             <div class="btn-group">
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        title="Sort this bank by name (A–Z, init/empty slots last) — references follow"
+                                        title="Sort this bank A–Z (empty slots go last) — every song keeps its sound"
                                         @onclick="SortProgramBank">Sort A–Z</button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        title="Push init/empty slots to the end — references follow"
+                                        title="Move empty slots to the end — every song keeps its sound"
                                         @onclick="CompactProgramBank">Compact</button>
                             </div>
                         }
@@ -982,10 +982,10 @@
                     </tbody>
                 </table>
                 <p class="text-body-secondary small">
-                    Reorder (▲▼) swaps two programs and automatically retargets the combi timbres and set-list slots that
-                    use them, so your sounds stay intact. "Used by" counts those references. Copy overwrites the target.
-                    <strong>Sort A–Z</strong> / <strong>Compact</strong> reorganize the whole bank (init/empty slots go last),
-                    retargeting references the same way. Use <strong>Find</strong> to jump to a program by name or number;
+                    Reorder (▲▼) swaps two programs; the combis and set lists that use them follow automatically, so
+                    everything keeps its sound. "Used by" is how many places load each program. Copy overwrites the target.
+                    <strong>Sort A–Z</strong> / <strong>Compact</strong> reorganize the whole bank the same safe way
+                    (empty slots go last). Use <strong>Find</strong> to jump to a program by name or number;
                     clear it before reordering so you can see the neighbour a swap will hit.
                 </p>
             }
@@ -1053,8 +1053,8 @@
                 if (!compat.AllMatch)
                 {
                     <div class="alert alert-danger">
-                        <strong>Record layouts differ</strong> (@compat.MismatchSummary) — these files don't appear
-                        to be from the same model, so copying is disabled.
+                        <strong>These files come from different instruments</strong> (@compat.MismatchSummary) —
+                        songs and sounds can't be copied between them.
                     </div>
                 }
                 else
@@ -1186,9 +1186,9 @@
                                         (_srcCatalog.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)")
                                         == (_catalog!.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber) ?? "(empty)"));
                                     <div class="small mt-2">
-                                        In the destination this combi will play whatever lives at its timbres' program slots:
-                                        <strong>@matching of @timbres.Count</strong> internal timbres currently resolve to the
-                                        same program name in both files.
+                                        In your file this combi will play whatever lives at those program slots —
+                                        <strong>@matching of @timbres.Count</strong> sounds currently match by name.
+                                        Use <em>Combi + its programs</em> to bring its own sounds along.
                                         <details class="mt-1">
                                             <summary class="text-body-secondary">show timbres</summary>
                                             <ul class="mb-0">
@@ -1363,8 +1363,8 @@
                 if (!compat.AllMatch)
                 {
                     <div class="alert alert-danger">
-                        <strong>Record layouts differ</strong> (@compat.MismatchSummary) — these files don't
-                        appear to be from the same model, so they can't be compared.
+                        <strong>These files come from different instruments</strong> (@compat.MismatchSummary) —
+                        so they can't be compared.
                     </div>
                 }
                 else
@@ -1374,8 +1374,8 @@
                     <p class="text-body-secondary small mb-2">
                         Changes from <strong>@_srcFileName</strong> (before) to
                         <strong>@_fileName</strong> (after)@(_dirty ? " — including your unsaved edits" : "").
-                        A <em>moved</em> entry is a byte-identical patch found at a new position (a reorg);
-                        <em>edited</em> referrers commonly accompany a move because their references were retargeted.
+                        A <em>moved</em> entry is the same patch found at a new position (a reorg);
+                        <em>edited</em> entries often accompany a move because they were updated to follow it.
                     </p>
 
                     @if (diff.IsEmpty)
@@ -1453,11 +1453,12 @@
                 </div>
             </div>
             <p class="text-body-secondary small">
-                Which Programs are referenced by combi timbres and program-type set-list slots —
-                <strong>@usage.Programs.Count</strong> referenced,
-                <strong>@usage.UnreferencedPrograms.Count</strong> unreferenced programs,
-                <strong>@usage.UnreferencedCombis.Count</strong> unreferenced combis.
-                "Unreferenced" means nothing in <em>this file</em> points at it; Song-type references aren't decoded yet.
+                Which programs your combis and set lists actually use —
+                <strong>@usage.Programs.Count</strong> in use,
+                <strong>@usage.UnreferencedPrograms.Count</strong> programs and
+                <strong>@usage.UnreferencedCombis.Count</strong> combis that nothing uses.
+                "Nothing uses it" means nothing in <em>this file</em> loads it; songs in separate
+                sequencer files aren't counted yet.
             </p>
 
             <div class="row g-2 align-items-end mb-3">
@@ -1487,7 +1488,7 @@
             </div>
 
             <div class="text-body-secondary small mb-2">
-                Showing @programsView.Count of @usage.Programs.Count referenced program@(usage.Programs.Count == 1 ? "" : "s")@(usageFiltered ? " (filtered)" : "").
+                Showing @programsView.Count of @usage.Programs.Count program@(usage.Programs.Count == 1 ? "" : "s") in use@(usageFiltered ? " (filtered)" : "").
                 @if (usageFiltered)
                 {
                     <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" @onclick="ClearUsageFilters">clear</button>
@@ -1531,7 +1532,7 @@
             @if (usage.UnreferencedCombis.Count > 0)
             {
                 <details class="mb-3">
-                    <summary class="h6 d-inline">Unreferenced combis (@usage.UnreferencedCombis.Count)</summary>
+                    <summary class="h6 d-inline">Combis nothing uses (@usage.UnreferencedCombis.Count)</summary>
                     <p class="text-body-secondary small mb-1 mt-1">Combis no set-list slot loads — cleanup candidates.</p>
                     <ul class="small">
                         @foreach (var c in usage.UnreferencedCombis)
@@ -1545,8 +1546,8 @@
             @if (usage.UnreferencedPrograms.Count > 0)
             {
                 <details>
-                    <summary class="h6 d-inline">Unreferenced programs (@usage.UnreferencedPrograms.Count)</summary>
-                    <p class="text-body-secondary small mb-1 mt-1">Not used by any combi timbre or program slot in this file (many factory programs land here).</p>
+                    <summary class="h6 d-inline">Programs nothing uses (@usage.UnreferencedPrograms.Count)</summary>
+                    <p class="text-body-secondary small mb-1 mt-1">Not loaded by any combi or set-list slot in this file (many factory programs land here).</p>
                     <ul class="small">
                         @foreach (var p in usage.UnreferencedPrograms.Take(MaxRows))
                         {
@@ -1570,7 +1571,7 @@
             <h2 class="h5">Duplicate patches</h2>
             <p class="text-body-secondary small">
                 Programs and combis that share a name. <span class="badge text-bg-secondary">identical</span>
-                means the records are byte-for-byte the same (a true redundant copy); without it, the name is
+                means they're exact copies of the same sound (a true redundant copy); without it, the name is
                 reused for a different sound.
             </p>
 
