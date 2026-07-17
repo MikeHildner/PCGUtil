@@ -551,7 +551,17 @@
                     <tbody>
                         @foreach (var slot in slots)
                         {
-                            <tr @key="slot.Index" class="@(slot.IsEmpty ? "text-body-secondary" : null)">
+                            var target = _catalog?.Resolve(slot.Reference);
+                            var canShowCombi = !_editMode && !slot.IsEmpty && slot.Reference.Kind == PcgItemKind.Combi && target is not null;
+                            var canJumpProgram = !_editMode && !slot.IsEmpty && slot.Reference.Kind == PcgItemKind.Program && target is not null;
+                            var clickable = canShowCombi || canJumpProgram;
+                            <tr @key="slot.Index" id="slot-row-@slot.Index"
+                                class="@(slot.IsEmpty ? "text-body-secondary" : null) @(clickable ? "row-clickable" : null)"
+                                role="@(clickable ? "button" : null)" tabindex="@(clickable ? "0" : null)"
+                                aria-expanded="@(canShowCombi ? (_slotDetailSlot == slot.Index ? "true" : "false") : null)"
+                                title="@(canShowCombi ? "Show the combi this song loads" : canJumpProgram ? "Show this program in the Programs tab" : null)"
+                                @onclick="() => OnSlotRowClick(slot)"
+                                @onkeydown="e => OnSlotRowKeyDown(e, slot)">
                                 <td>@slot.Index.ToString("D3")</td>
                                 <td>
                                     @if (_editMode)
@@ -571,12 +581,19 @@
                                 <td>
                                     @if (!slot.IsEmpty || _editMode)
                                     {
-                                        var target = _catalog?.Resolve(slot.Reference);
                                         <span class="badge text-bg-light">@slot.Reference.Kind</span>
                                         <span class="text-body-secondary small">@SlotBankLabel(slot.Reference) · #@slot.Reference.Index.ToString("D3")</span>
                                         @if (target is not null)
                                         {
                                             <span> — @target</span>
+                                        }
+                                        @if (canShowCombi)
+                                        {
+                                            <span class="small ms-1" aria-hidden="true">@(_slotDetailSlot == slot.Index ? "▾" : "▸")</span>
+                                        }
+                                        else if (canJumpProgram)
+                                        {
+                                            <span class="small ms-1" aria-hidden="true">›</span>
                                         }
                                     }
                                 </td>
@@ -603,6 +620,21 @@
                                     </td>
                                 }
                             </tr>
+                            @if (!_editMode && _slotDetailSlot == slot.Index && _slotDetailCombi is not null)
+                            {
+                                <tr @key="@($"combi-{slot.Index}")">
+                                    <td></td>
+                                    <td colspan="2">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                            <span class="fw-semibold">@_slotDetailCombi.Name</span>
+                                            <span class="small text-body-secondary">@SlotBankLabel(slot.Reference) · #@slot.Reference.Index.ToString("D3")</span>
+                                            <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
+                                                    @onclick="() => OpenCombi(slot.Reference.Bank, slot.Reference.Index)">Open in Combis ›</button>
+                                        </div>
+                                        @TimbreTable(_slotDetailCombi, _catalog)
+                                    </td>
+                                </tr>
+                            }
                             @if (_editMode && _descSlot == slot.Index)
                             {
                                 <tr @key="@($"desc-{slot.Index}")">
@@ -783,7 +815,7 @@
                             var name = bank[idx];
                             var isEmpty = string.IsNullOrEmpty(name);
                             var refs = _combiRefCounts.GetValueOrDefault((_selectedCombiBank, idx));
-                            <tr @key="idx" class="@(isEmpty ? "text-body-secondary" : null)">
+                            <tr @key="idx" id="combi-row-@idx" class="@(isEmpty ? "text-body-secondary" : null)">
                                 <td>@idx.ToString("D3")</td>
                                 <td>
                                     @if (_editMode)
@@ -945,7 +977,7 @@
                             var name = bank[idx];
                             var isEmpty = string.IsNullOrEmpty(name);
                             var refs = refCounts.GetValueOrDefault((_selectedProgramBank, idx));
-                            <tr @key="idx" class="@(isEmpty ? "text-body-secondary" : null)">
+                            <tr @key="idx" id="program-row-@idx" class="@(isEmpty ? "text-body-secondary" : null)">
                                 <td>@idx.ToString("D3")</td>
                                 <td>
                                     @if (_editMode)
@@ -1633,10 +1665,10 @@
                 ? new List<SearchHit>()
                 : PcgSearch.Find(_catalog, _setLists, _nameQuery).ToList();
 
-            <h2 class="h5">Search names</h2>
+            <h2 class="h5">Find a song or sound</h2>
             <div class="row g-2 mb-3">
                 <div class="col-md-6">
-                    <input type="text" class="form-control form-control-sm"
+                    <input type="text" class="form-control form-control-sm" @ref="_searchInput"
                            placeholder="search Program / Combi / Set List / Drum kit / Wave seq names…"
                            @bind="_nameQuery" @bind:event="oninput" />
                 </div>
@@ -1644,7 +1676,7 @@
 
             @if (string.IsNullOrWhiteSpace(_nameQuery))
             {
-                <p class="text-body-secondary small">Type to search names across Programs, Combis, Set List slots, Drum kits, and Wave Sequences.</p>
+                <p class="text-body-secondary small">Type to search names across Programs, Combis, Set List slots, Drum kits, and Wave Sequences. Click a result to jump to it.</p>
             }
             else
             {
@@ -1652,14 +1684,34 @@
                     @hits.Count match@(hits.Count == 1 ? "" : "es")@(hits.Count > MaxRows ? $" — showing first {MaxRows}" : "")
                 </div>
                 <table class="table table-sm table-hover align-middle">
-                    <thead><tr><th style="width:7rem">Type</th><th>Name</th><th style="width:15rem">Location</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th style="width:7rem">Type</th>
+                            <th>Name</th>
+                            <th style="width:14rem">Location</th>
+                            <th style="width:5.5rem"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
                     <tbody>
                         @foreach (var h in hits.Take(MaxRows))
                         {
-                            <tr>
+                            var open = HitAction(h);
+                            <tr class="@(open is not null ? "row-clickable" : null)"
+                                role="@(open is not null ? "button" : null)"
+                                tabindex="@(open is not null ? "0" : null)"
+                                @onclick="() => open?.Invoke()"
+                                @onkeydown="e => OnHitRowKeyDown(e, open)">
                                 <td><span class="badge text-bg-light">@HitKindLabel(h.Kind)</span></td>
                                 <td>@h.Name</td>
                                 <td class="small text-body-secondary">@h.Location</td>
+                                <td class="text-end">
+                                    @if (open is not null)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2"
+                                                aria-label="Show @h.Name (@h.Location)"
+                                                @onclick="open" @onclick:stopPropagation="true">Show</button>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -1870,6 +1922,8 @@
         _addPlan = null;       // wizard plan too
         _timbreCombi = null;  // combi records may have moved
         _timbreDetail = null;
+        _slotDetailSlot = null;  // likewise for the set-list slot panel
+        _slotDetailCombi = null;
 
         if (preserveSelection)
         {
@@ -1948,13 +2002,17 @@
             "Reorder your set list, rename songs, add performance notes, print a cheat sheet.",
             "<path fill-rule='evenodd' d='M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5'/><path d='M1.713 11.865v-.474H2c.217 0 .363-.137.363-.317 0-.185-.158-.31-.361-.31-.223 0-.367.152-.373.31h-.59c.016-.467.373-.787.986-.787.588-.002.954.291.957.703a.595.595 0 0 1-.492.594v.033a.615.615 0 0 1 .569.631c.003.533-.502.8-1.051.8-.656 0-1-.37-1.008-.794h.582c.008.178.186.306.422.309.254 0 .424-.145.422-.35-.002-.195-.155-.348-.414-.348h-.3zm-.004-4.699h-.604v-.035c0-.408.295-.844.958-.844.583 0 .96.326.96.756 0 .389-.257.617-.476.848l-.537.572v.03h1.054V9H1.143v-.395l.957-.99c.138-.142.293-.304.293-.508 0-.18-.147-.32-.342-.32a.33.33 0 0 0-.342.338zM2.564 5h-.635V2.924h-.031l-.598.42v-.567l.629-.443h.635z'/>",
             () => _view = View.SetLists),
+        new TaskCardDef("Find a song or sound",
+            "Search every name in this file and jump straight to it — the song's set-list slot, the combi, the program.",
+            "<path d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0'/>",
+            OpenSearch),
         new TaskCardDef("Add sounds from another file",
             "Bring a song you bought — or built on another backup — into this file, with everything it needs to sound right.",
             "<path fill-rule='evenodd' d='M3.5 6a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1 0-1h2A1.5 1.5 0 0 1 14 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-8A1.5 1.5 0 0 1 3.5 5h2a.5.5 0 0 1 0 1z'/><path fill-rule='evenodd' d='M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z'/>",
             OpenAddSounds),
         new TaskCardDef("Explore this file",
-            "Browse set lists, see each combi's splits and layers, find any sound by name.",
-            "<path d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0'/>",
+            "Browse set lists, and see each combi's splits and layers.",
+            "<path d='M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2'/><path fill-rule='evenodd' d='M12 3v10h-1V3z'/><path d='M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V4l-5 1z'/><path fill-rule='evenodd' d='M0 11.5a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 7H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 3H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5'/>",
             () => _view = View.Combis),
         new TaskCardDef("Tidy up",
             "Sort banks A–Z, push empty slots to the end, find duplicates and sounds nothing uses.",
@@ -2048,6 +2106,8 @@
             _selectedSetList = idx;
             _descSlot = null;
             _repointSlot = null;
+            _slotDetailSlot = null;  // panel is keyed by slot index; another list's slot would inherit it
+            _slotDetailCombi = null;
         }
     }
 
@@ -2238,8 +2298,127 @@
             return;
         }
         _timbreCombi = index;
-        _timbreDetail = _pcg is null ? null
-            : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == _selectedCombiBank && c.Index == index);
+        _timbreDetail = FindCombi(_selectedCombiBank, index);
+    }
+
+    Combi? FindCombi(int bank, int index) => _pcg is null ? null
+        : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == bank && c.Index == index);
+
+    // ----- Cross-view jumps: Start card, search results, set-list slot links -----
+
+    string? _pendingReveal;   // row element id to scroll to and flash after the next render
+    bool _focusSearch;        // focus the Search query box after the next render
+    ElementReference _searchInput;
+
+    void OpenSearch()
+    {
+        _view = View.Search;
+        _focusSearch = true;
+    }
+
+    void OpenCombi(int bank, int index)
+    {
+        if (_catalog is null || bank < 0 || bank >= _catalog.CombiBanks.Count
+            || _catalog.CombiBanks[bank].Count == 0) return;
+        _view = View.Combis;
+        _selectedCombiBank = bank;
+        _combiFilter = string.Empty;  // a direct bank assignment bypasses OnCombiBankChanged's clearing
+        _timbreCombi = index;
+        _timbreDetail = FindCombi(bank, index);
+        _pendingReveal = $"combi-row-{index}";
+    }
+
+    void OpenProgram(int bank, int index)  // bank is a catalog list index, not a hardware PcgId
+    {
+        if (_catalog is null || bank < 0 || bank >= _catalog.ProgramBanks.Count
+            || _catalog.ProgramBanks[bank].Count == 0) return;
+        _view = View.Programs;
+        _selectedProgramBank = bank;
+        _programFilter = string.Empty;
+        _pendingReveal = $"program-row-{index}";
+    }
+
+    void OpenSetListSlot(int setListIndex, int slotIndex)
+    {
+        var pos = _setLists.FindIndex(s => s.Index == setListIndex);
+        if (pos < 0) return;
+        _view = View.SetLists;
+        _selectedSetList = pos;
+        _descSlot = null;
+        _repointSlot = null;
+        _slotDetailSlot = null;
+        _slotDetailCombi = null;
+        var slot = _setLists[pos].Slots.FirstOrDefault(s => s.Index == slotIndex);
+        if (slot is { IsEmpty: false } && slot.Reference.Kind == PcgItemKind.Combi)
+            ShowSlotDetail(slot);  // answer "what does this song load?" right away
+        _pendingReveal = $"slot-row-{slotIndex}";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingReveal is { } revealId)
+        {
+            _pendingReveal = null;
+            await JS.InvokeVoidAsync("pcgRevealRow", revealId);
+        }
+        if (_focusSearch)
+        {
+            _focusSearch = false;
+            await _searchInput.FocusAsync();
+        }
+    }
+
+    // ----- Set-list slots: the combi a song loads, inline -----
+
+    int? _slotDetailSlot;
+    Combi? _slotDetailCombi;
+
+    void ShowSlotDetail(SetListSlot slot)
+    {
+        if (slot.Reference.Kind != PcgItemKind.Combi) return;
+        _slotDetailCombi = FindCombi(slot.Reference.Bank, slot.Reference.Index);
+        _slotDetailSlot = _slotDetailCombi is null ? null : slot.Index;
+    }
+
+    void OnSlotRowClick(SetListSlot slot)
+    {
+        if (_editMode || slot.IsEmpty || _catalog?.Resolve(slot.Reference) is null) return;
+        if (slot.Reference.Kind == PcgItemKind.Combi)
+        {
+            if (_slotDetailSlot == slot.Index)
+            {
+                _slotDetailSlot = null;
+                _slotDetailCombi = null;
+            }
+            else
+            {
+                ShowSlotDetail(slot);
+            }
+        }
+        else if (slot.Reference.Kind == PcgItemKind.Program)
+        {
+            OpenProgram(PcgCatalog.ProgramBankIndexForPcgId(slot.Reference.Bank), slot.Reference.Index);
+        }
+        // Song slots live in the sequencer — nothing to show here.
+    }
+
+    void OnSlotRowKeyDown(KeyboardEventArgs e, SetListSlot slot)
+    {
+        if (e.Key == "Enter") OnSlotRowClick(slot);
+    }
+
+    // Search-result actions; null = nothing to jump to (drum kits and wave seqs have no view).
+    Action? HitAction(SearchHit h) => h.Kind switch
+    {
+        SearchHitKind.Combi => () => OpenCombi(h.Bank, h.Index),
+        SearchHitKind.Program => () => OpenProgram(h.Bank, h.Index),
+        SearchHitKind.SetListSlot => () => OpenSetListSlot(h.Bank, h.Index),
+        _ => null,
+    };
+
+    void OnHitRowKeyDown(KeyboardEventArgs e, Action? open)
+    {
+        if (e.Key == "Enter") open?.Invoke();
     }
 
     // "What's inside this combi": category/tempo header, a key-zone map of the splits and

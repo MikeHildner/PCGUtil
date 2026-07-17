@@ -10,8 +10,14 @@ public enum SearchHitKind
     WaveSequence,
 }
 
-/// <summary>A name match, with a human-readable location (bank label + number, or set-list/slot).</summary>
-public sealed record SearchHit(SearchHitKind Kind, string Name, string Location);
+/// <summary>
+/// A name match, with a human-readable location (bank label + number, or set-list/slot) and
+/// structured coordinates for navigation. <c>Bank</c>/<c>Index</c> are canonical list indices
+/// into the matching <see cref="PcgCatalog"/> section — Program hits carry the catalog list
+/// index, not the hardware PcgId. For <see cref="SearchHitKind.SetListSlot"/>, Bank is the
+/// set-list index and Index is the slot index.
+/// </summary>
+public sealed record SearchHit(SearchHitKind Kind, string Name, string Location, int Bank, int Index);
 
 /// <summary>
 /// Case-insensitive substring search over every name in a PCG — program and combi names, and
@@ -34,7 +40,7 @@ public static class PcgSearch
             var bank = catalog.ProgramBanks[b];
             for (int i = 0; i < bank.Count; i++)
                 if (Matches(bank[i], q))
-                    hits.Add(new SearchHit(SearchHitKind.Program, bank[i], $"{PcgBankLabels.Program(b)} #{i:D3}"));
+                    hits.Add(new SearchHit(SearchHitKind.Program, bank[i], $"{PcgBankLabels.Program(b)} #{i:D3}", b, i));
         }
 
         for (int b = 0; b < catalog.CombiBanks.Count; b++)
@@ -42,21 +48,22 @@ public static class PcgSearch
             var bank = catalog.CombiBanks[b];
             for (int i = 0; i < bank.Count; i++)
                 if (Matches(bank[i], q))
-                    hits.Add(new SearchHit(SearchHitKind.Combi, bank[i], $"{PcgBankLabels.Combi(b)} #{i:D3}"));
+                    hits.Add(new SearchHit(SearchHitKind.Combi, bank[i], $"{PcgBankLabels.Combi(b)} #{i:D3}", b, i));
         }
 
         foreach (var setList in setLists)
             foreach (var slot in setList.Slots)
                 if (!slot.IsEmpty && Matches(slot.Name, q))
                     hits.Add(new SearchHit(
-                        SearchHitKind.SetListSlot, slot.Name, $"Set List {setList.Index:D3} slot {slot.Index:D3}"));
+                        SearchHitKind.SetListSlot, slot.Name, $"Set List {setList.Index:D3} slot {slot.Index:D3}",
+                        setList.Index, slot.Index));
 
         for (int b = 0; b < catalog.DrumKitBanks.Count; b++)
         {
             var bank = catalog.DrumKitBanks[b];
             for (int i = 0; i < bank.Count; i++)
                 if (Matches(bank[i], q))
-                    hits.Add(new SearchHit(SearchHitKind.DrumKit, bank[i], $"Drum kit {PcgBankLabels.DrumKit(b)} #{i:D3}"));
+                    hits.Add(new SearchHit(SearchHitKind.DrumKit, bank[i], $"Drum kit {PcgBankLabels.DrumKit(b)} #{i:D3}", b, i));
         }
 
         for (int b = 0; b < catalog.WaveSequenceBanks.Count; b++)
@@ -64,7 +71,7 @@ public static class PcgSearch
             var bank = catalog.WaveSequenceBanks[b];
             for (int i = 0; i < bank.Count; i++)
                 if (Matches(bank[i], q))
-                    hits.Add(new SearchHit(SearchHitKind.WaveSequence, bank[i], $"Wave seq {PcgBankLabels.WaveSequence(b)} #{i:D3}"));
+                    hits.Add(new SearchHit(SearchHitKind.WaveSequence, bank[i], $"Wave seq {PcgBankLabels.WaveSequence(b)} #{i:D3}", b, i));
         }
 
         return hits;

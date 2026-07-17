@@ -53,3 +53,16 @@ window.pcgSaveFile = async (filename, streamRef) => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 };
+
+// Scrolls a just-jumped-to table row into view and flashes it so the eye lands there.
+// block:center keeps the row clear of the sticky file header.
+window.pcgRevealRow = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+    el.classList.remove("row-reveal");
+    void el.offsetWidth; // restart the animation when revealing the same row twice
+    el.classList.add("row-reveal");
+    setTimeout(() => el.classList.remove("row-reveal"), 2200);
+};

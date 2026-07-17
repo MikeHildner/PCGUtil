@@ -149,3 +149,28 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* ---- Cross-view jump affordances (search results, set-list slot rows) ---- */
+
+.row-clickable {
+    cursor: pointer;
+}
+
+/* Flash the row we just jumped to. Keyed to the accent variable so it reads in
+   both light and dark themes; applied to the cells so it plays nicely with
+   Bootstrap's inset-shadow row hover. */
+@keyframes pcg-row-reveal {
+    from { background-color: rgba(var(--bs-primary-rgb), 0.30); }
+    to   { background-color: transparent; }
+}
+
+tr.row-reveal > td {
+    animation: pcg-row-reveal 1.8s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    tr.row-reveal > td {
+        animation: none;
+        background-color: rgba(var(--bs-primary-rgb), 0.18);
+    }
+}
