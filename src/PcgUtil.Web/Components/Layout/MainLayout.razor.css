@@ -10,7 +10,7 @@ main {
 
 .sidebar {
     /* Flat dark chrome in both themes; the accent lives in the content, not the frame. */
-    background-color: #171a21;
+    background-color: #151a23;
 }
 
 .top-row {

@@ -23,10 +23,13 @@ html, body {
     font-weight: 600;
 }
 
-/* ---- Accent: indigo, in both themes (Bootstrap 5.3 CSS-variable overrides) ---- */
+/* ---- Theme tokens: deep-navy stage surfaces, indigo primary, cyan "wave" voice ----
+   Everything downstream (badges, tables, alerts, focus rings, the zone map) reads
+   these variables, so the two blocks below are the whole palette. */
 :root, [data-bs-theme=light] {
     --bs-primary: #4f46e5;
     --bs-primary-rgb: 79, 70, 229;
+    --bs-primary-text-emphasis: #3730a3;
     --bs-link-color: #4f46e5;
     --bs-link-color-rgb: 79, 70, 229;
     --bs-link-hover-color: #4338ca;
@@ -34,11 +37,40 @@ html, body {
     --bs-primary-bg-subtle: #e0e7ff;
     --bs-primary-border-subtle: #c7d2fe;
     --bs-focus-ring-color: rgba(79, 70, 229, 0.25);
+    --bs-body-bg: #f6f7f9;
+    --bs-body-bg-rgb: 246, 247, 249;
+    --bs-body-color: #1d2330;
+    --bs-body-color-rgb: 29, 35, 48;
+    --bs-emphasis-color: #10151f;
+    --bs-emphasis-color-rgb: 16, 21, 31;
+    --bs-secondary-color: rgba(29, 35, 48, 0.68);
+    --bs-secondary-color-rgb: 29, 35, 48;
+    --bs-tertiary-color: rgba(29, 35, 48, 0.48);
+    --bs-tertiary-color-rgb: 29, 35, 48;
+    --bs-secondary-bg: #eceef2;
+    --bs-secondary-bg-rgb: 236, 238, 242;
+    --bs-tertiary-bg: #f0f2f5;
+    --bs-tertiary-bg-rgb: 240, 242, 245;
+    --bs-border-color: #e3e6ec;
+    --bs-border-color-translucent: rgba(29, 35, 48, 0.09);
+    --bs-code-color: #0891b2;
+    --pcg-wave: #0891b2;
+    --pcg-wave-rgb: 8, 145, 178;
+    --pcg-surface-raised: #ffffff;
+    --pcg-glow: rgba(79, 70, 229, 0.12);
+    --pcg-zone-fill: linear-gradient(90deg, rgba(79, 70, 229, 0.16), rgba(8, 145, 178, 0.20));
+    --pcg-zone-border: rgba(8, 145, 178, 0.45);
+    --pcg-btn-primary-bg: #4f46e5;
+    --pcg-btn-primary-hover: #4338ca;
+    --pcg-btn-primary-active: #3730a3;
+    --pcg-btn-success-hover: #065f46;
+    --pcg-btn-success-active: #064e3b;
 }
 
 [data-bs-theme=dark] {
     --bs-primary: #818cf8;
     --bs-primary-rgb: 129, 140, 248;
+    --bs-primary-text-emphasis: #c7d2fe;
     --bs-link-color: #a5b4fc;
     --bs-link-color-rgb: 165, 180, 252;
     --bs-link-hover-color: #c7d2fe;
@@ -46,35 +78,337 @@ html, body {
     --bs-primary-bg-subtle: #312e81;
     --bs-primary-border-subtle: #4338ca;
     --bs-focus-ring-color: rgba(129, 140, 248, 0.3);
+    --bs-body-bg: #0e1218;
+    --bs-body-bg-rgb: 14, 18, 24;
+    --bs-body-color: #d7dce6;
+    --bs-body-color-rgb: 215, 220, 230;
+    --bs-emphasis-color: #f2f5fa;
+    --bs-emphasis-color-rgb: 242, 245, 250;
+    --bs-secondary-color: rgba(215, 220, 230, 0.72);
+    --bs-secondary-color-rgb: 215, 220, 230;
+    --bs-tertiary-color: rgba(215, 220, 230, 0.52);
+    --bs-tertiary-color-rgb: 215, 220, 230;
+    --bs-secondary-bg: #1a2029;
+    --bs-secondary-bg-rgb: 26, 32, 41;
+    --bs-tertiary-bg: #151a23;
+    --bs-tertiary-bg-rgb: 21, 26, 35;
+    --bs-border-color: #252d3a;
+    --bs-border-color-translucent: rgba(154, 168, 196, 0.14);
+    --bs-code-color: #22d3ee;
+    --pcg-wave: #22d3ee;
+    --pcg-wave-rgb: 34, 211, 238;
+    --pcg-surface-raised: #151a23;
+    --pcg-glow: rgba(129, 140, 248, 0.18);
+    --pcg-zone-fill: linear-gradient(90deg, rgba(129, 140, 248, 0.30), rgba(34, 211, 238, 0.26));
+    --pcg-zone-border: rgba(34, 211, 238, 0.50);
+    --pcg-btn-primary-bg: #4f46e5;
+    --pcg-btn-primary-hover: #6366f1;
+    --pcg-btn-primary-active: #4338ca;
+    --pcg-btn-success-hover: #059669;
+    --pcg-btn-success-active: #065f46;
 }
 
+/* ---- Buttons ---- */
+.btn { --bs-btn-border-radius: 0.55rem; }
+.btn-sm, .btn-group-sm > .btn { --bs-btn-border-radius: 0.45rem; }
+.btn-lg, .btn-group-lg > .btn { --bs-btn-border-radius: 0.7rem; }
+
 .btn-primary {
-    --bs-btn-bg: #4f46e5;
-    --bs-btn-border-color: #4f46e5;
-    --bs-btn-hover-bg: #4338ca;
-    --bs-btn-hover-border-color: #4338ca;
-    --bs-btn-active-bg: #3730a3;
-    --bs-btn-active-border-color: #3730a3;
-    --bs-btn-disabled-bg: #4f46e5;
-    --bs-btn-disabled-border-color: #4f46e5;
+    --bs-btn-color: #fff;
+    --bs-btn-bg: var(--pcg-btn-primary-bg);
+    --bs-btn-border-color: var(--pcg-btn-primary-bg);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--pcg-btn-primary-hover);
+    --bs-btn-hover-border-color: var(--pcg-btn-primary-hover);
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--pcg-btn-primary-active);
+    --bs-btn-active-border-color: var(--pcg-btn-primary-active);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: var(--pcg-btn-primary-bg);
+    --bs-btn-disabled-border-color: var(--pcg-btn-primary-bg);
+    --bs-btn-font-weight: 600;
 }
 
 .btn-outline-primary {
-    --bs-btn-color: #4f46e5;
-    --bs-btn-border-color: #4f46e5;
-    --bs-btn-hover-bg: #4f46e5;
-    --bs-btn-hover-border-color: #4f46e5;
-    --bs-btn-active-bg: #4338ca;
-    --bs-btn-active-border-color: #4338ca;
+    --bs-btn-color: var(--bs-primary);
+    --bs-btn-border-color: rgba(var(--bs-primary-rgb), 0.6);
+    --bs-btn-hover-color: var(--bs-primary);
+    --bs-btn-hover-bg: rgba(var(--bs-primary-rgb), 0.1);
+    --bs-btn-hover-border-color: var(--bs-primary);
+    --bs-btn-active-color: var(--bs-primary-text-emphasis);
+    --bs-btn-active-bg: rgba(var(--bs-primary-rgb), 0.18);
+    --bs-btn-active-border-color: var(--bs-primary);
+    --bs-btn-disabled-color: rgba(var(--bs-primary-rgb), 0.5);
+    --bs-btn-disabled-border-color: rgba(var(--bs-primary-rgb), 0.3);
 }
 
-[data-bs-theme=dark] .btn-outline-primary {
-    --bs-btn-color: #a5b4fc;
-    --bs-btn-border-color: #818cf8;
+/* Ghost row actions: quiet until you reach for them. */
+.btn-outline-secondary {
+    --bs-btn-color: var(--bs-secondary-color);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: var(--bs-border-color);
+    --bs-btn-hover-color: var(--bs-primary);
+    --bs-btn-hover-bg: rgba(var(--bs-primary-rgb), 0.08);
+    --bs-btn-hover-border-color: rgba(var(--bs-primary-rgb), 0.4);
+    --bs-btn-active-color: var(--bs-primary-text-emphasis);
+    --bs-btn-active-bg: rgba(var(--bs-primary-rgb), 0.14);
+    --bs-btn-active-border-color: rgba(var(--bs-primary-rgb), 0.5);
+    --bs-btn-disabled-color: var(--bs-tertiary-color);
+    --bs-btn-disabled-border-color: var(--bs-border-color);
+}
+
+/* btn-secondary only ever appears as the pressed half of a toggle pair, so it
+   reads as "selected", not as a second gray button. Weight stays 400 — a weight
+   swap between toggle states would shift row widths. */
+.btn-secondary {
+    --bs-btn-color: var(--bs-primary-text-emphasis);
+    --bs-btn-bg: rgba(var(--bs-primary-rgb), 0.16);
+    --bs-btn-border-color: rgba(var(--bs-primary-rgb), 0.35);
+    --bs-btn-hover-color: var(--bs-primary-text-emphasis);
+    --bs-btn-hover-bg: rgba(var(--bs-primary-rgb), 0.24);
+    --bs-btn-hover-border-color: rgba(var(--bs-primary-rgb), 0.45);
+    --bs-btn-active-color: var(--bs-primary-text-emphasis);
+    --bs-btn-active-bg: rgba(var(--bs-primary-rgb), 0.30);
+    --bs-btn-active-border-color: rgba(var(--bs-primary-rgb), 0.5);
+    --bs-btn-disabled-color: var(--bs-secondary-color);
+    --bs-btn-disabled-bg: rgba(var(--bs-primary-rgb), 0.08);
+    --bs-btn-disabled-border-color: rgba(var(--bs-primary-rgb), 0.2);
+}
+
+/* The save action — the one button that stays loud. */
+.btn-success {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #047857;
+    --bs-btn-border-color: #047857;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--pcg-btn-success-hover);
+    --bs-btn-hover-border-color: var(--pcg-btn-success-hover);
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--pcg-btn-success-active);
+    --bs-btn-active-border-color: var(--pcg-btn-success-active);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #047857;
+    --bs-btn-disabled-border-color: #047857;
+    --bs-btn-font-weight: 600;
+    box-shadow: 0 0.125rem 0.625rem rgba(5, 150, 105, 0.25);
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
     box-shadow: 0 0 0 0.1rem var(--bs-body-bg), 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5);
+}
+
+/* Bootstrap hardcodes its blue on .nav-link:focus-visible; retint to the accent. */
+.nav-link:focus-visible {
+    box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+}
+
+/* ---- Tabs: boxed folder tabs become an underline rail ---- */
+.nav-tabs {
+    --bs-nav-tabs-border-width: 0;
+    --bs-nav-link-color: var(--bs-secondary-color);
+    --bs-nav-link-hover-color: var(--bs-primary);
+    --bs-nav-tabs-link-active-color: var(--bs-primary);
+    --bs-nav-tabs-link-active-bg: transparent;
+    --bs-nav-link-font-weight: 600;
+    gap: 0.125rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.nav-tabs .nav-link {
+    position: relative;
+    border-radius: 0.45rem 0.45rem 0 0;
+}
+
+.nav-tabs .nav-link:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.06);
+}
+
+/* bottom: 0, not -1px — the phone tab scroller (overflow-x) would clip below the box. */
+.nav-tabs .nav-link.active::after {
+    content: "";
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--pcg-wave);
+    box-shadow: 0 0 0.5rem rgba(var(--pcg-wave-rgb), 0.55);
+}
+
+/* ---- Tables: hairlines, micro-caps headers, steady digits ---- */
+.table {
+    font-variant-numeric: tabular-nums;
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-border-color: var(--bs-border-color-translucent);
+}
+
+.table thead th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--bs-secondary-color);
+    border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.35);
+}
+
+.table-hover {
+    --bs-table-hover-color: var(--bs-body-color);
+    --bs-table-hover-bg: rgba(var(--bs-primary-rgb), 0.06);
+}
+
+.table-striped {
+    --bs-table-striped-color: var(--bs-body-color);
+    --bs-table-striped-bg: rgba(var(--bs-emphasis-color-rgb), 0.04);
+}
+
+/* ---- Badges: solid blocks become tinted chips ----
+   Bootstrap's .text-bg-* utilities set color/background with !important, so the
+   overrides carry it on exactly those two properties. */
+.badge {
+    --bs-badge-font-weight: 600;
+    --bs-badge-border-radius: 0.45rem;
+    --bs-badge-padding-x: 0.55em;
+    --bs-badge-padding-y: 0.3em;
+    letter-spacing: 0.015em;
+    border: 1px solid transparent;
+}
+
+.badge.text-bg-light {
+    color: var(--bs-body-color) !important;
+    background-color: var(--bs-secondary-bg) !important;
+    border-color: var(--bs-border-color);
+}
+
+.badge.text-bg-secondary {
+    color: var(--bs-secondary-color) !important;
+    background-color: rgba(var(--bs-secondary-rgb), 0.12) !important;
+    border-color: rgba(var(--bs-secondary-rgb), 0.3);
+}
+
+.badge.text-bg-warning {
+    color: var(--bs-warning-text-emphasis) !important;
+    background-color: rgba(var(--bs-warning-rgb), 0.16) !important;
+    border-color: rgba(var(--bs-warning-rgb), 0.4);
+}
+
+.badge.text-bg-success {
+    color: var(--bs-success-text-emphasis) !important;
+    background-color: rgba(var(--bs-success-rgb), 0.15) !important;
+    border-color: rgba(var(--bs-success-rgb), 0.38);
+}
+
+.badge.text-bg-danger {
+    color: var(--bs-danger-text-emphasis) !important;
+    background-color: rgba(var(--bs-danger-rgb), 0.14) !important;
+    border-color: rgba(var(--bs-danger-rgb), 0.38);
+}
+
+.badge.text-bg-info {
+    color: var(--bs-info-text-emphasis) !important;
+    background-color: rgba(var(--bs-info-rgb), 0.14) !important;
+    border-color: rgba(var(--bs-info-rgb), 0.38);
+}
+
+.badge.text-bg-primary {
+    color: var(--bs-primary-text-emphasis) !important;
+    background-color: rgba(var(--bs-primary-rgb), 0.15) !important;
+    border-color: rgba(var(--bs-primary-rgb), 0.4);
+}
+
+.badge.text-bg-dark {
+    color: var(--bs-emphasis-color) !important;
+    background-color: rgba(var(--bs-emphasis-color-rgb), 0.1) !important;
+    border-color: rgba(var(--bs-emphasis-color-rgb), 0.3);
+}
+
+/* ---- Alerts: boxes become rail panels ---- */
+.alert {
+    --bs-alert-border-radius: 0.6rem;
+    --bs-alert-padding-y: 0.7rem;
+    --bs-alert-padding-x: 0.9rem;
+    border: 0;
+    border-left: 3px solid var(--bs-alert-border-color);
+}
+
+.alert-danger {
+    --bs-alert-bg: rgba(var(--bs-danger-rgb), 0.10);
+    --bs-alert-border-color: var(--bs-danger);
+}
+
+.alert-success {
+    --bs-alert-bg: rgba(var(--bs-success-rgb), 0.10);
+    --bs-alert-border-color: var(--bs-success);
+}
+
+.alert-warning {
+    --bs-alert-bg: rgba(var(--bs-warning-rgb), 0.10);
+    --bs-alert-border-color: var(--bs-warning);
+}
+
+.alert-info {
+    --bs-alert-bg: rgba(var(--bs-info-rgb), 0.09);
+    --bs-alert-border-color: var(--pcg-wave);
+}
+
+/* ---- Cards: raised surfaces (5.3 cards default to body-bg and would vanish) ---- */
+.card {
+    --bs-card-bg: var(--pcg-surface-raised);
+    --bs-card-border-radius: 0.875rem;
+    --bs-card-inner-border-radius: calc(0.875rem - 1px);
+}
+
+/* ---- Details ---- */
+h1, h2, h3, h4 {
+    letter-spacing: -0.01em;
+}
+
+::selection {
+    background-color: rgba(var(--bs-primary-rgb), 0.3);
+}
+
+html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--bs-border-color) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--bs-border-color);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(var(--bs-body-color-rgb), 0.35);
+}
+
+.spinner-border {
+    color: var(--bs-primary);
+}
+
+/* The unsaved-edits pill breathes gently until the file is downloaded. */
+@keyframes pcg-unsaved-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--bs-warning-rgb), 0.4); }
+    50%      { box-shadow: 0 0 0 0.35rem rgba(var(--bs-warning-rgb), 0); }
+}
+
+.file-header .badge.text-bg-warning {
+    animation: pcg-unsaved-pulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .file-header .badge.text-bg-warning {
+        animation: none;
+    }
 }
 
 /* ---- Comfortable targets on touch and small screens (music-stand mode) ----

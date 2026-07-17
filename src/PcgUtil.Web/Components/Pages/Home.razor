@@ -9,7 +9,10 @@
 
 @if (_pcg is null)
 {
-    <h1 class="mb-3">PCG Util</h1>
+    <h1 class="mb-3 d-flex align-items-center gap-2">
+        <svg width="28" height="20" viewBox="0 0 20 14" fill="none" aria-hidden="true"><polyline points="1,7 5.5,7 8.5,2.5 11.5,11.5 14.5,7 19,7" fill="none" stroke="var(--pcg-wave)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        PCG Util
+    </h1>
 
     <p class="text-body-secondary">
         Open a <code>.PCG</code> backup from your workstation to organize set lists, explore your
@@ -2448,7 +2451,7 @@
                     <div class="small text-body-secondary text-end pe-2 flex-shrink-0" style="width:2.6rem">T@(t.Index + 1)</div>
                     <div class="position-relative flex-grow-1 zone-bar-lane">
                         <div class="position-absolute top-0 bottom-0 rounded @(t.Mute ? "opacity-25" : null)"
-                             style="left:@(left)%; width:@(width)%; background:var(--bs-primary-bg-subtle); border:1px solid var(--bs-primary-border-subtle);"></div>
+                             style="left:@(left)%; width:@(width)%; background:var(--pcg-zone-fill); border:1px solid var(--pcg-zone-border);"></div>
                         @if (t.BottomKey > 96)
                         {
                             <span class="position-absolute small text-nowrap @(t.Mute ? "text-body-tertiary" : null)"
