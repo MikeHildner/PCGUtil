@@ -14,7 +14,13 @@ namespace PcgUtil.Core;
 /// key zone top/bottom @ +37/+38, velocity zone top/bottom @ +40/+41.
 /// The four KARMA modules' GE selects are LE16 at record offsets 1814/2558/3302/4046
 /// (flat id: 0–2047 preset, 2048+ user — see <see cref="Combi.KarmaGeLabel"/>); verified by
-/// matching a vendor pack's MIDI-converted GEs to the combis that play them.
+/// matching a vendor pack's MIDI-converted GEs to the combis that play them. Each select
+/// heads a 744-byte KARMA module block (the module number sits at block +3).
+/// Effects: 12 insert-effect slots of 74 bytes starting at 88, then MFX1/MFX2/TFX1/TFX2 at
+/// 976/1044/1116/1184. Within a slot, +0 is the effect type (0 = none, else 1–197 per the
+/// Parameter Guide) and +1 bit 6 is the on/off switch. Located by byte statistics over the
+/// factory banks (type histogram bounded by the published effect list, Init combis all-zero
+/// at exactly these offsets, a master reverb on 96% of factory combis at MFX2).
 /// Offsets re-derived from PCG Tools and verified against real files — program resolution at
 /// ~99.7%, and key/velocity zones match a vendor pack's prose zone descriptions exactly
 /// (e.g. "F#3 to B3 velocity has tight bell" decodes to keys 54–59, velocity 89–127).
@@ -29,6 +35,12 @@ public static class CombiReader
     private const int TempoOffset = 1304;
     private const int CategoryOffset = 4790;
     private static readonly int[] KarmaGeSelectOffsets = { 1814, 2558, 3302, 4046 };
+
+    private const int IfxBase = 88;
+    private const int IfxStride = 74;
+    private const int IfxCount = 12;
+    private static readonly int[] MasterFxOffsets = { 976, 1044, 1116, 1184 }; // MFX1, MFX2, TFX1, TFX2
+    private const int FxOnBit = 0x40; // in the flag byte at slot +1
 
     public static IReadOnlyList<Combi> Read(PcgFile pcg)
     {
@@ -72,11 +84,28 @@ public static class CombiReader
                         .Where(o => recordSize >= o + 2)
                         .Select(o => (int)BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan((int)record + o, 2)))
                         .ToList(),
+                    Effects = ReadEffects(data, record, recordSize),
                     Timbres = ReadTimbres(data, record, recordSize),
                 });
             }
         }
         return combis;
+    }
+
+    private static IReadOnlyList<CombiEffect> ReadEffects(byte[] data, long record, int recordSize)
+    {
+        var effects = new List<CombiEffect>(IfxCount + MasterFxOffsets.Length);
+        for (int slot = 0; slot < IfxCount + MasterFxOffsets.Length; slot++)
+        {
+            int offset = slot < IfxCount ? IfxBase + slot * IfxStride : MasterFxOffsets[slot - IfxCount];
+            if (offset + 2 > recordSize || record + offset + 2 > data.Length)
+                break;
+            effects.Add(new CombiEffect(
+                (EffectSlot)slot,
+                data[record + offset],
+                (data[record + offset + 1] & FxOnBit) != 0));
+        }
+        return effects;
     }
 
     private static IReadOnlyList<CombiTimbre> ReadTimbres(byte[] data, long record, int recordSize)

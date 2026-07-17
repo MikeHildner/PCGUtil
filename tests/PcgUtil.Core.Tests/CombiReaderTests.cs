@@ -150,4 +150,91 @@ public class CombiReaderTests
     [InlineData(3583, "USER-L 127")]
     public void Karma_ge_labels(int geId, string expected) =>
         Assert.Equal(expected, Combi.KarmaGeLabel(geId));
+
+    // Effect slots live at 88+74k (12 inserts) and 976/1044/1116/1184 (MFX/TFX). A wrong
+    // offset would immediately put type bytes outside the hardware's 0..197 effect list.
+    [Fact]
+    public void Effect_types_decode_within_hardware_range_on_every_combi()
+    {
+        var combis = CombiReader.Read(Sample.Parse());
+        Assert.All(combis, c => Assert.Equal(16, c.Effects.Count));
+        Assert.All(combis, c => Assert.All(c.Effects, e => Assert.InRange(e.TypeId, 0, 197)));
+    }
+
+    // Factory INT-A pins from byte forensics (hardware-verified checklist section 10):
+    // #0 "K-Lab: Katja's House" runs a full insert chain into a Reverb Hall master;
+    // #23 "Metal Morphosis" uses a single insert. Numbers are raw record bytes.
+    [Fact]
+    public void Factory_combi_effect_pins()
+    {
+        var combis = CombiReader.Read(Sample.Parse());
+
+        var katja = combis.Single(c => c.Bank == 0 && c.Index == 0);
+        Assert.Equal("K-Lab: Katja's House", katja.Name);
+        Assert.Equal(40, katja.Effects[0].TypeId);   // IFX1
+        Assert.True(katja.Effects[0].IsOn);
+        Assert.Equal(97, katja.Effects[1].TypeId);   // IFX2
+        Assert.All(katja.Effects.Skip(7).Take(5), e => Assert.False(e.HasEffect)); // IFX8-12 empty
+        Assert.Equal(93, katja.Effects[12].TypeId);  // MFX1
+        Assert.Equal(101, katja.Effects[13].TypeId); // MFX2 — Reverb Hall
+        Assert.Equal(13, katja.Effects[14].TypeId);  // TFX1
+        Assert.Equal(8, katja.Effects[15].TypeId);   // TFX2
+
+        var metal = combis.Single(c => c.Bank == 0 && c.Index == 23);
+        Assert.Equal("Metal Morphosis", metal.Name);
+        Assert.Equal(56, metal.Effects[0].TypeId);
+        Assert.True(metal.Effects[0].IsOn);
+        Assert.All(metal.Effects.Skip(1).Take(11), e => Assert.False(e.HasEffect)); // IFX2-12 empty
+        Assert.Equal(100, metal.Effects[13].TypeId); // MFX2 — Overb
+    }
+
+    [Fact]
+    public void Init_combis_carry_no_effects()
+    {
+        var combis = CombiReader.Read(Sample.Parse());
+        var init = combis.First(c => c.Bank == 4 && c.IsEmptyOrInit);
+        Assert.All(init.Effects, e => Assert.False(e.HasEffect));
+        Assert.All(init.Effects, e => Assert.False(e.IsOn));
+    }
+
+    [Fact]
+    public void Effect_slot_labels_follow_the_hardware()
+    {
+        var combis = CombiReader.Read(Sample.Parse());
+        var labels = combis[0].Effects.Select(e => e.Label).ToArray();
+        Assert.Equal("IFX1", labels[0]);
+        Assert.Equal("IFX12", labels[11]);
+        Assert.Equal("MFX1", labels[12]);
+        Assert.Equal("MFX2", labels[13]);
+        Assert.Equal("TFX1", labels[14]);
+        Assert.Equal("TFX2", labels[15]);
+    }
+
+    // A module with GE 0 reads as off — INT-A #3 "Angels Watching" drives only module A.
+    [Fact]
+    public void Karma_modules_report_on_off_per_module()
+    {
+        var combis = CombiReader.Read(Sample.Parse());
+        var angels = combis.Single(c => c.Bank == 0 && c.Index == 3);
+        Assert.Equal("Angels Watching", angels.Name);
+
+        var modules = angels.KarmaModules;
+        Assert.Equal(4, modules.Count);
+        Assert.Equal(new[] { "A", "B", "C", "D" }, modules.Select(m => m.Label));
+        Assert.Equal(727, modules[0].GeId);
+        Assert.True(modules[0].IsOn);
+        Assert.All(modules.Skip(1), m => Assert.False(m.IsOn));
+    }
+
+    [Fact]
+    public void Effect_names_cover_the_published_list()
+    {
+        Assert.Equal(198, EffectNames.Count);
+        Assert.Equal("No Effect", EffectNames.Name(0));
+        Assert.Equal("Stereo Chorus", EffectNames.Name(40));
+        Assert.Equal("Overb", EffectNames.Name(100));
+        Assert.Equal("Reverb Hall", EffectNames.Name(101));
+        Assert.Equal("Rotary Speaker Pro CX Custom", EffectNames.Name(197));
+        Assert.Equal("Effect 198", EffectNames.Name(198)); // out of range: number still shows
+    }
 }

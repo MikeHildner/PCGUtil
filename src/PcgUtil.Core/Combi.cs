@@ -10,6 +10,46 @@ public enum TimbreStatus
     Ex2 = 4,
 }
 
+/// <summary>The sixteen effect slots of a combi, in hardware order.</summary>
+public enum EffectSlot
+{
+    Ifx1, Ifx2, Ifx3, Ifx4, Ifx5, Ifx6, Ifx7, Ifx8, Ifx9, Ifx10, Ifx11, Ifx12,
+    Mfx1, Mfx2, Tfx1, Tfx2,
+}
+
+/// <summary>One effect slot of a combi: which effect is loaded and whether it runs.</summary>
+public sealed record CombiEffect(EffectSlot Slot, int TypeId, bool IsOn)
+{
+    /// <summary>Slot label as the hardware shows it: IFX1–IFX12, MFX1/2, TFX1/2.</summary>
+    public string Label => Slot switch
+    {
+        <= EffectSlot.Ifx12 => $"IFX{(int)Slot + 1}",
+        EffectSlot.Mfx1 => "MFX1",
+        EffectSlot.Mfx2 => "MFX2",
+        EffectSlot.Tfx1 => "TFX1",
+        _ => "TFX2",
+    };
+
+    /// <summary>Effect name from <see cref="EffectNames"/> ("No Effect" for an empty slot).</summary>
+    public string TypeName => EffectNames.Name(TypeId);
+
+    /// <summary>True when the slot holds a real effect (type is not 000: No Effect).</summary>
+    public bool HasEffect => TypeId != 0;
+}
+
+/// <summary>One of a combi's four KARMA modules (A–D) and the GE it plays.</summary>
+public sealed record KarmaModule(int Index, int GeId)
+{
+    /// <summary>Module label as the hardware shows it: A–D.</summary>
+    public string Label => ((char)('A' + Index)).ToString();
+
+    /// <summary>Display label of the selected GE ("preset 0123" or "USER-A 096").</summary>
+    public string GeLabel => Combi.KarmaGeLabel(GeId);
+
+    /// <summary>True when the module has a GE selected (GE 0 reads as off).</summary>
+    public bool IsOn => GeId != 0;
+}
+
 /// <summary>A decoded Combi and its timbres.</summary>
 public sealed class Combi
 {
@@ -39,6 +79,19 @@ public sealed class Combi
 
     /// <summary>True when any KARMA module selects a user GE (needs its .KGE loaded).</summary>
     public bool UsesUserKarmaGes => KarmaGeIds.Any(id => id >= KarmaUserGeBase);
+
+    /// <summary>
+    /// The sixteen effect slots (12 inserts, 2 master, 2 total) in hardware order.
+    /// Empty when the record is too short to carry the effect block.
+    /// </summary>
+    public required IReadOnlyList<CombiEffect> Effects { get; init; }
+
+    /// <summary>The effect slots that actually hold an effect, in hardware order.</summary>
+    public IEnumerable<CombiEffect> ActiveEffects => Effects.Where(e => e.HasEffect);
+
+    /// <summary>The four KARMA modules (A–D); a module with GE 0 reads as off.</summary>
+    public IReadOnlyList<KarmaModule> KarmaModules =>
+        KarmaGeIds.Select((geId, i) => new KarmaModule(i, geId)).ToList();
 
     /// <summary>Display label for a GE select: "preset 0123" or "USER-A 096".</summary>
     public static string KarmaGeLabel(int geId)

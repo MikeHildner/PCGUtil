@@ -74,6 +74,20 @@ Status: **pending**.
 - [ ] Deep-copy a second combi from the same source: shared programs are reused (plan preview says "reuses"), not copied twice.
 - [ ] If the plan warned about user KARMA GEs, load the source's matching .KGE; KARMA then plays as in the source.
 
+## 10. Effects & KARMA readout (read-only decode)
+Status: **confirmed** on hardware (2026-07-17; all four checks matched exactly).
+No write path — this section verifies that the decoded effect/KARMA labels match the
+instrument's own screens (an off-by-one in the name table would shift every label).
+- [x] INT-A 000 "K-Lab: Katja's House": IFX1–7 = Stereo Chorus / St. BPM Auto Panning Dly /
+      Stereo Limiter / Stereo BPM Delay / Stereo Limiter / Stereo Graphic 7EQ / Stereo Dyna
+      Compressor; MFX1 Stereo BPM Delay, MFX2 Reverb Hall, TFX1 Stereo Master 3EQ,
+      TFX2 Stereo Mastering Limiter.
+- [x] INT-A 023 "Metal Morphosis": IFX1 = Stereo Auto Fade Mod. (neighbors in the effect list
+      are Stereo Vibrato / 2-Voice Resonator, so ±1 misalignment would be unmistakable).
+- [x] INT-A 009 "Smooth Jazzmitazz": reverb on MFX1 (Overb), MFX2 empty — MFX slot order.
+- [x] User combi "TOM SAWYER": IFX1 L/C/R Delay loaded but switched **off**, IFX4 St. Tube
+      PreAmp Modeling — the on/off bit verified on user content.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.

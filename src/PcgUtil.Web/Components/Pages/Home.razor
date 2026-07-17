@@ -2508,6 +2508,39 @@
                 }
             </tbody>
         </table>
+
+        var effects = combi.ActiveEffects.ToList();
+        var karmaOn = combi.KarmaModules.Where(m => m.IsOn).ToList();
+        <div class="d-flex flex-wrap align-items-baseline gap-1 mb-1" style="max-width:52rem">
+            <span class="small text-body-secondary me-1">Effects:</span>
+            @if (effects.Count == 0)
+            {
+                <span class="small text-body-tertiary">none</span>
+            }
+            @foreach (var e in effects)
+            {
+                <span class="badge text-bg-light fw-normal @(e.IsOn ? null : "opacity-50")"
+                      title="@(e.IsOn ? "This effect is on" : "This effect is switched off")">
+                    @e.Label · @e.TypeId.ToString("D3") @e.TypeName@(e.IsOn ? "" : " (off)")
+                </span>
+            }
+        </div>
+        @if (karmaOn.Count > 0)
+        {
+            <div class="d-flex flex-wrap align-items-baseline gap-1 mb-1" style="max-width:52rem">
+                <span class="small text-body-secondary me-1">KARMA:</span>
+                @foreach (var m in karmaOn)
+                {
+                    <span class="badge text-bg-light fw-normal" title="KARMA module @m.Label">
+                        @m.Label · @m.GeLabel
+                    </span>
+                }
+                @if (combi.UsesUserKarmaGes)
+                {
+                    <span class="small text-body-secondary">— user GEs travel in the matching .KGE file</span>
+                }
+            </div>
+        }
     };
 
     // CSS percentages must use invariant formatting regardless of server culture.
