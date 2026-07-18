@@ -89,11 +89,12 @@ instrument's own screens (an off-by-one in the name table would shift every labe
       PreAmp Modeling — the on/off bit verified on user content.
 
 ## 11. Slot colors, volume & transpose
-Status: **decode confirmed** (2026-07-18 — probe file: set list 016 colored 0–15 in picker
-order, volume 100, transpose +2/−1 all read back exactly; hardware readings 0/−1/−2 matched
-the ×32 encoding). **Color write pending** a load test:
+Status: **confirmed** on hardware (2026-07-18 — decode via probe file: set list 016 colored
+0–15 in picker order, volume 100, transpose +2/−1 all read back exactly, gig-list readings
+0/−1/−2 matched the ×32 encoding; color WRITE round-trip also confirmed same day: a slot
+recolored in PCGUtil showed the chosen color on the instrument's set list).
 - [x] Decode: slot colors/volume/transpose match the instrument (probe file + gig-list readings).
-- [ ] Recolor a slot in PCGUtil (Set Lists → Edit mode → **Color**), download, load on the
+- [x] Recolor a slot in PCGUtil (Set Lists → Edit mode → **Color**), download, load on the
       instrument: the set list shows the chosen color and the slot still recalls its patch,
       name, and notes.
 
