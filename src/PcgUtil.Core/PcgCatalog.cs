@@ -26,6 +26,25 @@ public sealed class PcgCatalog
     /// <summary>Wave sequence names per bank (<c>WBK1</c> under <c>WSQ1</c>; same record layout).</summary>
     public required IReadOnlyList<IReadOnlyList<string>> WaveSequenceBanks { get; init; }
 
+    /// <summary>The file's own category names from GLB1, or null when it carries none
+    /// (sound packs) — the name methods then fall back to the factory tables.</summary>
+    public required GlobalReader.GlobalInfo? Global { get; init; }
+
+    /// <summary>Program category name as this file defines it (GLB1), falling back to the
+    /// factory table — a renamed user category shows the owner's name.</summary>
+    public string ProgramCategoryName(int category) =>
+        Global is { } g && category >= 0 && category < g.ProgramCategoryNames.Count
+        && g.ProgramCategoryNames[category].Length > 0
+            ? g.ProgramCategoryNames[category]
+            : ProgramCategories.Name(category);
+
+    /// <summary>Combi category name as this file defines it (GLB1), with factory fallback.</summary>
+    public string CombiCategoryName(int category) =>
+        Global is { } g && category >= 0 && category < g.CombiCategoryNames.Count
+        && g.CombiCategoryNames[category].Length > 0
+            ? g.CombiCategoryNames[category]
+            : CombiCategories.Name(category);
+
     public static PcgCatalog Build(PcgFile pcg)
     {
         ArgumentNullException.ThrowIfNull(pcg);
@@ -37,6 +56,7 @@ public sealed class PcgCatalog
             CombiBanks = ReadSection(pcg, "CMB1"),
             DrumKitBanks = ReadSection(pcg, "DKT1"),
             WaveSequenceBanks = ReadSection(pcg, "WSQ1"),
+            Global = GlobalReader.Read(pcg),
         };
     }
 

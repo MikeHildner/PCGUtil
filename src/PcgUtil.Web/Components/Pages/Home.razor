@@ -268,7 +268,7 @@
                                     <td>@c.Name</td>
                                     <td class="small text-body-secondary d-none d-sm-table-cell">@PcgBankLabels.Combi(c.Bank) #@c.Index.ToString("D3")</td>
                                     <td class="small text-body-secondary d-none d-md-table-cell">
-                                        @CombiCategories.Name(c.Category)@(c.Tempo > 0 ? $" · {c.Tempo:0.##} BPM" : "")
+                                        @(_srcCatalog?.CombiCategoryName(c.Category) ?? CombiCategories.Name(c.Category))@(c.Tempo > 0 ? $" · {c.Tempo:0.##} BPM" : "")
                                     </td>
                                     <td class="text-nowrap">
                                         <button type="button"
@@ -1020,7 +1020,7 @@
                     .Where(i => MatchesFilter(bank[i], i, _programFilter)
                         || (!string.IsNullOrWhiteSpace(_programFilter)
                             && ProgramInfoAt(_selectedProgramBank, i) is { IsEmpty: false } fi
-                            && ProgramCategories.Name(fi.Category).Contains(_programFilter.Trim(), StringComparison.OrdinalIgnoreCase)))
+                            && _catalog.ProgramCategoryName(fi.Category).Contains(_programFilter.Trim(), StringComparison.OrdinalIgnoreCase)))
                     .ToList();
 
                 <div class="row g-2 align-items-end mb-3">
@@ -1128,7 +1128,7 @@
                                 <td class="d-none d-sm-table-cell">
                                     @if (!isEmpty && ProgramInfoAt(_selectedProgramBank, idx) is { } info)
                                     {
-                                        <span class="small">@ProgramCategories.Name(info.Category)</span>
+                                        <span class="small">@_catalog.ProgramCategoryName(info.Category)</span>
                                         @if (info.ExiEngine is { } engine)
                                         {
                                             <span class="badge text-bg-light fw-normal ms-1">@ExiEngines.Name(engine)</span>
@@ -2701,7 +2701,7 @@
     {
         var activeTimbres = combi.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
         <div class="small text-body-secondary mb-1">
-            @CombiCategories.Name(combi.Category)@(combi.Tempo > 0 ? $" · {combi.Tempo:0.##} BPM" : "")@(combi.Favorite ? " · ★ favorite" : "")
+            @(catalog?.CombiCategoryName(combi.Category) ?? CombiCategories.Name(combi.Category))@(combi.Tempo > 0 ? $" · {combi.Tempo:0.##} BPM" : "")@(combi.Favorite ? " · ★ favorite" : "")
             · @activeTimbres.Count of @CombiReader.TimbresPerCombi timbres active
         </div>
         @if (activeTimbres.Count == 0)
