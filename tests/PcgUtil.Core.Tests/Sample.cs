@@ -67,6 +67,30 @@ internal static class ColorsProbe
 }
 
 /// <summary>
+/// Locates the optional favorites probe (a hardware export where combi USER-A 096 "JUMP"
+/// and program USER-GG 000 "GET LUCKY VOCODER" were starred on the instrument — the diff
+/// that located the program favorite bit, 2026-07-18). Silently absent-safe.
+/// </summary>
+internal static class FavoritesProbe
+{
+    public static PcgFile? Parse()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var filesDir = System.IO.Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+            {
+                var path = Directory.EnumerateFiles(filesDir, "20260718c.PCG").FirstOrDefault();
+                return path is null ? null : PcgReader.Parse(File.ReadAllBytes(path));
+            }
+            dir = dir.Parent;
+        }
+        return null;
+    }
+}
+
+/// <summary>
 /// Locates the optional vendor-pack PCG (a partial file carrying only a few USER banks) under
 /// files/. Tests that depend on it must silently pass when it's absent — unlike the main
 /// sample, it isn't required.

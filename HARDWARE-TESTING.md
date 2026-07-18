@@ -99,14 +99,16 @@ recolored in PCGUtil showed the chosen color on the instrument's set list).
       name, and notes.
 
 ## 12. Program categories & EXi engines (read-only decode)
-Status: **decode verified against the published voice name list** (2026-07-18 — category +
-sub-category at 768/768 factory programs exact, EXi engine at 640/640; user category 16
-observed across USER banks). **Favorite bit pending** (byte 2569 bit 0, the combi idiom —
-no starred programs existed in the sample to confirm):
+Status: **confirmed** (2026-07-18 — category + sub-category verified against the published
+voice name list at 768/768 factory programs, EXi engine at 640/640; the favorite bit was
+located by the star-one-program experiment: diffing two hardware exports around starring
+USER-GG 000 exposed a single-byte flip at record offset 2558 bit 5 — the initial
+combi-idiom guess of 2569 bit 0 was wrong and has been corrected; the starred combi
+USER-A 096 "JUMP" also confirmed the combi favorite bit at 4791 bit 0 by the same diff).
 - [x] Category/engine spot check: INT-A 000 Berlin Grand = Keyboard · SGX-2, INT-A 040 =
       Organ · CX-3, INT-C 059 Harpsichord = Keyboard · STR-1, INT-B 000 = Brass (HD-1).
-- [ ] Star one program on the instrument (Program mode → Favorite), save a PCG, and confirm
-      PCGUtil shows ★ on exactly that program.
+- [x] Star one program on the instrument, save a PCG, and confirm PCGUtil shows ★ on
+      exactly that program (GET LUCKY VOCODER — confirmed in the UI after the fix).
 
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi

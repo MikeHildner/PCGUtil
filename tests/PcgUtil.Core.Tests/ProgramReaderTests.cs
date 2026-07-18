@@ -74,6 +74,30 @@ public class ProgramReaderTests
         }
     }
 
+    // The favorite bit (2558 bit 5) was located by diffing two hardware exports around
+    // starring exactly one program — this pins both sides of that experiment.
+    [Fact]
+    public void Favorites_probe_pins_the_program_and_combi_favorite_bits()
+    {
+        if (FavoritesProbe.Parse() is not { } probe)
+            return;
+
+        var starred = ProgramReader.Read(probe).Single(p => p.Bank == 19 && p.Index == 0);
+        Assert.Equal("GET LUCKY VOCODER", starred.Name);
+        Assert.True(starred.Favorite);
+        Assert.Equal(1, ProgramReader.Read(probe).Count(p => p.Favorite));
+
+        var jump = CombiReader.Read(probe).Single(c => c.Bank == 7 && c.Index == 96);
+        Assert.Equal("JUMP", jump.Name);
+        Assert.True(jump.Favorite);
+    }
+
+    [Fact]
+    public void Sample_without_starred_programs_shows_no_favorites()
+    {
+        Assert.DoesNotContain(ProgramReader.Read(Sample.Parse()), p => p.Favorite);
+    }
+
     [Fact]
     public void Category_and_engine_names_cover_their_tables()
     {

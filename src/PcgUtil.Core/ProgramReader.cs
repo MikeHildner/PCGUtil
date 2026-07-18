@@ -6,18 +6,21 @@ namespace PcgUtil.Core;
 /// Decodes Program metadata from the <c>PRG1</c> chunk's bank leaves.
 ///
 /// Each bank is a 12-byte sub-header (count, record size, identity) followed by fixed
-/// records (4960 bytes on this hardware). Within a record: 24-byte name @ 0, then
-/// category/sub-category @ 2568 (bits 0–4 / 5–7, the same packed idiom combis use at
-/// 4790) and favorite @ 2569 bit 0. EXi records additionally carry the instrument
-/// engine id @ 2857 (meaningless in HD-1 records — engine-specific region).
-/// Offsets located by correlating the published voice name list against the factory
-/// banks: category and engine both match 100% (768 and 640 records respectively);
-/// the favorite bit follows the combi idiom (no set favorites existed to observe).
+/// records (4960 bytes on this hardware). Within a record: 24-byte name @ 0, favorite
+/// @ 2558 bit 5, then category/sub-category @ 2568 (bits 0–4 / 5–7, the same packed
+/// idiom combis use at 4790). EXi records additionally carry the instrument engine id
+/// @ 2857 (meaningless in HD-1 records — engine-specific region).
+/// Category and engine located by correlating the published voice name list against
+/// the factory banks (768/768 and 640/640 exact); the favorite bit found by diffing
+/// two hardware exports around starring one program — a single-byte 0x00→0x20 flip
+/// at 2558 (the combi-idiom guess of 2569 bit 0 was wrong and is corrected here).
 /// </summary>
 public static class ProgramReader
 {
     public const int NameLength = 24;
     private const int SubHeaderSize = 12;
+    private const int FavoriteOffset = 2558;
+    private const int FavoriteBit = 0x20;
     private const int CategoryOffset = 2568;
     private const int ExiEngineOffset = 2857;
 
@@ -56,7 +59,7 @@ public static class ProgramReader
                     Name = PcgText.ReadFixedString(data, record, NameLength),
                     Category = recordSize > CategoryOffset ? data[record + CategoryOffset] & 0x1F : 0,
                     SubCategory = recordSize > CategoryOffset ? (data[record + CategoryOffset] >> 5) & 0x07 : 0,
-                    Favorite = recordSize > CategoryOffset + 1 && (data[record + CategoryOffset + 1] & 0x01) != 0,
+                    Favorite = recordSize > FavoriteOffset && (data[record + FavoriteOffset] & FavoriteBit) != 0,
                     ExiEngine = isExi && recordSize > ExiEngineOffset ? data[record + ExiEngineOffset] : null,
                 });
             }
