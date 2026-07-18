@@ -53,12 +53,13 @@ $curlAuth = "$($secrets.user):$($secrets.pass)"
 function Invoke-FtpUpload([string]$LocalFile, [string]$RemoteRelative) {
     $url = "$ftpBase/$RemoteRelative" -replace '\\', '/'
     # The shared host intermittently answers 550 after a complete transfer (storage/scanner
-    # hiccups); a short retry turns those into non-events. Persistent failures still throw.
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
+    # hiccups); bursts have outlasted a 3-try/9s window, so back off up to ~75s total.
+    # Persistent failures still throw.
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
         & curl.exe -sS --ssl-reqd --ssl-no-revoke --ftp-create-dirs -u $curlAuth -T $LocalFile $url
         if ($LASTEXITCODE -eq 0) { return }
-        Write-Host "  retry $attempt/2 for $RemoteRelative (curl $LASTEXITCODE)"
-        Start-Sleep -Seconds (3 * $attempt)
+        Write-Host "  retry $attempt/4 for $RemoteRelative (curl $LASTEXITCODE)"
+        Start-Sleep -Seconds (5 * $attempt)
     }
     throw "Upload failed after retries: $RemoteRelative"
 }
