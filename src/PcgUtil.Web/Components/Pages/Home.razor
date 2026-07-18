@@ -1017,7 +1017,10 @@
                 var refCounts = CurrentUsage.Programs.ToDictionary(p => (p.BankIndex, p.Number), p => p.ReferenceCount);
                 var rows = Enumerable.Range(0, bank.Count)
                     .Where(i => _editMode || _showEmptySlots || !string.IsNullOrEmpty(bank[i]))
-                    .Where(i => MatchesFilter(bank[i], i, _programFilter))
+                    .Where(i => MatchesFilter(bank[i], i, _programFilter)
+                        || (!string.IsNullOrWhiteSpace(_programFilter)
+                            && ProgramInfoAt(_selectedProgramBank, i) is { IsEmpty: false } fi
+                            && ProgramCategories.Name(fi.Category).Contains(_programFilter.Trim(), StringComparison.OrdinalIgnoreCase)))
                     .ToList();
 
                 <div class="row g-2 align-items-end mb-3">
@@ -1034,7 +1037,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small mb-1">Find</label>
-                        <input type="text" class="form-control form-control-sm" placeholder="name or #…"
+                        <input type="text" class="form-control form-control-sm" placeholder="name, category, or #…"
                                @bind="_programFilter" @bind:event="oninput" />
                     </div>
                     <div class="col-md-4 d-flex gap-3 align-items-center pt-3">
@@ -1095,6 +1098,7 @@
                         <tr>
                             <th style="width:4rem">#</th>
                             <th>Name</th>
+                            <th style="width:12rem" class="d-none d-sm-table-cell">Category</th>
                             <th style="width:6rem" class="d-none d-md-table-cell" title="Combi timbres + program-type set-list slots that use this program">Used by</th>
                             @if (_editMode)
                             {
@@ -1119,6 +1123,20 @@
                                     else
                                     {
                                         @(isEmpty ? "—" : name)
+                                    }
+                                </td>
+                                <td class="d-none d-sm-table-cell">
+                                    @if (!isEmpty && ProgramInfoAt(_selectedProgramBank, idx) is { } info)
+                                    {
+                                        <span class="small">@ProgramCategories.Name(info.Category)</span>
+                                        @if (info.ExiEngine is { } engine)
+                                        {
+                                            <span class="badge text-bg-light fw-normal ms-1">@ExiEngines.Name(engine)</span>
+                                        }
+                                        @if (info.Favorite)
+                                        {
+                                            <span class="ms-1" title="Favorite">★</span>
+                                        }
                                     }
                                 </td>
                                 <td class="d-none d-md-table-cell">@(refs > 0 ? refs.ToString() : "")</td>
@@ -2048,6 +2066,7 @@
 
         _setLists = SetListReader.Read(_pcg).ToList();
         _catalog = PcgCatalog.Build(_pcg);
+        _programInfos = ProgramReader.Read(_pcg).ToDictionary(p => (p.Bank, p.Index));
         _combiRefCounts = PcgUsage.CombiReferenceCounts(_setLists);
         _usageReport = null;  // rebuilt lazily the next time the Usage tab is viewed
         _diffReport = null;   // likewise for the Differences tab
@@ -2550,6 +2569,12 @@
 
     Combi? FindCombi(int bank, int index) => _pcg is null ? null
         : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == bank && c.Index == index);
+
+    // Program metadata (category/favorite/engine), decoded once per file in LoadDerived.
+    Dictionary<(int Bank, int Index), ProgramInfo> _programInfos = new();
+
+    ProgramInfo? ProgramInfoAt(int bank, int index) =>
+        _programInfos.GetValueOrDefault((bank, index));
 
     // ----- Cross-view jumps: Start card, search results, set-list slot links -----
 

@@ -98,6 +98,16 @@ recolored in PCGUtil showed the chosen color on the instrument's set list).
       instrument: the set list shows the chosen color and the slot still recalls its patch,
       name, and notes.
 
+## 12. Program categories & EXi engines (read-only decode)
+Status: **decode verified against the published voice name list** (2026-07-18 — category +
+sub-category at 768/768 factory programs exact, EXi engine at 640/640; user category 16
+observed across USER banks). **Favorite bit pending** (byte 2569 bit 0, the combi idiom —
+no starred programs existed in the sample to confirm):
+- [x] Category/engine spot check: INT-A 000 Berlin Grand = Keyboard · SGX-2, INT-A 040 =
+      Organ · CX-3, INT-C 059 Harpsichord = Keyboard · STR-1, INT-B 000 = Brass (HD-1).
+- [ ] Star one program on the instrument (Program mode → Favorite), save a PCG, and confirm
+      PCGUtil shows ★ on exactly that program.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.
