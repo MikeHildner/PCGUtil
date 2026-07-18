@@ -157,6 +157,30 @@
             {
                 @TaskCardGrid(MoreTaskCards(), "row-cols-1 row-cols-md-2 row-cols-xl-4")
             }
+
+            @if (_catalog is not null)
+            {
+                var combiMapRows = CombiBankMapRows();
+                var programMapRows = ProgramBankMapRows();
+                @if (combiMapRows.Count > 0 || programMapRows.Count > 0)
+                {
+                    <h2 class="h4 mb-1 mt-4">Where your sounds live</h2>
+                    <p class="text-body-secondary small mb-2">
+                        Each bar is one bank on the instrument — tap a row to open that bank.
+                        Free slots are where added sounds can land.
+                    </p>
+                    <div class="row g-4 mb-3" style="max-width:52rem">
+                        @if (combiMapRows.Count > 0)
+                        {
+                            <div class="col-md-6">@BankMapColumn("Combis", combiMapRows, OpenCombiBank)</div>
+                        }
+                        @if (programMapRows.Count > 0)
+                        {
+                            <div class="col-md-6">@BankMapColumn("Programs", programMapRows, OpenProgramBank)</div>
+                        }
+                    </div>
+                }
+            }
             break;
         }
 
@@ -423,6 +447,34 @@
 
         case View.Overview:
         {
+            var sections = TopLevelSections().ToList();
+            var totalBytes = sections.Sum(s => (long)s.Size);
+            @if (totalBytes > 0)
+            {
+                <h2 class="h5 mb-1">The file at a glance</h2>
+                <p class="text-body-secondary small mb-2">
+                    Every byte of @_fileName, left to right — one segment per top-level section.
+                </p>
+                <div class="anatomy-strip mb-2" role="img" aria-label="Relative sizes of this file's top-level sections">
+                    @foreach (var s in sections)
+                    {
+                        <div class="anatomy-seg"
+                             style="flex-grow:@Pct(s.Size * 100.0 / totalBytes); background:@SectionColor(s.Id)"
+                             title="@s.Id · @PcgChunkInfo.Describe(s.Id) — @Format.Bytes(s.Size)"></div>
+                    }
+                </div>
+                <div class="d-flex flex-wrap column-gap-3 row-gap-1 small mb-4">
+                    @foreach (var s in sections)
+                    {
+                        <span class="text-nowrap">
+                            <span class="anatomy-dot" style="background:@SectionColor(s.Id)" aria-hidden="true"></span>
+                            @PcgChunkInfo.Describe(s.Id)
+                            <span class="text-body-secondary">@Format.Bytes(s.Size)</span>
+                        </span>
+                    }
+                </div>
+            }
+
             <div class="row g-3 mb-4">
                 <div class="col-6 col-lg-3">
                     <div class="border rounded p-3 h-100">
@@ -670,6 +722,7 @@
                                             <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
                                                     @onclick="() => OpenCombi(slot.Reference.Bank, slot.Reference.Index)">Open in Combis ›</button>
                                         </div>
+                                        @SongFlow(slot.Name, _slotDetailCombi, _catalog)
                                         @TimbreTable(_slotDetailCombi, _catalog)
                                     </td>
                                 </tr>
@@ -2024,6 +2077,19 @@
             : _pcg.TopLevel;
     }
 
+    // Fixed per-section tints for the anatomy strip — theme vars so both themes read.
+    static string SectionColor(string id) => id switch
+    {
+        "SLS1" => "rgba(var(--pcg-wave-rgb), 0.55)",
+        "PRG1" => "rgba(var(--bs-primary-rgb), 0.45)",
+        "CMB1" => "rgba(var(--bs-primary-rgb), 0.75)",
+        "DKT1" => "rgba(var(--bs-emphasis-color-rgb), 0.25)",
+        "WSQ1" => "rgba(var(--bs-emphasis-color-rgb), 0.45)",
+        "GLB1" => "rgba(var(--bs-warning-rgb), 0.6)",
+        "DIV1" => "rgba(var(--bs-emphasis-color-rgb), 0.15)",
+        _ => "rgba(var(--bs-emphasis-color-rgb), 0.35)",
+    };
+
     // Workspaces a musician doesn't need on day one — folded behind "More".
     static readonly View[] AdvancedViews = { View.Copy, View.Differences, View.Usage, View.Duplicates, View.Overview, View.Strings, View.Tree };
 
@@ -2072,6 +2138,85 @@
             "File structure and raw data — for the curious.",
             "<path d='M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0'/><path d='M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z'/>",
             () => _view = View.Overview),
+    };
+
+    // ----- Start page: bank-occupancy map ("Where your sounds live") -----
+
+    sealed record BankMapRow(int Bank, string Label, string? Tag, int Total, int Used);
+
+    // One row per bank the file carries. "Used" counts slots that aren't empty/Init —
+    // the complement of the free slots Add-sounds can land in.
+    List<BankMapRow> CombiBankMapRows()
+    {
+        var rows = new List<BankMapRow>();
+        if (_catalog is null) return rows;
+        foreach (var b in PresentBanks(_catalog.CombiBanks))
+        {
+            var bank = _catalog.CombiBanks[b];
+            rows.Add(new BankMapRow(b, PcgBankLabels.Combi(b), null,
+                bank.Count, bank.Count - PcgDeepCopy.FreeCombiSlots(bank).Count));
+        }
+        return rows;
+    }
+
+    List<BankMapRow> ProgramBankMapRows()
+    {
+        var rows = new List<BankMapRow>();
+        if (_catalog is null) return rows;
+        foreach (var b in PresentBanks(_catalog.ProgramBanks))
+        {
+            var bank = _catalog.ProgramBanks[b];
+            rows.Add(new BankMapRow(b, PcgBankLabels.Program(b),
+                _catalog.ProgramBankTypes[b] is { } t ? PcgBankIdentity.TypeLabel(t) : null,
+                bank.Count, bank.Count - PcgDeepCopy.FreeProgramSlots(bank).Count));
+        }
+        return rows;
+    }
+
+    // Bank-level jumps from the map; reset what the bank pickers reset so the tab opens clean.
+    void OpenCombiBank(int bank)
+    {
+        if (_catalog is null || bank < 0 || bank >= _catalog.CombiBanks.Count
+            || _catalog.CombiBanks[bank].Count == 0) return;
+        _view = View.Combis;
+        _selectedCombiBank = bank;
+        _combiFilter = string.Empty;
+        _timbreCombi = null;
+        _timbreDetail = null;
+    }
+
+    void OpenProgramBank(int bank)
+    {
+        if (_catalog is null || bank < 0 || bank >= _catalog.ProgramBanks.Count
+            || _catalog.ProgramBanks[bank].Count == 0) return;
+        _view = View.Programs;
+        _selectedProgramBank = bank;
+        _programFilter = string.Empty;
+    }
+
+    private RenderFragment BankMapColumn(string heading, IReadOnlyList<BankMapRow> rows, Action<int> open) => __builder =>
+    {
+        <h3 class="h6 mb-2">@heading</h3>
+        @foreach (var row in rows)
+        {
+            <button type="button" class="bank-map-row" @key="row.Bank"
+                    title="Open @row.Label in @heading" @onclick="() => open(row.Bank)">
+                <span class="bank-map-label small text-nowrap">
+                    @row.Label
+                    @if (row.Tag is not null)
+                    {
+                        <span class="text-body-secondary"> · @row.Tag</span>
+                    }
+                </span>
+                <span class="bank-map-track" aria-hidden="true">
+                    @if (row.Used > 0)
+                    {
+                        <span class="bank-map-fill" style="width:@(Pct(row.Used * 100.0 / row.Total))%"></span>
+                    }
+                </span>
+                <span class="bank-map-count small text-body-secondary text-nowrap">@row.Used of @row.Total in use</span>
+            </button>
+        }
     };
 
     static string TabLabel(View v) => v switch
@@ -2520,6 +2665,10 @@
             </div>
         </div>
 
+        @* The one rigid block in this panel; on narrow screens it scrolls inside
+           its own box instead of widening the page. width:0 + min-width:100% keeps
+           the wrapper out of the host table cell's min-content negotiation. *@
+        <div class="table-scroll">
         <table class="table table-sm mb-1" style="max-width:52rem">
             <thead>
                 <tr>
@@ -2551,6 +2700,7 @@
                 }
             </tbody>
         </table>
+        </div>
 
         var effects = combi.ActiveEffects.ToList();
         var karmaOn = combi.KarmaModules.Where(m => m.IsOn).ToList();
@@ -2585,6 +2735,76 @@
             </div>
         }
     };
+
+    // "Song → combi → programs" flow for the set-list slot panel: the sounds this song
+    // actually drives, grouped by referenced program with the timbre numbers riding along.
+    private RenderFragment SongFlow(string songName, Combi combi, PcgCatalog? catalog) => __builder =>
+    {
+        const int maxGroups = 8;
+        var groups = combi.Timbres
+            .Where(t => t.UsesInternalProgram)
+            .GroupBy(t => (t.ProgramBankPcgId, t.ProgramNumber))
+            .Select(g => (
+                BankPcgId: g.Key.ProgramBankPcgId,
+                Number: g.Key.ProgramNumber,
+                Timbres: g.Select(t => t.Index + 1).OrderBy(n => n).ToList(),
+                AllMuted: g.All(t => t.Mute)))
+            .OrderBy(g => g.Timbres[0])
+            .ToList();
+
+        <div class="song-flow small mb-2" aria-label="What this song loads">
+            <span class="song-flow-chip song-flow-song" title="Set-list slot">@DisplayName(songName)</span>
+            <span class="song-flow-link" aria-hidden="true"></span>
+            <span class="song-flow-chip song-flow-combi" title="The combi this slot loads">
+                @DisplayName(combi.Name)
+                <span class="text-body-secondary">@PcgBankLabels.Combi(combi.Bank) #@combi.Index.ToString("D3")</span>
+            </span>
+            <span class="song-flow-link" aria-hidden="true"></span>
+            @if (groups.Count == 0)
+            {
+                <span class="song-flow-none text-body-secondary">no internal programs</span>
+            }
+            else
+            {
+                <ul class="song-flow-programs">
+                    @foreach (var g in groups.Take(maxGroups))
+                    {
+                        var programName = catalog?.ResolveProgram(g.BankPcgId, g.Number);
+                        <li class="song-flow-chip song-flow-program @(g.AllMuted ? "opacity-50" : null)">
+                            <span class="song-flow-t">@TimbreRunLabel(g.Timbres)</span>
+                            @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(g.BankPcgId)) #@g.Number.ToString("D3")
+                            @if (programName is not null)
+                            {
+                                <span> — @programName</span>
+                            }
+                            @if (g.AllMuted)
+                            {
+                                <span class="text-body-secondary"> · muted</span>
+                            }
+                        </li>
+                    }
+                    @if (groups.Count > maxGroups)
+                    {
+                        <li class="song-flow-more text-body-secondary">+@(groups.Count - maxGroups) more</li>
+                    }
+                </ul>
+            }
+        </div>
+    };
+
+    // Compresses sorted timbre numbers into runs: [1] → "T1"; [5..16] → "T5–T16"; [1,3,4] → "T1·T3–T4".
+    static string TimbreRunLabel(IReadOnlyList<int> sorted)
+    {
+        var parts = new List<string>();
+        for (int i = 0; i < sorted.Count;)
+        {
+            int start = i;
+            while (i + 1 < sorted.Count && sorted[i + 1] == sorted[i] + 1) i++;
+            parts.Add(start == i ? $"T{sorted[start]}" : $"T{sorted[start]}–T{sorted[i]}");
+            i++;
+        }
+        return string.Join("·", parts);
+    }
 
     // CSS percentages must use invariant formatting regardless of server culture.
     static string Pct(double value) =>
