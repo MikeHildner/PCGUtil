@@ -58,10 +58,14 @@
         {
             <span class="small text-danger">@_error</span>
         }
+        @if (_kgeFileName is not null)
+        {
+            <span class="badge text-bg-light fw-normal" title="KARMA user GE names loaded from @_kgeFileName">GE names ✓</span>
+        }
         <span class="ms-auto"></span>
-        <label class="btn btn-sm btn-outline-secondary mb-0">
+        <label class="btn btn-sm btn-outline-secondary mb-0" title="Open another backup, or this backup's companion .KGE to name its KARMA GEs">
             Open another file
-            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="d-none" />
+            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg,.KGE,.kge" class="d-none" />
         </label>
     </div>
 
@@ -2019,6 +2023,11 @@
 
     async Task OnFileSelected(InputFileChangeEventArgs e)
     {
+        if (e.File.Name.EndsWith(".KGE", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadKge(e);
+            return;
+        }
         _error = null;
         _pcg = null;
         _fileName = e.File.Name;
@@ -2570,6 +2579,38 @@
     Combi? FindCombi(int bank, int index) => _pcg is null ? null
         : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == bank && c.Index == index);
 
+    // Companion .KGE: user KARMA GE names (USER-A..L), attached from the file header.
+    IReadOnlyList<IReadOnlyList<string>>? _kgeBanks;
+    string? _kgeFileName;
+
+    string? UserGeDisplayName(int geId) =>
+        _kgeBanks is null ? null : KgeReader.UserGeName(_kgeBanks, geId);
+
+    async Task LoadKge(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        try
+        {
+            using var ms = new MemoryStream();
+            await using (var stream = e.File.OpenReadStream(MaxFileSize))
+            {
+                await stream.CopyToAsync(ms);
+            }
+            var banks = KgeReader.Read(ms.ToArray());
+            if (banks is null)
+            {
+                _error = $"'{e.File.Name}' doesn't look like a KARMA GE (.KGE) file.";
+                return;
+            }
+            _kgeBanks = banks;
+            _kgeFileName = e.File.Name;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not read '{e.File.Name}': {ex.Message}";
+        }
+    }
+
     // Program metadata (category/favorite/engine), decoded once per file in LoadDerived.
     Dictionary<(int Bank, int Index), ProgramInfo> _programInfos = new();
 
@@ -2806,8 +2847,9 @@
                 <span class="small text-body-secondary me-1">KARMA:</span>
                 @foreach (var m in karmaOn)
                 {
+                    var geName = UserGeDisplayName(m.GeId);
                     <span class="badge text-bg-light fw-normal" title="KARMA module @m.Label">
-                        @m.Label · @m.GeLabel
+                        @m.Label · @m.GeLabel@(geName is not null ? $" — {geName}" : "")
                     </span>
                 }
                 @if (combi.UsesUserKarmaGes)
