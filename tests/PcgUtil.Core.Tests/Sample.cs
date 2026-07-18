@@ -43,6 +43,30 @@ internal static class Sample
 }
 
 /// <summary>
+/// Locates the optional slot-color probe PCG (set list 016 has slots 0–15 set to the 16
+/// picker colors in order, slot 0 volume 100, slots 1/2 transpose +2/−1 — captured on
+/// hardware 2026-07-18). Tests that depend on it silently pass when it's absent.
+/// </summary>
+internal static class ColorsProbe
+{
+    public static PcgFile? Parse()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var filesDir = System.IO.Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+            {
+                var path = Directory.EnumerateFiles(filesDir, "colors-probe.PCG").FirstOrDefault();
+                return path is null ? null : PcgReader.Parse(File.ReadAllBytes(path));
+            }
+            dir = dir.Parent;
+        }
+        return null;
+    }
+}
+
+/// <summary>
 /// Locates the optional vendor-pack PCG (a partial file carrying only a few USER banks) under
 /// files/. Tests that depend on it must silently pass when it's absent — unlike the main
 /// sample, it isn't required.

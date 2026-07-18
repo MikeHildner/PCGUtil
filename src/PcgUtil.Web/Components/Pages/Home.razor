@@ -653,7 +653,14 @@
                                 title="@(canShowCombi ? "Show the combi this song loads" : canJumpProgram ? "Show this program in the Programs tab" : null)"
                                 @onclick="() => OnSlotRowClick(slot)"
                                 @onkeydown="e => OnSlotRowKeyDown(e, slot)">
-                                <td>@slot.Index.ToString("D3")</td>
+                                <td class="text-nowrap">
+                                    @if (!slot.IsEmpty)
+                                    {
+                                        <span class="slot-color" style="background:@SetListSlotColors.Css(slot.Color)"
+                                              title="@SetListSlotColors.Name(slot.Color)" aria-hidden="true"></span>
+                                    }
+                                    @slot.Index.ToString("D3")
+                                </td>
                                 <td>
                                     @if (_editMode)
                                     {
@@ -700,6 +707,9 @@
                                         <button type="button" class="btn btn-sm @(_descSlot == slot.Index ? "btn-secondary" : "btn-outline-secondary") px-2"
                                                 title="Edit this slot's notes (shown on the device and printed set lists)"
                                                 @onclick="() => ToggleDescEditor(slot.Index)">Notes</button>
+                                        <button type="button" class="btn btn-sm @(_colorSlot == slot.Index ? "btn-secondary" : "btn-outline-secondary") px-2"
+                                                title="Pick this slot's color (shown on the device's set list)"
+                                                @onclick="() => ToggleColorEditor(slot.Index)">Color</button>
                                         <button type="button" class="btn btn-sm @(_repointSlot == slot.Index ? "btn-secondary" : "btn-outline-secondary") px-2"
                                                 title="Change which Program/Combi this slot loads"
                                                 @onclick="() => ToggleRepoint(slot)">Load</button>
@@ -719,6 +729,14 @@
                                         <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
                                             <span class="fw-semibold">@_slotDetailCombi.Name</span>
                                             <span class="small text-body-secondary">@SlotBankLabel(slot.Reference) · #@slot.Reference.Index.ToString("D3")</span>
+                                            @if (slot.Volume != 127)
+                                            {
+                                                <span class="small text-body-secondary">· volume @slot.Volume</span>
+                                            }
+                                            @if (slot.Transpose != 0)
+                                            {
+                                                <span class="small text-body-secondary">· transpose @slot.Transpose.ToString("+0;-0")</span>
+                                            }
                                             <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
                                                     @onclick="() => OpenCombi(slot.Reference.Bank, slot.Reference.Index)">Open in Combis ›</button>
                                         </div>
@@ -739,6 +757,27 @@
                                         <textarea class="form-control form-control-sm" rows="3" maxlength="512"
                                                   value="@slot.Description"
                                                   @onchange="@(e => SetSlotDescription(slot.Index, e.Value?.ToString()))"></textarea>
+                                    </td>
+                                </tr>
+                            }
+                            @if (_editMode && _colorSlot == slot.Index)
+                            {
+                                <tr @key="@($"color-{slot.Index}")">
+                                    <td></td>
+                                    <td colspan="3">
+                                        <div class="small text-body-secondary mb-1">Color for slot @slot.Index.ToString("D3") — shows on the device's set list</div>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @for (int c = 0; c < SetListSlotColors.Count; c++)
+                                            {
+                                                var color = c;
+                                                <button type="button"
+                                                        class="slot-color-choice @(slot.Color == color ? "slot-color-current" : null)"
+                                                        style="background:@SetListSlotColors.Css(color)"
+                                                        title="@SetListSlotColors.Name(color)"
+                                                        aria-label="@SetListSlotColors.Name(color)"
+                                                        @onclick="() => SetSlotColor(slot.Index, color)"></button>
+                                            }
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -1910,6 +1949,7 @@
 
     // Slot notes / re-point panels (one of each open at a time)
     int? _descSlot;
+    int? _colorSlot;
     int? _repointSlot;
     PcgItemKind _repointKind = PcgItemKind.Combi;
     int _repointBank;
@@ -2296,6 +2336,7 @@
         {
             _selectedSetList = idx;
             _descSlot = null;
+            _colorSlot = null;
             _repointSlot = null;
             _slotDetailSlot = null;  // panel is keyed by slot index; another list's slot would inherit it
             _slotDetailCombi = null;
@@ -2369,6 +2410,7 @@
     void ToggleDescEditor(int slot)
     {
         _repointSlot = null;
+        _colorSlot = null;
         _descSlot = _descSlot == slot ? null : slot;
     }
 
@@ -2378,9 +2420,23 @@
         ApplyEdit(PcgEditor.SetSetListSlotDescription(_pcg, _selectedSetList, slot, text ?? string.Empty));
     }
 
+    void ToggleColorEditor(int slot)
+    {
+        _descSlot = null;
+        _repointSlot = null;
+        _colorSlot = _colorSlot == slot ? null : slot;
+    }
+
+    void SetSlotColor(int slot, int color)
+    {
+        if (_pcg is null) return;
+        ApplyEdit(PcgEditor.SetSetListSlotColor(_pcg, _selectedSetList, slot, color));
+    }
+
     void ToggleRepoint(SetListSlot slot)
     {
         _descSlot = null;
+        _colorSlot = null;
         if (_repointSlot == slot.Index)
         {
             _repointSlot = null;
@@ -2536,6 +2592,7 @@
         _view = View.SetLists;
         _selectedSetList = pos;
         _descSlot = null;
+        _colorSlot = null;
         _repointSlot = null;
         _slotDetailSlot = null;
         _slotDetailCombi = null;

@@ -58,12 +58,16 @@ public static class SetListReader
             for (int j = 0; j < slotsPerList; j++)
             {
                 long slotBase = record + RecordHeaderSize + (long)j * SlotSize;
+                var raw = ReadBytes(data, slotBase + SlotRefOffset, SlotRefLength);
                 slots.Add(new SetListSlot
                 {
                     Index = j,
                     Name = PcgText.ReadFixedString(data, slotBase + SlotNameOffset, SlotNameLength),
-                    Reference = DecodeReference(ReadBytes(data, slotBase + SlotRefOffset, SlotRefLength)),
+                    Reference = DecodeReference(raw),
                     Description = PcgText.ReadFixedString(data, slotBase + SlotDescriptionOffset, SlotDescriptionLength),
+                    Color = raw.Length > 0 ? (raw[0] >> 2) & 0x0F : 0,
+                    Volume = raw.Length > 4 ? raw[4] : 127,
+                    Transpose = raw.Length > 5 ? (sbyte)raw[5] / 32 : 0,
                 });
             }
 
@@ -73,10 +77,13 @@ public static class SetListReader
         return setLists;
     }
 
-    // Reference bytes B0 B1 B2 (bytes 3–5 are the slot's color/volume/transpose):
-    //   Type  = B0 & 0x03  (Combi=0, Program=1, Song=2)
-    //   Bank  = B1 & 0x1F
+    // Reference bytes B0 B1 B2:
+    //   Type  = B0 & 0x03        (Combi=0, Program=1, Song=2)
+    //   Color = (B0 >> 2) & 0x0F (probe-verified: 16 slots colored in picker order → 4j+kind)
+    //   Bank  = B1 & 0x1F        (high bits can carry transpose spill on program slots — masked)
     //   Index = B2 & 0x7F
+    // Bytes 3–5: comment font size (constant 6), volume 0–127, transpose ×32 (probe-verified:
+    // hardware +2/−1 stored as 0x40/0xE0; readings 0/−1/−2 match 0x00/0xE0/0xC0).
     private static SetListReference DecodeReference(byte[] raw)
     {
         byte b0 = raw.Length > 0 ? raw[0] : (byte)0;

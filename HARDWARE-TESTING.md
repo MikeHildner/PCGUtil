@@ -88,6 +88,15 @@ instrument's own screens (an off-by-one in the name table would shift every labe
 - [x] User combi "TOM SAWYER": IFX1 L/C/R Delay loaded but switched **off**, IFX4 St. Tube
       PreAmp Modeling — the on/off bit verified on user content.
 
+## 11. Slot colors, volume & transpose
+Status: **decode confirmed** (2026-07-18 — probe file: set list 016 colored 0–15 in picker
+order, volume 100, transpose +2/−1 all read back exactly; hardware readings 0/−1/−2 matched
+the ×32 encoding). **Color write pending** a load test:
+- [x] Decode: slot colors/volume/transpose match the instrument (probe file + gig-list readings).
+- [ ] Recolor a slot in PCGUtil (Set Lists → Edit mode → **Color**), download, load on the
+      instrument: the set list shows the chosen color and the slot still recalls its patch,
+      name, and notes.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.

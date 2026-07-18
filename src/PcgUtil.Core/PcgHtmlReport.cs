@@ -99,7 +99,10 @@ public static class PcgHtmlReport
         body.Append("<table><thead><tr><th>Slot</th><th>Song</th><th>Loads</th><th>Notes</th></tr></thead><tbody>");
         foreach (var slot in songs)
         {
-            body.Append("<tr><td>").Append(slot.Index.ToString("D3")).Append("</td><td>")
+            body.Append("<tr><td><span class=\"swatch\" style=\"background:")
+                .Append(SetListSlotColors.Css(slot.Color)).Append("\" title=\"")
+                .Append(Esc(SetListSlotColors.Name(slot.Color))).Append("\"></span>")
+                .Append(slot.Index.ToString("D3")).Append("</td><td>")
                 .Append(Esc(slot.Name)).Append("</td><td>")
                 .Append(Esc(SlotLoads(slot, catalog))).Append("</td><td class=\"notes\">")
                 .Append(Esc(slot.Description)).Append("</td></tr>");
@@ -133,6 +136,7 @@ public static class PcgHtmlReport
         sb.Append("th,td{border:1px solid #ccc;padding:4px 8px;text-align:left;font-size:.9rem;vertical-align:top;}");
         sb.Append("th{background:#f3f3f3;}");
         sb.Append(".notes{white-space:pre-line;font-size:.85rem;color:#333;}");
+        sb.Append(".swatch{display:inline-block;width:.7rem;height:.7rem;border-radius:3px;border:1px solid #bbb;margin-right:.35rem;vertical-align:-1px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}");
         sb.Append("h2.combi{font-size:1.05rem;margin:.9rem 0 .3rem;}");
         sb.Append("@media print{body{margin:0;}.page-break{page-break-before:always;}}");
         sb.Append("\n</style>\n</head>\n<body>\n").Append(body).Append("\n</body>\n</html>\n");

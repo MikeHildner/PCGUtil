@@ -97,4 +97,52 @@ public class SetListReaderTests
         Assert.Equal("Sequence", slot.Name);
         Assert.Equal(PcgItemKind.Song, slot.Reference.Kind);
     }
+
+    // Color rides B0 bits 2–5, volume is byte 28, transpose byte 29 ×32 — every named
+    // slot must decode inside the hardware's ranges, and color must match its raw bits.
+    [Fact]
+    public void Slot_color_volume_transpose_decode_within_hardware_ranges()
+    {
+        var setLists = SetListReader.Read(Sample.Parse());
+        int named = 0;
+        foreach (var sl in setLists)
+            foreach (var slot in sl.NamedSlots)
+            {
+                named++;
+                Assert.InRange(slot.Color, 0, 15);
+                Assert.InRange(slot.Volume, 0, 127);
+                Assert.InRange(slot.Transpose, -12, 12);
+                Assert.Equal((slot.Reference.Raw[0] >> 2) & 0x0F, slot.Color);
+            }
+        Assert.True(named > 100, $"expected many named slots, got {named}");
+    }
+
+    // The probe file's set list 016 was colored 0..15 in picker order on the instrument,
+    // with volume 100 on slot 0 and transpose +2/−1 on slots 1/2 — the ground truth that
+    // pinned the encodings. Silently passes when the probe isn't present.
+    [Fact]
+    public void Probe_file_pins_color_order_volume_and_transpose()
+    {
+        if (ColorsProbe.Parse() is not { } probe)
+            return;
+
+        var sl16 = SetListReader.Read(probe)[16];
+        for (int j = 0; j < 16; j++)
+            Assert.Equal(j, sl16.Slots[j].Color);
+        Assert.Equal(100, sl16.Slots[0].Volume);
+        Assert.Equal(2, sl16.Slots[1].Transpose);
+        Assert.Equal(-1, sl16.Slots[2].Transpose);
+    }
+
+    [Fact]
+    public void Slot_color_names_cover_the_picker()
+    {
+        Assert.Equal(16, SetListSlotColors.Count);
+        Assert.Equal("Default", SetListSlotColors.Name(0));
+        Assert.Equal("Brick", SetListSlotColors.Name(2));
+        Assert.Equal("Gold", SetListSlotColors.Name(6));
+        Assert.Equal("Slate", SetListSlotColors.Name(15));
+        Assert.Equal("Color 16", SetListSlotColors.Name(16));
+        Assert.StartsWith("#", SetListSlotColors.Css(2));
+    }
 }

@@ -57,6 +57,54 @@ public class PcgEditorSlotFieldsTests
     }
 
     [Fact]
+    public void SetColor_round_trips_and_preserves_everything_else()
+    {
+        var pcg = Sample.Parse();
+        var before = SetListReader.Read(pcg)[0].Slots[1];
+
+        var edited = PcgEditor.SetSetListSlotColor(pcg, 0, 1, 11);
+        var slot = SetListReader.Read(PcgReader.Parse(edited))[0].Slots[1];
+
+        Assert.Equal(11, slot.Color);
+        Assert.Equal(before.Reference.Kind, slot.Reference.Kind);
+        Assert.Equal(before.Reference.Bank, slot.Reference.Bank);
+        Assert.Equal(before.Reference.Index, slot.Reference.Index);
+        Assert.Equal(before.Name, slot.Name);
+        Assert.Equal(before.Description, slot.Description);
+        Assert.Equal(before.Volume, slot.Volume);
+        Assert.Equal(before.Transpose, slot.Transpose);
+
+        foreach (var chunk in pcg.EnumerateChunks())
+        {
+            if (chunk.HasChildren || chunk.DataOffset < 1 || chunk.Size <= 0) continue;
+            if (chunk.DataEnd > pcg.Data.Length) continue;
+            byte stored = pcg.Data[chunk.DataOffset - 1];
+            if (stored != PcgChecksum.Sum(pcg.Data, chunk.DataOffset, chunk.Size)) continue;
+            Assert.Equal(PcgChecksum.Sum(edited, chunk.DataOffset, chunk.Size), edited[chunk.DataOffset - 1]);
+        }
+    }
+
+    [Fact]
+    public void SetColor_rejects_out_of_range_colors()
+    {
+        var pcg = Sample.Parse();
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetSetListSlotColor(pcg, 0, 1, 16));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetSetListSlotColor(pcg, 0, 1, -1));
+    }
+
+    [Fact]
+    public void Repoint_keeps_the_slot_color()
+    {
+        var pcg = Sample.Parse();
+        var before = SetListReader.Read(pcg)[0].Slots[1];
+
+        var edited = PcgEditor.RepointSetListSlot(pcg, 0, 1, PcgItemKind.Combi, 7, 58);
+        var slot = SetListReader.Read(PcgReader.Parse(edited))[0].Slots[1];
+
+        Assert.Equal(before.Color, slot.Color); // color rides B0 bits 2–5; repoint masks them off
+    }
+
+    [Fact]
     public void Repoint_to_another_combi_changes_only_the_reference()
     {
         var pcg = Sample.Parse();

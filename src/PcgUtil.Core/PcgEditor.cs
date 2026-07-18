@@ -85,6 +85,21 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>Returns a copy with a slot's color (0–15) rewritten. The color shares its byte
+    /// with the slot's 2-bit kind (bits 0–1) and two undecoded high bits — both preserved.</summary>
+    public static byte[] SetSetListSlotColor(PcgFile pcg, int setListIndex, int slot, int color)
+    {
+        if (color is < 0 or > 15)
+            throw new ArgumentOutOfRangeException(nameof(color), color, "Slot colors are 0–15.");
+        var layout = GetLayout(pcg);
+        ValidateSlot(layout, setListIndex, slot, nameof(slot));
+
+        var data = (byte[])pcg.Data.Clone();
+        long offset = SlotOffset(layout, setListIndex, slot) + SetListReader.SlotRefOffset;
+        data[offset] = (byte)((data[offset] & 0xC3) | (color << 2));
+        return Finalized(pcg, data);
+    }
+
     /// <summary>Returns a copy with a slot's description (comment) field rewritten
     /// (up to 512 ASCII chars, line breaks allowed).</summary>
     public static byte[] SetSetListSlotDescription(PcgFile pcg, int setListIndex, int slot, string description)
