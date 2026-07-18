@@ -18,6 +18,26 @@
     }
 }
 
+/* Empty-state hero: one obvious action, weighted like a landing page. */
+.hero {
+    max-width: 34rem;
+    padding-top: clamp(2rem, 16vh, 8rem);
+}
+
+/* The InputFile inside the big button is visually-hidden (not display:none) so it
+   stays keyboard-operable; the label paints the ring while it holds focus. */
+.upload-btn:focus-within {
+    box-shadow: 0 0 0 0.1rem var(--bs-body-bg), 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5);
+}
+
+/* Start-page summary tiles: the big number is the point. */
+.stat-tile .stat-value {
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Start page task cards: full-card buttons that read as cards, not buttons. */
 .task-card {
     padding: 0;

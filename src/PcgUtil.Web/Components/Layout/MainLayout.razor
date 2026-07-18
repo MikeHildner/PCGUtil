@@ -1,9 +1,23 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+    <header class="topbar">
+        <span class="brand">
+            @* The waveform mark from the app icon; the frame is dark in both themes.
+               A span, not a link — navigating would re-render the circuit and drop the open file. *@
+            <svg width="20" height="14" viewBox="0 0 20 14" fill="none" aria-hidden="true"><polyline points="1,7 5.5,7 8.5,2.5 11.5,11.5 14.5,7 19,7" fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            PCG Util
+        </span>
+        <nav class="topbar-actions">
+            @* Static page; new tab so the Blazor circuit (and any uploaded file) survives. *@
+            <a href="hardware-testing.html" target="_blank" rel="noopener">Hardware tests</a>
+            @* The layout renders statically, so the theme toggle is plain JS (download.js). *@
+            <button type="button" class="theme-toggle" onclick="pcgCycleTheme()"
+                    title="Switch between light, dark, and follow-the-OS">
+                <span id="theme-toggle-label">Theme: auto</span>
+            </button>
+        </nav>
+    </header>
 
     <main>
         <article class="content px-4">

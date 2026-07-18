@@ -10,7 +10,7 @@ things on the workstation itself:
 This file is the **internal tracker**: per-section Status lines record what has been verified
 on our own hardware, and items may reference patches from our sample file. The public,
 file-agnostic variant every visitor sees is `src/PcgUtil.Web/wwwroot/hardware-testing.html`
-(linked from the app sidebar as "Hardware tests") — same checks in substance, no statuses,
+(linked from the app top bar as "Hardware tests") — same checks in substance, no statuses,
 worded for any instrument, with a GitHub-issues link for reports. **When a write-path feature
 ships, add a section to both.** Tip: use the **Usage** and **Duplicates** tabs to choose which
 patches to test with.

@@ -1,5 +1,5 @@
 // Theme handling. The saved preference is "light" | "dark"; absent = follow the OS.
-// The layout renders statically, so the sidebar toggle drives this with plain JS.
+// The layout renders statically, so the top-bar toggle drives this with plain JS.
 window.pcgApplyTheme = () => {
     let pref = null;
     try { pref = localStorage.getItem("pcgTheme"); } catch (e) { }

@@ -9,32 +9,32 @@
 
 @if (_pcg is null)
 {
-    <h1 class="mb-3 d-flex align-items-center gap-2">
-        <svg width="28" height="20" viewBox="0 0 20 14" fill="none" aria-hidden="true"><polyline points="1,7 5.5,7 8.5,2.5 11.5,11.5 14.5,7 19,7" fill="none" stroke="var(--pcg-wave)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        PCG Util
-    </h1>
-
-    <p class="text-body-secondary">
-        Open a <code>.PCG</code> backup from your workstation to organize set lists, explore your
-        sounds, and move songs between files. Files are read in memory — nothing is saved on the server.
-    </p>
-
-    <div class="card mb-4" style="max-width:44rem">
-        <div class="card-body">
-            <label class="form-label fw-semibold">Choose a .PCG file</label>
-            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="form-control" />
-            @if (_loading)
-            {
-                <div class="mt-2 text-body-secondary">
-                    <span class="spinner-border spinner-border-sm" role="status"></span>
-                    Reading and parsing @_fileName …
-                </div>
-            }
-            @if (_error is not null)
-            {
-                <div class="alert alert-danger mt-3 mb-0">@_error</div>
-            }
-        </div>
+    <div class="hero mx-auto text-center">
+        <h1 class="d-flex align-items-center justify-content-center gap-2 mb-3">
+            <svg width="34" height="24" viewBox="0 0 20 14" fill="none" aria-hidden="true"><polyline points="1,7 5.5,7 8.5,2.5 11.5,11.5 14.5,7 19,7" fill="none" stroke="var(--pcg-wave)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            PCG Util
+        </h1>
+        <p class="text-body-secondary mb-4">
+            Open the backup file from your instrument to see and organize what's inside.
+        </p>
+        <label class="btn btn-primary btn-lg upload-btn">
+            Open a .PCG file
+            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="visually-hidden" />
+        </label>
+        @if (_loading)
+        {
+            <div class="mt-3 text-body-secondary">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                Reading and parsing @_fileName …
+            </div>
+        }
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger text-start mt-3 mb-0">@_error</div>
+        }
+        <p class="small text-body-secondary mt-3 mb-0">
+            Files are read in memory — nothing is saved on the server.
+        </p>
     </div>
 }
 
@@ -78,9 +78,9 @@
         @{ var advancedOpen = _showAdvanced || AdvancedViews.Contains(_view); }
         <li class="nav-item">
             <button type="button" class="nav-link text-body-secondary"
-                    title="File internals — chunk structure, raw strings"
+                    title="Copying between files, differences, usage, duplicates — plus file internals"
                     @onclick="() => _showAdvanced = !advancedOpen">
-                @(advancedOpen ? "Advanced ▾" : "Advanced ▸")
+                @(advancedOpen ? "More ▾" : "More ▸")
             </button>
         </li>
         @if (advancedOpen)
@@ -101,26 +101,62 @@
     {
         case View.Home:
         {
+            @if (_catalog is not null)
+            {
+                var combiCount = NamedBankItems(_catalog.CombiBanks).Count;
+                var programCount = NamedBankItems(_catalog.ProgramBanks).Count;
+                var listsInUse = _setLists.Count(s => s.NamedSlots.Any());
+                var mainList = _selectedSetList >= 0 && _selectedSetList < _setLists.Count ? _setLists[_selectedSetList] : null;
+                var songCount = mainList?.NamedSlots.Count() ?? 0;
+
+                <h2 class="h4 mb-3">Here's what's in @_fileName</h2>
+                <div class="row g-3 mb-4" style="max-width:52rem">
+                    @if (songCount > 0)
+                    {
+                        <div class="col-6 col-xl-3">
+                            <div class="stat-tile border rounded p-3 h-100">
+                                <div class="stat-value">@songCount</div>
+                                <div class="small text-body-secondary text-truncate" title="@mainList!.DisplayName">
+                                    song@(songCount == 1 ? "" : "s") in @mainList.DisplayName
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    <div class="col-6 col-xl-3">
+                        <div class="stat-tile border rounded p-3 h-100">
+                            <div class="stat-value">@listsInUse</div>
+                            <div class="small text-body-secondary">set list@(listsInUse == 1 ? "" : "s") in use</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-xl-3">
+                        <div class="stat-tile border rounded p-3 h-100">
+                            <div class="stat-value">@combiCount</div>
+                            <div class="small text-body-secondary">combi@(combiCount == 1 ? "" : "s")</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-xl-3">
+                        <div class="stat-tile border rounded p-3 h-100">
+                            <div class="stat-value">@programCount</div>
+                            <div class="small text-body-secondary">program@(programCount == 1 ? "" : "s")</div>
+                        </div>
+                    </div>
+                </div>
+            }
+
             <h2 class="h4 mb-1">What would you like to do?</h2>
             <p class="text-body-secondary small">
                 Your backup stays untouched — every change lands in a new file you download.
             </p>
-            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-3">
-                @foreach (var card in TaskCards())
-                {
-                    <div class="col">
-                        <button type="button" class="task-card card h-100 w-100 text-start" @onclick="card.Open">
-                            <div class="card-body">
-                                <svg class="task-card-icon" viewBox="0 0 16 16" fill="currentColor" width="22" height="22" aria-hidden="true">
-                                    @((MarkupString)card.IconPaths)
-                                </svg>
-                                <div class="fw-semibold mt-2">@card.Title</div>
-                                <div class="small text-body-secondary mt-1">@card.Blurb</div>
-                            </div>
-                        </button>
-                    </div>
-                }
-            </div>
+            @TaskCardGrid(PrimaryTaskCards(), "row-cols-1 row-cols-md-3")
+
+            <button type="button" class="btn btn-link btn-sm text-body-secondary text-decoration-none px-0 mb-2"
+                    @onclick="() => _showMoreCards = !_showMoreCards">
+                @(_showMoreCards ? "More you can do ▾" : "More you can do ▸")
+            </button>
+            @if (_showMoreCards)
+            {
+                @TaskCardGrid(MoreTaskCards(), "row-cols-1 row-cols-md-2 row-cols-xl-4")
+            }
             break;
         }
 
@@ -1887,6 +1923,7 @@
             _pcg = PcgReader.Parse(ms.ToArray());
             _view = View.Home; // land on the task cards: "what would you like to do?"
             _showAdvanced = false;
+            _showMoreCards = false;
             _dirty = false;
             _editMode = false;
             _copySource = null;
@@ -1987,19 +2024,21 @@
             : _pcg.TopLevel;
     }
 
-    // The technical tabs a musician shouldn't have to wade through; reachable via "Advanced".
-    static readonly View[] AdvancedViews = { View.Overview, View.Strings, View.Tree };
+    // Workspaces a musician doesn't need on day one — folded behind "More".
+    static readonly View[] AdvancedViews = { View.Copy, View.Differences, View.Usage, View.Duplicates, View.Overview, View.Strings, View.Tree };
 
     // Views reachable from Start cards (or in-flow links) only — no tab of their own.
     static readonly View[] HiddenViews = { View.AddSounds };
     bool _showAdvanced;
+    bool _showMoreCards;
 
     // ----- Start page: task cards in musician language, each opening a workspace -----
 
     sealed record TaskCardDef(string Title, string Blurb, string IconPaths, Action Open);
 
     // Icon path data from Bootstrap Icons (MIT) — inline so no icon font is needed.
-    TaskCardDef[] TaskCards() => new[]
+    // The primary three answer "where do I start?"; the rest live behind "More you can do".
+    TaskCardDef[] PrimaryTaskCards() => new[]
     {
         new TaskCardDef("Prepare a gig",
             "Reorder your set list, rename songs, add performance notes, print a cheat sheet.",
@@ -2013,6 +2052,10 @@
             "Bring a song you bought — or built on another backup — into this file, with everything it needs to sound right.",
             "<path fill-rule='evenodd' d='M3.5 6a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1 0-1h2A1.5 1.5 0 0 1 14 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-8A1.5 1.5 0 0 1 3.5 5h2a.5.5 0 0 1 0 1z'/><path fill-rule='evenodd' d='M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z'/>",
             OpenAddSounds),
+    };
+
+    TaskCardDef[] MoreTaskCards() => new[]
+    {
         new TaskCardDef("Explore this file",
             "Browse set lists, and see each combi's splits and layers.",
             "<path d='M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2'/><path fill-rule='evenodd' d='M12 3v10h-1V3z'/><path d='M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V4l-5 1z'/><path fill-rule='evenodd' d='M0 11.5a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 7H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 3H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5'/>",
@@ -2026,7 +2069,7 @@
             "<path fill-rule='evenodd' d='M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5m14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5'/>",
             () => _view = View.Differences),
         new TaskCardDef("Under the hood",
-            "File structure, raw data, and the hardware test checklist — for the curious.",
+            "File structure and raw data — for the curious.",
             "<path d='M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0'/><path d='M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z'/>",
             () => _view = View.Overview),
     };
@@ -2546,6 +2589,27 @@
     // CSS percentages must use invariant formatting regardless of server culture.
     static string Pct(double value) =>
         value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    // One card grid for both the primary and the "More you can do" sets.
+    private RenderFragment TaskCardGrid(IEnumerable<TaskCardDef> cards, string rowCols) => __builder =>
+    {
+        <div class="row @rowCols g-3 mb-3">
+            @foreach (var card in cards)
+            {
+                <div class="col">
+                    <button type="button" class="task-card card h-100 w-100 text-start" @onclick="card.Open">
+                        <div class="card-body">
+                            <svg class="task-card-icon" viewBox="0 0 16 16" fill="currentColor" width="22" height="22" aria-hidden="true">
+                                @((MarkupString)card.IconPaths)
+                            </svg>
+                            <div class="fw-semibold mt-2">@card.Title</div>
+                            <div class="small text-body-secondary mt-1">@card.Blurb</div>
+                        </div>
+                    </button>
+                </div>
+            }
+        </div>
+    };
 
     async Task ExportCombiContentsHtml()
     {

@@ -8,77 +8,62 @@ main {
     flex: 1;
 }
 
-.sidebar {
-    /* Flat dark chrome in both themes; the accent lives in the content, not the frame. */
+/* Slim static top bar. Flat dark chrome in both themes (matches the theme-color
+   meta); the accent lives in the content, not the frame. Not sticky — Home's
+   frosted .file-header owns top:0 once a file is open. */
+.topbar {
     background-color: #151a23;
-}
-
-.top-row {
-    background-color: var(--bs-tertiary-bg);
-    border-bottom: 1px solid var(--bs-border-color);
-    justify-content: flex-end;
-    height: 3.5rem;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 3rem;
+    padding: 0.25rem 1rem;
 }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
-    }
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
 
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
-    }
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
 
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+.topbar-actions a,
+.topbar-actions .theme-toggle {
+    color: #c3cad7;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
 
-/* Sidebar collapses through tablet portrait (≤991px) so tables get the full width;
-   the fixed sidebar only returns on desktop. */
-@media (max-width: 991.98px) {
-    .top-row {
-        justify-content: space-between;
-    }
+.topbar-actions a:hover,
+.topbar-actions .theme-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #fff;
+}
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
-    }
-
-    article {
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-    }
+article {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
 }
 
 @media (min-width: 992px) {
-    .page {
-        flex-direction: row;
-    }
-
-    .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
-    }
-
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
-    }
-
-    .top-row, article {
+    article {
         padding-left: 2rem !important;
         padding-right: 1.5rem !important;
     }
