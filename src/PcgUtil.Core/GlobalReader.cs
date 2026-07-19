@@ -16,12 +16,20 @@ public static class GlobalReader
 {
     private const int NameLength = 24;
     private const int CategoryCount = 18;
+    private const int MasterTuneOffset = 0;   // signed cents around A440
+    private const int KeyTransposeOffset = 1; // signed semitones
     private const int ProgramCategoriesOffset = 12912;
     private const int CombiCategoriesOffset = 16800;
 
-    /// <summary>Per-file category names, or null when the file carries no GLB1.</summary>
+    /// <summary>Per-file global settings and category names, or null when the file carries no GLB1.</summary>
     public sealed class GlobalInfo
     {
+        /// <summary>Master tune in cents around A440 (probe-verified: +20 → byte 20).</summary>
+        public required int MasterTune { get; init; }
+
+        /// <summary>Global key transpose in semitones (probe-verified: +2 → byte 2).</summary>
+        public required int KeyTranspose { get; init; }
+
         public required IReadOnlyList<string> ProgramCategoryNames { get; init; }
         public required IReadOnlyList<string> CombiCategoryNames { get; init; }
     }
@@ -35,6 +43,8 @@ public static class GlobalReader
 
         return new GlobalInfo
         {
+            MasterTune = (sbyte)pcg.Data[glb.DataOffset + MasterTuneOffset],
+            KeyTranspose = (sbyte)pcg.Data[glb.DataOffset + KeyTransposeOffset],
             ProgramCategoryNames = ReadNames(pcg.Data, glb.DataOffset + ProgramCategoriesOffset),
             CombiCategoryNames = ReadNames(pcg.Data, glb.DataOffset + CombiCategoriesOffset),
         };

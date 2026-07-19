@@ -145,6 +145,25 @@
                         </div>
                     </div>
                 </div>
+                @if (_catalog.Global is { } g && (g.MasterTune != 0 || g.KeyTranspose != 0))
+                {
+                    <div class="alert alert-warning py-2 px-3 small mb-4" style="max-width:52rem">
+                        Heads up: this backup's global tuning isn't standard —
+                        @if (g.MasterTune != 0)
+                        {
+                            <strong>master tune @g.MasterTune.ToString("+0;-0")¢</strong>
+                        }
+                        @if (g.MasterTune != 0 && g.KeyTranspose != 0)
+                        {
+                            <text>, </text>
+                        }
+                        @if (g.KeyTranspose != 0)
+                        {
+                            <strong>transpose @g.KeyTranspose.ToString("+0;-0") semitone@(Math.Abs(g.KeyTranspose) == 1 ? "" : "s")</strong>
+                        }
+                        <text> — every sound plays shifted until you reset it on the instrument.</text>
+                    </div>
+                }
             }
 
             <h2 class="h4 mb-1">What would you like to do?</h2>
@@ -504,6 +523,21 @@
                         <div class="fw-semibold">@_pcg.EnumerateChunks().Count()</div>
                     </div>
                 </div>
+                @if (_catalog?.Global is { } g)
+                {
+                    <div class="col-6 col-lg-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="text-body-secondary small">Master tune</div>
+                            <div class="fw-semibold">@(g.MasterTune == 0 ? "standard (A440)" : $"{g.MasterTune:+0;-0}¢")</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="text-body-secondary small">Global transpose</div>
+                            <div class="fw-semibold">@(g.KeyTranspose == 0 ? "none" : $"{g.KeyTranspose:+0;-0} semitone{(Math.Abs(g.KeyTranspose) == 1 ? "" : "s")}")</div>
+                        </div>
+                    </div>
+                }
             </div>
 
             <h2 class="h5">Top-level sections</h2>

@@ -58,4 +58,37 @@ public class GlobalReaderTests
         Assert.Equal("User 18", catalog.CombiCategoryName(18));
         Assert.Equal("User 31", catalog.ProgramCategoryName(31));
     }
+
+    // The standard sample has default global tuning (GLB1 payload bytes 0–1 both zero).
+    [Fact]
+    public void Sample_has_standard_global_tuning()
+    {
+        var global = GlobalReader.Read(Sample.Parse());
+        Assert.NotNull(global);
+        Assert.Equal(0, global!.MasterTune);
+        Assert.Equal(0, global.KeyTranspose);
+    }
+
+    // The tuning probe (Master Tune +20 cents, Key Transpose +2, saved from the instrument)
+    // pins the two settings-header bytes. Silently passes when the probe isn't present.
+    [Fact]
+    public void Tuning_probe_pins_master_tune_and_key_transpose()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        string? path = null;
+        while (dir is not null && path is null)
+        {
+            var filesDir = Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+                path = Directory.EnumerateFiles(filesDir, "tuning-probe.PCG").FirstOrDefault();
+            dir = dir.Parent;
+        }
+        if (path is null)
+            return;
+
+        var global = GlobalReader.Read(PcgReader.Parse(File.ReadAllBytes(path)));
+        Assert.NotNull(global);
+        Assert.Equal(20, global!.MasterTune);
+        Assert.Equal(2, global.KeyTranspose);
+    }
 }
