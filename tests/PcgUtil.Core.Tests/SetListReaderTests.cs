@@ -134,6 +134,43 @@ public class SetListReaderTests
         Assert.Equal(-1, sl16.Slots[2].Transpose);
     }
 
+    // The hold-time probe (set list 016 written before saving) pinned byte 27 as the
+    // hold-time index and exposed transpose as an 11-bit ×32 field spanning byte 29 and
+    // the bank byte's top bits (+8 stores 0x20/0x00, −1 stores 0xE0/0xE0).
+    [Fact]
+    public void Holdtime_probe_pins_hold_index_and_wide_transpose()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        string? path = null;
+        while (dir is not null && path is null)
+        {
+            var filesDir = Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+                path = Directory.EnumerateFiles(filesDir, "holdtime-probe.PCG").FirstOrDefault();
+            dir = dir.Parent;
+        }
+        if (path is null)
+            return;
+
+        var sl16 = SetListReader.Read(PcgReader.Parse(File.ReadAllBytes(path)))[16];
+        Assert.Equal(0, sl16.Slots[0].HoldTimeIndex);   // browsed down to "0 sec"
+        Assert.Equal(18, sl16.Slots[1].HoldTimeIndex);  // 30 sec
+        Assert.Equal("30 sec", sl16.Slots[1].HoldTimeLabel);
+        Assert.Equal(21, sl16.Slots[2].HoldTimeIndex);  // 50 sec
+        Assert.Equal(8, sl16.Slots[4].Transpose);       // high bits live in the bank byte
+        Assert.Equal(2, sl16.Slots[1].Transpose);       // carried over from the earlier probe
+    }
+
+    [Fact]
+    public void Hold_time_labels_cover_the_hardware_list()
+    {
+        Assert.Equal(23, SetListHoldTimes.Count);
+        Assert.Equal("0 sec", SetListHoldTimes.Label(0));
+        Assert.Equal("5 sec", SetListHoldTimes.Label(SetListHoldTimes.DefaultIndex));
+        Assert.Equal("60 sec", SetListHoldTimes.Label(22));
+        Assert.Equal("hold 23", SetListHoldTimes.Label(23));
+    }
+
     [Fact]
     public void Slot_color_names_cover_the_picker()
     {

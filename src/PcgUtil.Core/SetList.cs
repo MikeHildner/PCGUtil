@@ -44,15 +44,43 @@ public sealed class SetListSlot
     /// <summary>Slot transpose in semitones (0 when the slot plays at pitch).</summary>
     public required int Transpose { get; init; }
 
+    /// <summary>Hold-time index 0–22 into <see cref="SetListHoldTimes"/> (factory default 6 = 5 s).</summary>
+    public required int HoldTimeIndex { get; init; }
+
+    /// <summary>The hardware's hold-time label for this slot, e.g. "5 sec".</summary>
+    public string HoldTimeLabel => SetListHoldTimes.Label(HoldTimeIndex);
+
     public bool IsEmpty => Name.Length == 0;
 }
 
 /// <summary>
+/// The hardware's 23 slot hold-time choices, by stored index (probe-verified: 30 s stored
+/// index 18, 50 s index 21, 0 s index 0; every factory/unedited slot holds index 6 = 5 s).
+/// </summary>
+public static class SetListHoldTimes
+{
+    private static readonly string[] Labels =
+    {
+        "0 sec", "0.5 sec", "1 sec", "2 sec", "3 sec", "4 sec", "5 sec", "6 sec",
+        "7 sec", "8 sec", "9 sec", "10 sec", "12 sec", "14 sec", "16 sec", "18 sec",
+        "20 sec", "25 sec", "30 sec", "35 sec", "40 sec", "50 sec", "60 sec",
+    };
+
+    public const int DefaultIndex = 6; // 5 sec
+
+    public static int Count => Labels.Length;
+
+    public static string Label(int index) =>
+        index >= 0 && index < Labels.Length ? Labels[index] : $"hold {index}";
+}
+
+/// <summary>
 /// A decoded slot reference. <c>B0 &amp; 0x03</c> is the type (Combi=0, Program=1, Song=2)
-/// and <c>B0</c> bits 2–5 carry the slot color; <c>B1 &amp; 0x1F</c> is the bank, and
-/// <c>B2 &amp; 0x7F</c> is the item number within the bank. Raw bytes 3–5 are the slot's
-/// comment font size (constant 6 on every observed file), volume, and transpose ×32
-/// (probe-file verified 2026-07-18) — not part of the reference.
+/// and <c>B0</c> bits 2–5 carry the slot color; <c>B1 &amp; 0x1F</c> is the bank (its top
+/// three bits are the transpose field's high bits); <c>B2 &amp; 0x7F</c> is the item number.
+/// Raw bytes 3–5 are the slot's hold-time index, volume, and the transpose low byte —
+/// transpose is an 11-bit signed field (semitones ×32) spanning byte 5 and B1's top bits
+/// (probe-verified 2026-07-18: +8 set only B1's bits, −1 set both to 0xE0).
 /// </summary>
 public sealed class SetListReference
 {

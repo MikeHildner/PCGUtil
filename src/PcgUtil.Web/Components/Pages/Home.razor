@@ -775,6 +775,10 @@
                                             {
                                                 <span class="small text-body-secondary">· transpose @slot.Transpose.ToString("+0;-0")</span>
                                             }
+                                            @if (slot.HoldTimeIndex != SetListHoldTimes.DefaultIndex)
+                                            {
+                                                <span class="small text-body-secondary">· hold @slot.HoldTimeLabel</span>
+                                            }
                                             <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
                                                     @onclick="() => OpenCombi(slot.Reference.Bank, slot.Reference.Index)">Open in Combis ›</button>
                                         </div>

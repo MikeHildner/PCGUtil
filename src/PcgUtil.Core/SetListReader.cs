@@ -66,8 +66,9 @@ public static class SetListReader
                     Reference = DecodeReference(raw),
                     Description = PcgText.ReadFixedString(data, slotBase + SlotDescriptionOffset, SlotDescriptionLength),
                     Color = raw.Length > 0 ? (raw[0] >> 2) & 0x0F : 0,
+                    HoldTimeIndex = raw.Length > 3 ? raw[3] : SetListHoldTimes.DefaultIndex,
                     Volume = raw.Length > 4 ? raw[4] : 127,
-                    Transpose = raw.Length > 5 ? (sbyte)raw[5] / 32 : 0,
+                    Transpose = raw.Length > 5 ? DecodeTranspose(raw[1], raw[5]) : 0,
                 });
             }
 
@@ -80,10 +81,21 @@ public static class SetListReader
     // Reference bytes B0 B1 B2:
     //   Type  = B0 & 0x03        (Combi=0, Program=1, Song=2)
     //   Color = (B0 >> 2) & 0x0F (probe-verified: 16 slots colored in picker order → 4j+kind)
-    //   Bank  = B1 & 0x1F        (high bits can carry transpose spill on program slots — masked)
+    //   Bank  = B1 & 0x1F        (top 3 bits = transpose high bits — always mask)
     //   Index = B2 & 0x7F
-    // Bytes 3–5: comment font size (constant 6), volume 0–127, transpose ×32 (probe-verified:
-    // hardware +2/−1 stored as 0x40/0xE0; readings 0/−1/−2 match 0x00/0xE0/0xC0).
+    // Bytes 3–5: hold-time index 0–22 (default 6 = 5 s — NOT a font size; probe-verified
+    // 30 s→18, 50 s→21), volume 0–127, transpose low byte. Transpose = semitones ×32 in an
+    // 11-bit signed field across byte 5 and B1's top bits (probe: +2→0x40, −1→0xE0/0xE0,
+    // +8→B1 0x20 with byte 5 zero).
+
+    // 11-bit signed (B1 bits 5–7 high, byte 5 low), ÷32 → semitones −12..+12.
+    private static int DecodeTranspose(byte b1, byte low)
+    {
+        int value = ((b1 >> 5) << 8) | low;
+        if (value >= 1024)
+            value -= 2048;
+        return value / 32;
+    }
     private static SetListReference DecodeReference(byte[] raw)
     {
         byte b0 = raw.Length > 0 ? raw[0] : (byte)0;
