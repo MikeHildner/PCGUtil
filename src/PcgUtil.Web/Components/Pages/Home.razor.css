@@ -137,6 +137,83 @@
     }
 }
 
+/* ---- Always-on quick search (sticky file header) ---- */
+.quick-search-wrap {
+    position: relative;
+    z-index: 1021; /* input + panel above the click-away backdrop */
+}
+
+.quick-search-input {
+    width: 14rem;
+}
+
+/* Transparent click-catcher: any click outside the panel closes it. */
+.quick-search-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1020;
+    background: transparent;
+}
+
+.quick-search-panel {
+    position: absolute;
+    top: calc(100% + 0.3rem);
+    left: 0;
+    z-index: 1021;
+    width: min(26rem, 90vw);
+    padding: 0.3rem;
+    background-color: var(--pcg-surface-raised);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+}
+
+[data-bs-theme=dark] .quick-search-panel {
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5);
+}
+
+.quick-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.35rem 0.6rem;
+    border: 0;
+    border-radius: 0.35rem;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: start;
+}
+
+button.quick-search-row {
+    cursor: pointer;
+}
+
+button.quick-search-row:hover,
+button.quick-search-row:focus-visible {
+    background-color: rgba(var(--bs-primary-rgb), 0.08);
+}
+
+button.quick-search-row:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 0.2rem var(--bs-focus-ring-color);
+}
+
+.quick-search-row-inert {
+    color: var(--bs-secondary-color);
+}
+
+.quick-search-more {
+    justify-content: center;
+    color: var(--bs-primary);
+    font-size: 0.875rem;
+}
+
+.quick-search-empty {
+    padding: 0.35rem 0.6rem;
+}
+
 /* ---- Set-list slot colors (the hardware's color-coded set list) ---- */
 .slot-color {
     display: inline-block;

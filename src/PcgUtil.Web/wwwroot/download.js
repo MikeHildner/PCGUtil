@@ -54,6 +54,42 @@ window.pcgSaveFile = async (filename, streamRef) => {
     URL.revokeObjectURL(url);
 };
 
+// Stable per-browser id for the server-side session-restore cache. Mirrors the pcgTheme
+// try/catch pattern: storage-blocked browsers return null and simply run without restore.
+window.pcgBrowserId = () => {
+    try {
+        let id = localStorage.getItem("pcgBrowserId");
+        if (!id) {
+            id = (crypto.randomUUID && crypto.randomUUID())
+                || Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+            localStorage.setItem("pcgBrowserId", id);
+        }
+        return id;
+    } catch (e) {
+        return null;
+    }
+};
+
+// "/" focuses the always-on header search; Escape blurs it. Pure JS so the hotkey costs
+// no circuit round trip and works from any tab.
+document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("keydown", (e) => {
+        const quick = document.getElementById("pcg-quick-search");
+        if (!quick) return; // no file loaded — no header, nothing to focus
+        if (e.key === "Escape") {
+            if (e.target === quick) quick.blur(); // Home's keydown handler clears the query
+            return;
+        }
+        if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+        const t = e.target;
+        if (t instanceof Element && (t.tagName === "INPUT" || t.tagName === "TEXTAREA"
+            || t.tagName === "SELECT" || t.isContentEditable))
+            return; // "/" typed into Notes / search / filter fields stays a "/"
+        e.preventDefault(); // also suppresses Firefox Quick Find
+        quick.focus();
+    });
+});
+
 // Scrolls a just-jumped-to table row into view and flashes it so the eye lands there.
 // block:center keeps the row clear of the sticky file header.
 window.pcgRevealRow = (id) => {

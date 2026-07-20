@@ -4,6 +4,7 @@
 @using PcgUtil.Core
 @inject IJSRuntime JS
 @inject ILogger<Home> Logger
+@inject UploadCache Cache
 
 <PageTitle>PCG Util</PageTitle>
 
@@ -17,10 +18,23 @@
         <p class="text-body-secondary mb-4">
             Open the backup file from your instrument to see and organize what's inside.
         </p>
-        <label class="btn btn-primary btn-lg upload-btn">
+        <label class="btn btn-primary btn-lg upload-btn" @key="_fileInputSeq">
             Open a .PCG file
             <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="visually-hidden" />
         </label>
+        @if (_restoreOffer is { } offer)
+        {
+            <div class="alert alert-info text-start mt-3 mb-0 d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+                <span class="me-auto">
+                    You were working on <strong>@offer.FileName</strong> (@Format.Bytes(offer.Size))
+                    @AgeText(offer.SavedAt) — restore it?
+                </span>
+                <span class="d-flex gap-2 flex-shrink-0">
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="RestoreFromCache">Restore</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="DismissRestore">No thanks</button>
+                </span>
+            </div>
+        }
         @if (_loading)
         {
             <div class="mt-3 text-body-secondary">
@@ -33,7 +47,7 @@
             <div class="alert alert-danger text-start mt-3 mb-0">@_error</div>
         }
         <p class="small text-body-secondary mt-3 mb-0">
-            Files are read in memory — nothing is saved on the server.
+            Files stay in server memory only while you work — nothing is written to disk.
         </p>
     </div>
 }
@@ -62,8 +76,55 @@
         {
             <span class="badge text-bg-light fw-normal" title="KARMA user GE names loaded from @_kgeFileName">GE names ✓</span>
         }
+        @if (QuickPanelOpen)
+        {
+            <div class="quick-search-backdrop" @onclick="CloseQuickSearch"></div>
+        }
+        <div class="quick-search-wrap">
+            <input id="pcg-quick-search" type="search" class="form-control form-control-sm quick-search-input"
+                   placeholder="Find anything… ( / )" aria-label="Find anything" autocomplete="off"
+                   @bind="_quickQuery" @bind:event="oninput" @onkeydown="OnQuickSearchKeyDown" />
+            @if (QuickPanelOpen && _catalog is not null)
+            {
+                var quickHits = PcgSearch.Find(_catalog, _setLists, _quickQuery);
+                <div class="quick-search-panel">
+                    @if (quickHits.Count == 0)
+                    {
+                        <div class="quick-search-empty small text-body-secondary">No matches.</div>
+                    }
+                    @foreach (var h in quickHits.Take(8))
+                    {
+                        var open = HitAction(h);
+                        @if (open is not null)
+                        {
+                            <button type="button" class="quick-search-row" @onclick="() => QuickJump(open)">
+                                <span class="badge text-bg-light">@HitKindLabel(h.Kind)</span>
+                                <span class="text-truncate">@h.Name</span>
+                                <span class="small text-body-secondary ms-auto text-nowrap">@h.Location</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="quick-search-row quick-search-row-inert"
+                                 title="Drum kits and wave sequences have no view to open yet">
+                                <span class="badge text-bg-light">@HitKindLabel(h.Kind)</span>
+                                <span class="text-truncate">@h.Name</span>
+                                <span class="small ms-auto text-nowrap">@h.Location</span>
+                            </div>
+                        }
+                    }
+                    @if (quickHits.Count > 0)
+                    {
+                        <button type="button" class="quick-search-row quick-search-more" @onclick="QuickSeeAll">
+                            See all @quickHits.Count result@(quickHits.Count == 1 ? "" : "s") ›
+                        </button>
+                    }
+                </div>
+            }
+        </div>
         <span class="ms-auto"></span>
-        <label class="btn btn-sm btn-outline-secondary mb-0" title="Open another backup, or this backup's companion .KGE to name its KARMA GEs">
+        <label class="btn btn-sm btn-outline-secondary mb-0" @key="_fileInputSeq"
+               title="Opens a different backup (replaces this one), or this backup's companion .KGE">
             Open another file
             <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg,.KGE,.kge" class="d-none" />
         </label>
@@ -2064,8 +2125,28 @@
         if (e.File.Name.EndsWith(".KGE", StringComparison.OrdinalIgnoreCase))
         {
             await LoadKge(e);
+            _fileInputSeq++; // recreate the <input> so re-picking the same file fires again
             return;
         }
+        if (_dirty && _pcg is not null)
+        {
+            bool ok;
+            try
+            {
+                ok = await JS.InvokeAsync<bool>("confirm",
+                    $"You have unsaved edits in {_fileName}. Opening {e.File.Name} will discard them — continue?");
+            }
+            catch (Exception)
+            {
+                ok = false; // interop timeout (dialog left open) or circuit hiccup: keep the edits
+            }
+            if (!ok)
+            {
+                _fileInputSeq++;
+                return; // everything untouched
+            }
+        }
+        _restoreOffer = null;
         _error = null;
         _pcg = null;
         _fileName = e.File.Name;
@@ -2079,18 +2160,10 @@
             }
 
             _pcg = PcgReader.Parse(ms.ToArray());
-            _view = View.Home; // land on the task cards: "what would you like to do?"
-            _showAdvanced = false;
-            _showMoreCards = false;
             _dirty = false;
-            _editMode = false;
-            _copySource = null;
-            _combiCopySource = null;
-            _programCopySource = null;
-            _programFilter = _combiFilter = _usageFilter = string.Empty;
-            _usageBankFilter = -1;
-            _usageSort = UsageSort.BankNumber;
+            ResetForNewPcg();
             LoadDerived(preserveSelection: false);
+            PushToCache();
         }
         catch (Exception ex)
         {
@@ -2100,7 +2173,23 @@
         finally
         {
             _loading = false;
+            _fileInputSeq++;
         }
+    }
+
+    // Post-load reset shared by OnFileSelected and RestoreFromCache (callers set _dirty).
+    void ResetForNewPcg()
+    {
+        _view = View.Home; // land on the task cards: "what would you like to do?"
+        _showAdvanced = false;
+        _showMoreCards = false;
+        _editMode = false;
+        _copySource = null;
+        _combiCopySource = null;
+        _programCopySource = null;
+        _programFilter = _combiFilter = _usageFilter = string.Empty;
+        _usageBankFilter = -1;
+        _usageSort = UsageSort.BankNumber;
     }
 
     void LoadDerived(bool preserveSelection)
@@ -2148,6 +2237,7 @@
         _pcg = PcgReader.Parse(newData);
         _dirty = true;
         LoadDerived(preserveSelection: true);
+        PushToCache(); // unsaved edits survive a circuit drop too
     }
 
     void RefreshStrings()
@@ -2642,11 +2732,115 @@
             }
             _kgeBanks = banks;
             _kgeFileName = e.File.Name;
+            PushToCache(); // the cached session now carries the GE names too
         }
         catch (Exception ex)
         {
             _error = $"Could not read '{e.File.Name}': {ex.Message}";
         }
+    }
+
+    // ----- Session restore (survives circuit eviction, reloads, and pause/resume) -----
+
+    int _fileInputSeq;    // @key for the InputFile labels; bump to clear a stale file selection
+    string? _browserId;   // from localStorage via pcgBrowserId(); null = storage blocked
+    (string FileName, long Size, DateTimeOffset SavedAt)? _restoreOffer;
+
+    // Pushes the current session into the singleton cache (stores references, copies nothing).
+    void PushToCache()
+    {
+        if (_browserId is null || _pcg is null || _fileName is null) return;
+        Cache.Store(_browserId, _fileName, _pcg.Data, _dirty, _kgeFileName, _kgeBanks);
+    }
+
+    async Task RestoreCheckAsync()
+    {
+        try
+        {
+            _browserId = await JS.InvokeAsync<string?>("pcgBrowserId");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "pcgBrowserId unavailable; session restore disabled");
+            return;
+        }
+        if (_browserId is null || _pcg is not null) return;
+        if (Cache.TryGet(_browserId) is { } entry)
+        {
+            _restoreOffer = (entry.FileName, entry.Bytes.LongLength, entry.SavedAt);
+            StateHasChanged(); // discovered after the render that triggered OnAfterRenderAsync
+        }
+    }
+
+    void RestoreFromCache()
+    {
+        _restoreOffer = null;
+        if (_browserId is null || Cache.TryGet(_browserId) is not { } entry)
+        {
+            _error = "That session has expired — open the file again.";
+            return;
+        }
+        _error = null;
+        _fileName = entry.FileName;
+        try
+        {
+            _pcg = PcgReader.Parse(entry.Bytes);
+            _dirty = entry.Dirty;
+            _kgeBanks = entry.KgeBanks;
+            _kgeFileName = entry.KgeFileName;
+            ResetForNewPcg();
+            LoadDerived(preserveSelection: false);
+            PushToCache(); // refresh SavedAt: the resumed session gets a fresh window
+        }
+        catch (Exception ex)
+        {
+            _pcg = null;
+            _error = $"Could not restore '{entry.FileName}': {ex.Message}";
+            Logger.LogWarning(ex, "Failed to restore cached PCG {File}", entry.FileName);
+        }
+    }
+
+    void DismissRestore() => _restoreOffer = null; // the cache entry itself stays until TTL
+
+    static string AgeText(DateTimeOffset savedAt)
+    {
+        var mins = (int)Math.Max(0, (DateTimeOffset.UtcNow - savedAt).TotalMinutes);
+        return mins == 0 ? "moments ago" : mins == 1 ? "1 minute ago" : $"{mins} minutes ago";
+    }
+
+    // ----- Always-on quick search (sticky file header) -----
+
+    string _quickQuery = string.Empty;
+
+    bool QuickPanelOpen => _quickQuery.Trim().Length >= 2;
+
+    void CloseQuickSearch() => _quickQuery = string.Empty;
+
+    void QuickJump(Action open)
+    {
+        _quickQuery = string.Empty;
+        open(); // existing jump machinery: sets _view + _pendingReveal → scroll + flash
+    }
+
+    void QuickSeeAll()
+    {
+        _nameQuery = _quickQuery.Trim();
+        _quickQuery = string.Empty;
+        OpenSearch(); // switches to the Search tab and focuses its query box
+    }
+
+    void OnQuickSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _quickQuery = string.Empty; // the download.js listener blurs the input
+            return;
+        }
+        if (e.Key != "Enter" || !QuickPanelOpen || _catalog is null) return;
+        var first = PcgSearch.Find(_catalog, _setLists, _quickQuery)
+            .Select(HitAction)
+            .FirstOrDefault(a => a is not null);
+        if (first is not null) QuickJump(first);
     }
 
     // Program metadata (category/favorite/engine), decoded once per file in LoadDerived.
@@ -2708,6 +2902,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            await RestoreCheckAsync();
+        }
         if (_pendingReveal is { } revealId)
         {
             _pendingReveal = null;
