@@ -97,10 +97,10 @@ recolored in PCGUtil showed the chosen color on the instrument's set list).
 - [x] Recolor a slot in PCGUtil (Set Lists → Edit mode → **Settings**), download, load on the
       instrument: the set list shows the chosen color and the slot still recalls its patch,
       name, and notes.
-- [ ] Set a slot's **volume / transpose / hold time** in the same Settings panel, download,
+- [x] Set a slot's **volume / transpose / hold time** in the same Settings panel, download,
       load: the instrument shows the transpose in the slot, plays at the set volume, and
-      holds for the chosen time when switching away (writers reproduce the probe-verified
-      byte layouts, incl. the split-field transpose — this is the load formality).
+      holds for the chosen time when switching away (confirmed on hardware 2026-07-18 —
+      the full slot Settings write path is verified end to end).
 
 ## 12. Program categories & EXi engines (read-only decode)
 Status: **confirmed** (2026-07-18 — category + sub-category verified against the published
