@@ -100,6 +100,57 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>Returns a copy with a slot's volume (0–127) rewritten.</summary>
+    public static byte[] SetSetListSlotVolume(PcgFile pcg, int setListIndex, int slot, int volume)
+    {
+        if (volume is < 0 or > 127)
+            throw new ArgumentOutOfRangeException(nameof(volume), volume, "Slot volume is 0–127.");
+        var layout = GetLayout(pcg);
+        ValidateSlot(layout, setListIndex, slot, nameof(slot));
+
+        var data = (byte[])pcg.Data.Clone();
+        data[SlotOffset(layout, setListIndex, slot) + SetListReader.SlotRefOffset + 4] = (byte)volume;
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>Returns a copy with a slot's hold time rewritten (an index into
+    /// <see cref="SetListHoldTimes"/>, 0–22).</summary>
+    public static byte[] SetSetListSlotHoldTime(PcgFile pcg, int setListIndex, int slot, int holdTimeIndex)
+    {
+        if (holdTimeIndex < 0 || holdTimeIndex >= SetListHoldTimes.Count)
+            throw new ArgumentOutOfRangeException(nameof(holdTimeIndex), holdTimeIndex,
+                $"Hold time is an index 0–{SetListHoldTimes.Count - 1}.");
+        var layout = GetLayout(pcg);
+        ValidateSlot(layout, setListIndex, slot, nameof(slot));
+
+        var data = (byte[])pcg.Data.Clone();
+        data[SlotOffset(layout, setListIndex, slot) + SetListReader.SlotRefOffset + 3] = (byte)holdTimeIndex;
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>
+    /// Returns a copy with a slot's transpose (−12..+12 semitones) rewritten. Transpose is an
+    /// 11-bit signed field (semitones ×32) split across the reference's byte 5 (low) and the
+    /// bank byte's top 3 bits (high) — the bank's low 5 bits are preserved (probe-verified:
+    /// +8 stores B1 0x20 with byte 5 zero, −1 stores 0xE0/0xE0).
+    /// </summary>
+    public static byte[] SetSetListSlotTranspose(PcgFile pcg, int setListIndex, int slot, int semitones)
+    {
+        if (semitones is < -12 or > 12)
+            throw new ArgumentOutOfRangeException(nameof(semitones), semitones, "Slot transpose is −12..+12 semitones.");
+        var layout = GetLayout(pcg);
+        ValidateSlot(layout, setListIndex, slot, nameof(slot));
+
+        var data = (byte[])pcg.Data.Clone();
+        long refOffset = SlotOffset(layout, setListIndex, slot) + SetListReader.SlotRefOffset;
+        int value = semitones * 32;
+        if (value < 0)
+            value += 2048; // 11-bit two's-complement space
+        data[refOffset + 5] = (byte)(value & 0xFF);
+        data[refOffset + 1] = (byte)((data[refOffset + 1] & 0x1F) | (((value >> 8) & 0x07) << 5));
+        return Finalized(pcg, data);
+    }
+
     /// <summary>Returns a copy with a slot's description (comment) field rewritten
     /// (up to 512 ASCII chars, line breaks allowed).</summary>
     public static byte[] SetSetListSlotDescription(PcgFile pcg, int setListIndex, int slot, string description)
