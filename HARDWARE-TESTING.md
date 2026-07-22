@@ -114,6 +114,27 @@ USER-A 096 "JUMP" also confirmed the combi favorite bit at 4791 bit 0 by the sam
 - [x] Star one program on the instrument, save a PCG, and confirm PCGUtil shows ★ on
       exactly that program (GET LUCKY VOCODER — confirmed in the UI after the fix).
 
+## 13. Content-hash init detection (read-only decode)
+Status: **pending** — software-verified 2026-07-21 (sound-hash grouping + renamed-init
+detection, 191-test suite); the hardware side is one recall.
+- [ ] Recall USER-A #026 "Band On The Run" (or "Lust Girl" USER-A #064, "WHAT I LIKE ABOUT
+      YOU" USER-C #020): despite the song name, it plays a bare init combi — exactly what
+      the Duplicates tab's "init placeholders with a real name" list claims.
+
+## 14. Row actions: drag-to-position & clear
+Status: **pending** — write paths are permutations/copies of §2–§6's hardware-confirmed
+primitives (the slot reorder is byte-identical to chains of the §2 swap, pinned by test),
+so this is a load formality.
+- [ ] Drag a set-list slot by its ⠿ grip to a new position, download, load: the song sits
+      where it was dropped, the slots between shifted one step, and every song still recalls
+      its sound, name, notes, and color.
+- [ ] Drag a combi (and a program) to a new position: it lands there and the set lists /
+      combis that use the moved patches still recall the same sounds.
+- [ ] Right-click a slot → **Clear slot**, download, load: the slot shows as empty on the
+      instrument's set list.
+- [ ] Right-click a combi or program → **Clear to init**, download, load: the slot plays a
+      bare init patch and the file loads with no error.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.
