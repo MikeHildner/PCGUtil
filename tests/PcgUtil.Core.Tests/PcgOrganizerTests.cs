@@ -155,6 +155,98 @@ public class PcgOrganizerTests
         }
     }
 
+    [Fact]
+    public void MoveSetListSlot_equals_a_chain_of_adjacent_swaps()
+    {
+        // Insert-shift semantics pinned against the shipped (hardware-verified) swap
+        // primitive: moving 1 → 4 is exactly the swaps 1↔2, 2↔3, 3↔4 in sequence.
+        var expected = Sample.Parse();
+        foreach (var (a, b) in new[] { (1, 2), (2, 3), (3, 4) })
+            expected = PcgReader.Parse(PcgEditor.SwapSetListSlots(expected, 0, a, b));
+        var movedDown = PcgOrganizer.MoveSetListSlot(Sample.Parse(), 0, from: 1, to: 4);
+        Assert.True(expected.Data.AsSpan().SequenceEqual(movedDown!));
+
+        // And back up: 4 → 1 is the swaps 4↔3, 3↔2, 2↔1.
+        expected = Sample.Parse();
+        foreach (var (a, b) in new[] { (4, 3), (3, 2), (2, 1) })
+            expected = PcgReader.Parse(PcgEditor.SwapSetListSlots(expected, 0, a, b));
+        var movedUp = PcgOrganizer.MoveSetListSlot(Sample.Parse(), 0, from: 4, to: 1);
+        Assert.True(expected.Data.AsSpan().SequenceEqual(movedUp!));
+    }
+
+    [Fact]
+    public void MoveToPosition_returns_null_when_from_equals_to()
+    {
+        var pcg = Sample.Parse();
+        Assert.Null(PcgOrganizer.MoveSetListSlot(pcg, 0, 5, 5));
+        Assert.Null(PcgOrganizer.MoveCombiToPosition(pcg, 7, 5, 5));
+        Assert.Null(PcgOrganizer.MoveProgramToPosition(pcg, 0, 5, 5));
+    }
+
+    [Fact]
+    public void MoveToPosition_rejects_out_of_range_positions()
+    {
+        var pcg = Sample.Parse();
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgOrganizer.MoveCombiToPosition(pcg, 7, -1, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgOrganizer.MoveCombiToPosition(pcg, 7, 5, 128));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgOrganizer.MoveProgramToPosition(pcg, 0, 128, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgOrganizer.MoveSetListSlot(pcg, 0, 5, -1));
+    }
+
+    [Fact]
+    public void MoveCombiToPosition_shifts_the_span_and_set_list_slots_follow()
+    {
+        var pcg = Sample.Parse();
+        var beforeNames = PcgCatalog.Build(pcg).CombiBanks[7].ToList();
+        var beforeRefs = ResolveAllCombiRefs(pcg);
+
+        var edited = PcgOrganizer.MoveCombiToPosition(pcg, bank: 7, from: 57, to: 60);
+        Assert.NotNull(edited);
+        var after = PcgReader.Parse(edited!);
+
+        // Order oracle: RemoveAt/Insert is the definition of insert-shift.
+        var expected = beforeNames.ToList();
+        var moved = expected[57];
+        expected.RemoveAt(57);
+        expected.Insert(60, moved);
+        Assert.Equal(expected, PcgCatalog.Build(after).CombiBanks[7].ToList());
+
+        // Every combi-type set-list slot still loads the same combi.
+        var afterRefs = ResolveAllCombiRefs(after);
+        Assert.Equal(beforeRefs.Count, afterRefs.Count);
+        foreach (var (key, name) in beforeRefs)
+            Assert.Equal(name, afterRefs[key]);
+    }
+
+    [Fact]
+    public void MoveProgramToPosition_covers_both_directions_and_the_ends()
+    {
+        var pcg = Sample.Parse();
+        int count = PcgCatalog.Build(pcg).ProgramBanks[0].Count;
+
+        foreach (var (from, to) in new[] { (10, 20), (20, 10), (5, 0), (5, count - 1) })
+        {
+            var beforeNames = PcgCatalog.Build(pcg).ProgramBanks[0].ToList();
+            var beforeRefs = ResolveAllProgramRefs(pcg);
+
+            var edited = PcgOrganizer.MoveProgramToPosition(pcg, bank: 0, from, to);
+            Assert.NotNull(edited);
+            var after = PcgReader.Parse(edited!);
+
+            var expected = beforeNames.ToList();
+            var moved = expected[from];
+            expected.RemoveAt(from);
+            expected.Insert(to, moved);
+            Assert.Equal(expected, PcgCatalog.Build(after).ProgramBanks[0].ToList());
+
+            // Combi timbres and program-type slots follow the move.
+            var afterRefs = ResolveAllProgramRefs(after);
+            Assert.Equal(beforeRefs.Count, afterRefs.Count);
+            foreach (var (key, name) in beforeRefs)
+                Assert.Equal(name, afterRefs[key]);
+        }
+    }
+
     // Resolves every program reference (combi timbres + program-type set-list slots) to a name.
     private static Dictionary<string, string> ResolveAllProgramRefs(PcgFile pcg)
     {

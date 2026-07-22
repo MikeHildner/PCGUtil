@@ -54,6 +54,44 @@ public static class PcgOrganizer
         return order is null ? null : PcgEditor.ReorderCombis(pcg, bank, order);
     }
 
+    /// <summary>
+    /// Moves one combi to a new position within its bank (insert-shift: the record lands at
+    /// <paramref name="to"/> and everything between shifts one step). Set-list references
+    /// follow via <see cref="PcgEditor.ReorderCombis"/>. Returns null when from == to.
+    /// </summary>
+    public static byte[]? MoveCombiToPosition(PcgFile pcg, int bank, int from, int to)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (_, _, count) = PcgEditor.LocateBank(pcg, "CMB1", bank); // validates the bank
+        var order = MovedOrder(count, from, to);
+        return order is null ? null : PcgEditor.ReorderCombis(pcg, bank, order);
+    }
+
+    /// <summary>
+    /// Moves one program to a new position within its bank (insert-shift). Combi timbres and
+    /// program-type set-list slots follow via <see cref="PcgEditor.ReorderPrograms"/>.
+    /// Returns null when from == to.
+    /// </summary>
+    public static byte[]? MoveProgramToPosition(PcgFile pcg, int bank, int from, int to)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (_, _, count) = PcgEditor.LocateBank(pcg, "PRG1", bank);
+        var order = MovedOrder(count, from, to);
+        return order is null ? null : PcgEditor.ReorderPrograms(pcg, bank, order);
+    }
+
+    /// <summary>
+    /// Moves one set-list slot to a new position within its set list (insert-shift; whole
+    /// slot blocks travel, nothing references a slot). Returns null when from == to.
+    /// </summary>
+    public static byte[]? MoveSetListSlot(PcgFile pcg, int setListIndex, int from, int to)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        int count = PcgEditor.SetListSlotsPerList(pcg);
+        var order = MovedOrder(count, from, to);
+        return order is null ? null : PcgEditor.ReorderSetListSlots(pcg, setListIndex, order);
+    }
+
     /// <summary>A factory "Init Program" placeholder (covers "Init EXi Program"), or an empty name.</summary>
     public static bool IsProgramPlaceholder(string name) =>
         name.Length == 0 ||
@@ -87,6 +125,31 @@ public static class PcgOrganizer
             .Concat(indices.Where(i => isPlaceholder(names[i])))
             .ToArray();
         return IsIdentity(order) ? null : order;
+    }
+
+    // newOrder for a move-to-position, in ReorderX's convention: newOrder[newPos] = oldIndex.
+    // Semantics match List.RemoveAt(from) then List.Insert(to, item): moving down (from < to)
+    // closes the gap upward; moving up (from > to) pushes the block down. Null when from == to.
+    private static int[]? MovedOrder(int count, int from, int to)
+    {
+        if (from < 0 || from >= count)
+            throw new ArgumentOutOfRangeException(nameof(from));
+        if (to < 0 || to >= count)
+            throw new ArgumentOutOfRangeException(nameof(to));
+        if (from == to)
+            return null;
+
+        var order = new int[count];
+        for (int i = 0; i < count; i++)
+            order[i] = i;
+        if (from < to)
+            for (int i = from; i < to; i++)
+                order[i] = i + 1;
+        else
+            for (int i = to + 1; i <= from; i++)
+                order[i] = i - 1;
+        order[to] = from;
+        return order;
     }
 
     private static bool IsIdentity(int[] order)

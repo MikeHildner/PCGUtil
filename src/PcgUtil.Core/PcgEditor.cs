@@ -34,6 +34,27 @@ public static class PcgEditor
     }
 
     /// <summary>
+    /// Returns a copy with one set list's slots rearranged in a single pass: the slot at
+    /// position <c>i</c> afterwards is the one that was at <c>newOrder[i]</c> (a permutation
+    /// of 0..slotsPerList-1). Whole 542-byte blocks move, so name, reference, notes, and
+    /// settings travel together; nothing in the file references a slot, so unlike the
+    /// bank reorders there is no retargeting pass.
+    /// </summary>
+    public static byte[] ReorderSetListSlots(PcgFile pcg, int setListIndex, IReadOnlyList<int> newOrder)
+    {
+        var layout = GetLayout(pcg);
+        ValidateSetList(layout, setListIndex);
+        _ = InverseOf(newOrder, layout.SlotsPerList); // permutation validation; inverse unused
+
+        var data = (byte[])pcg.Data.Clone();
+        for (int i = 0; i < layout.SlotsPerList; i++)
+            if (newOrder[i] != i)
+                Array.Copy(pcg.Data, SlotOffset(layout, setListIndex, newOrder[i]),
+                           data, SlotOffset(layout, setListIndex, i), SetListReader.SlotSize);
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>
     /// Returns a copy with a Set List slot copied over another (within or across set
     /// lists). The destination slot is overwritten.
     /// </summary>
@@ -71,6 +92,26 @@ public static class PcgEditor
         Array.Copy(source.Data, SlotOffset(srcLayout, srcSetList, srcSlot),
                    data, SlotOffset(dstLayout, dstSetList, dstSlot), SetListReader.SlotSize);
         return Finalized(destination, data);
+    }
+
+    /// <summary>
+    /// Returns a copy with a slot cleared to "empty" as the app defines it: the name and
+    /// description blanked in one write (one undo entry). The reference, color, volume,
+    /// transpose, and hold bytes stay — empty slots always carry decodable reference
+    /// bytes; the blank name alone is what makes a slot empty.
+    /// </summary>
+    public static byte[] ClearSetListSlot(PcgFile pcg, int setListIndex, int slot)
+    {
+        var layout = GetLayout(pcg);
+        ValidateSlot(layout, setListIndex, slot, nameof(slot));
+
+        var data = (byte[])pcg.Data.Clone();
+        long slotBase = SlotOffset(layout, setListIndex, slot);
+        PcgText.WriteFixedString(data, slotBase + SetListReader.SlotNameOffset,
+                                 SetListReader.SlotNameLength, string.Empty);
+        PcgText.WriteFixedString(data, slotBase + SetListReader.SlotDescriptionOffset,
+                                 SetListReader.SlotDescriptionLength, string.Empty);
+        return Finalized(pcg, data);
     }
 
     /// <summary>Returns a copy with a slot's name field rewritten (24 chars, ASCII).</summary>
@@ -809,6 +850,10 @@ public static class PcgEditor
         int slotsPerList = (recordSize - SetListReader.RecordHeaderSize) / SetListReader.SlotSize;
         return new SetListLayout(baseOffset + SetListReader.SubHeaderSize, recordSize, count, slotsPerList);
     }
+
+    // Internal so PcgOrganizer can size slot permutations without re-parsing the layout
+    // (mirrors LocateBank's internal precedent).
+    internal static int SetListSlotsPerList(PcgFile pcg) => GetLayout(pcg).SlotsPerList;
 
     private static long RecordOffset(SetListLayout layout, int setListIndex) =>
         layout.RecordsStart + (long)setListIndex * layout.RecordSize;

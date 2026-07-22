@@ -1,5 +1,6 @@
 @page "/"
 @rendermode InteractiveServer
+@implements IDisposable
 @using System.Text
 @using PcgUtil.Core
 @inject IJSRuntime JS
@@ -139,6 +140,8 @@
             <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg,.KGE,.kge" class="d-none" />
         </label>
     </div>
+
+    @RowMenuOverlay
 
     <ul class="nav nav-tabs mb-3">
         @foreach (var tab in Enum.GetValues<View>().Where(t => !AdvancedViews.Contains(t) && !HiddenViews.Contains(t)))
@@ -734,7 +737,7 @@
                 }
 
                 <div class="table-scroll">
-                <table class="table table-sm table-hover align-middle">
+                <table class="table table-sm table-hover align-middle" data-drag-table="slots">
                     <thead>
                         <tr>
                             <th style="width:4rem">Slot</th>
@@ -742,7 +745,7 @@
                             <th>Loads</th>
                             @if (_editMode)
                             {
-                                <th style="width:20rem">Edit</th>
+                                <th style="width:22rem">Edit</th>
                             }
                         </tr>
                     </thead>
@@ -753,12 +756,14 @@
                             var canShowCombi = !_editMode && !slot.IsEmpty && slot.Reference.Kind == PcgItemKind.Combi && target is not null;
                             var canJumpProgram = !_editMode && !slot.IsEmpty && slot.Reference.Kind == PcgItemKind.Program && target is not null;
                             var clickable = canShowCombi || canJumpProgram;
-                            <tr @key="slot.Index" id="slot-row-@slot.Index"
+                            <tr @key="slot.Index" id="slot-row-@slot.Index" data-drag-index="@slot.Index"
                                 class="@(slot.IsEmpty ? "text-body-secondary" : null) @(clickable ? "row-clickable" : null)"
                                 role="@(clickable ? "button" : null)" tabindex="@(clickable ? "0" : null)"
                                 aria-expanded="@(canShowCombi ? (_slotDetailSlot == slot.Index ? "true" : "false") : null)"
                                 title="@(canShowCombi ? "Show the combi this song loads" : canJumpProgram ? "Show this program in the Programs tab" : null)"
                                 @onclick="() => OnSlotRowClick(slot)"
+                                @oncontextmenu="@(e => OpenRowMenu("slots", slot.Index, e))"
+                                @oncontextmenu:preventDefault="_editMode"
                                 @onkeydown="e => OnSlotRowKeyDown(e, slot)">
                                 <td class="text-nowrap">
                                     @if (!slot.IsEmpty)
@@ -805,6 +810,9 @@
                                 @if (_editMode)
                                 {
                                     <td class="text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2 pcg-drag-handle"
+                                                draggable="true" tabindex="-1" aria-hidden="true"
+                                                title="Drag to move this slot to a new position">⠿</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up" aria-label="Move up"
                                                 disabled="@(slot.Index == 0)" @onclick="() => MoveSlot(slot.Index, -1)">▲</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down" aria-label="Move down"
@@ -1066,7 +1074,7 @@
                 }
 
                 <div class="table-scroll">
-                <table class="table table-sm table-hover align-middle">
+                <table class="table table-sm table-hover align-middle" data-drag-table="combis">
                     <thead>
                         <tr>
                             <th style="width:4rem">#</th>
@@ -1075,7 +1083,7 @@
                             <th style="width:6.5rem"></th>
                             @if (_editMode)
                             {
-                                <th style="width:13rem">Edit</th>
+                                <th style="width:15rem">Edit</th>
                             }
                         </tr>
                     </thead>
@@ -1085,7 +1093,10 @@
                             var name = bank[idx];
                             var isEmpty = string.IsNullOrEmpty(name);
                             var refs = _combiRefCounts.GetValueOrDefault((_selectedCombiBank, idx));
-                            <tr @key="idx" id="combi-row-@idx" class="@(isEmpty ? "text-body-secondary" : null)">
+                            <tr @key="idx" id="combi-row-@idx" data-drag-index="@idx"
+                                class="@(isEmpty ? "text-body-secondary" : null)"
+                                @oncontextmenu="@(e => OpenRowMenu("combis", idx, e))"
+                                @oncontextmenu:preventDefault="_editMode">
                                 <td>@idx.ToString("D3")</td>
                                 <td>
                                     @if (_editMode)
@@ -1108,7 +1119,12 @@
                                 </td>
                                 @if (_editMode)
                                 {
+                                    var dragBlocked = !string.IsNullOrWhiteSpace(_combiFilter);
                                     <td class="text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2 pcg-drag-handle"
+                                                draggable="@(dragBlocked ? "false" : "true")" disabled="@dragBlocked"
+                                                tabindex="-1" aria-hidden="true"
+                                                title="@(dragBlocked ? "Clear the Find box to drag" : "Drag to move this combi to a new position")">⠿</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up" aria-label="Move up"
                                                 disabled="@(idx == 0)" @onclick="() => MoveCombi(idx, -1)">▲</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down" aria-label="Move down"
@@ -1231,7 +1247,7 @@
                 }
 
                 <div class="table-scroll">
-                <table class="table table-sm table-hover align-middle">
+                <table class="table table-sm table-hover align-middle" data-drag-table="programs">
                     <thead>
                         <tr>
                             <th style="width:4rem">#</th>
@@ -1240,7 +1256,7 @@
                             <th style="width:6rem" class="d-none d-md-table-cell" title="Combi timbres + program-type set-list slots that use this program">Used by</th>
                             @if (_editMode)
                             {
-                                <th style="width:13rem">Edit</th>
+                                <th style="width:15rem">Edit</th>
                             }
                         </tr>
                     </thead>
@@ -1250,7 +1266,10 @@
                             var name = bank[idx];
                             var isEmpty = string.IsNullOrEmpty(name);
                             var refs = refCounts.GetValueOrDefault((_selectedProgramBank, idx));
-                            <tr @key="idx" id="program-row-@idx" class="@(isEmpty ? "text-body-secondary" : null)">
+                            <tr @key="idx" id="program-row-@idx" data-drag-index="@idx"
+                                class="@(isEmpty ? "text-body-secondary" : null)"
+                                @oncontextmenu="@(e => OpenRowMenu("programs", idx, e))"
+                                @oncontextmenu:preventDefault="_editMode">
                                 <td>@idx.ToString("D3")</td>
                                 <td>
                                     @if (_editMode)
@@ -1280,7 +1299,12 @@
                                 <td class="d-none d-md-table-cell">@(refs > 0 ? refs.ToString() : "")</td>
                                 @if (_editMode)
                                 {
+                                    var dragBlocked = !string.IsNullOrWhiteSpace(_programFilter);
                                     <td class="text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2 pcg-drag-handle"
+                                                draggable="@(dragBlocked ? "false" : "true")" disabled="@dragBlocked"
+                                                tabindex="-1" aria-hidden="true"
+                                                title="@(dragBlocked ? "Clear the Find box to drag" : "Drag to move this program to a new position")">⠿</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move up" aria-label="Move up"
                                                 disabled="@(idx == 0)" @onclick="() => MoveProgram(idx, -1)">▲</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Move down" aria-label="Move down"
@@ -2194,6 +2218,25 @@
     (int SetList, int Slot)? _copySource;
     string _copySourceName = string.Empty;
 
+    // Row context menu (edit mode): which table, which row, where the pointer was.
+    (string Table, int Index, int X, int Y)? _rowMenu;
+    bool _menuClampPending;
+
+    void OpenRowMenu(string table, int index, MouseEventArgs e)
+    {
+        if (!_editMode) return;
+        _rowMenu = (table, index, (int)e.ClientX, (int)e.ClientY);
+        _menuClampPending = true;
+    }
+
+    void CloseRowMenu() => _rowMenu = null;
+
+    void RunMenuItem(Action action)
+    {
+        CloseRowMenu();
+        action();
+    }
+
     // Slot notes / re-point panels (one of each open at a time)
     int? _descSlot;
     int? _settingsSlot;
@@ -2567,6 +2610,146 @@
         _editMode = on;
         try { await JS.InvokeVoidAsync("pcgSetEditMode", on); }
         catch (Exception) { } // storage-blocked browsers simply don't remember the mode
+    }
+
+    // Right-click menu for the browse-table rows: the quick-search surface, at the pointer.
+    // One overlay serves all three tables; items reuse the row buttons' own handlers.
+    private RenderFragment RowMenuOverlay => __builder =>
+    {
+        if (_rowMenu is not { } menu || _pcg is null || _catalog is null)
+            return;
+
+        <div class="pcg-context-backdrop" @onclick="CloseRowMenu"
+             @oncontextmenu="CloseRowMenu" @oncontextmenu:preventDefault="true"></div>
+        <div id="pcg-row-menu" class="pcg-context-menu" role="menu"
+             style="left:@(menu.X)px; top:@(menu.Y)px"
+             @onkeydown="@(e => { if (e.Key == "Escape") CloseRowMenu(); })">
+            @switch (menu.Table)
+            {
+                case "slots":
+                {
+                    var sl = _setLists.ElementAtOrDefault(_selectedSetList);
+                    var slot = sl?.Slots.ElementAtOrDefault(menu.Index);
+                    if (slot is null) break;
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(menu.Index == 0)"
+                            @onclick="() => RunMenuItem(() => MoveSlot(menu.Index, -1))">Move up</button>
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(menu.Index >= sl!.Slots.Count - 1)"
+                            @onclick="() => RunMenuItem(() => MoveSlot(menu.Index, 1))">Move down</button>
+                    <button type="button" class="pcg-context-item" role="menuitem"
+                            @onclick="() => RunMenuItem(() => StartCopy(slot))">Copy</button>
+                    @if (_copySource is not null)
+                    {
+                        <button type="button" class="pcg-context-item" role="menuitem"
+                                @onclick="() => RunMenuItem(() => PasteInto(menu.Index))">Paste here</button>
+                    }
+                    <button type="button" class="pcg-context-item" role="menuitem"
+                            @onclick="() => RunMenuItem(() => ToggleDescEditor(menu.Index))">Notes</button>
+                    <button type="button" class="pcg-context-item" role="menuitem"
+                            @onclick="() => RunMenuItem(() => ToggleSettingsEditor(menu.Index))">Settings</button>
+                    <button type="button" class="pcg-context-item" role="menuitem"
+                            @onclick="() => RunMenuItem(() => ToggleRepoint(slot))">Load…</button>
+                    <div class="pcg-context-divider"></div>
+                    <button type="button" class="pcg-context-item" role="menuitem"
+                            title="Blank this slot's name and notes (the settings and reference bytes stay)"
+                            @onclick="() => RunMenuItem(() => ClearSlot(menu.Index))">Clear slot</button>
+                    break;
+                }
+                case "combis":
+                {
+                    var bank = _catalog.CombiBanks.ElementAtOrDefault(_selectedCombiBank);
+                    if (bank is null || menu.Index >= bank.Count) break;
+                    var combiInit = FindInitCombiSource(_selectedCombiBank, menu.Index);
+                    @if (!string.IsNullOrEmpty(bank[menu.Index]))
+                    {
+                        <button type="button" class="pcg-context-item" role="menuitem"
+                                @onclick="() => RunMenuItem(() => ToggleTimbres(menu.Index))">Timbres</button>
+                    }
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(menu.Index == 0)"
+                            @onclick="() => RunMenuItem(() => MoveCombi(menu.Index, -1))">Move up</button>
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(menu.Index >= bank.Count - 1)"
+                            @onclick="() => RunMenuItem(() => MoveCombi(menu.Index, 1))">Move down</button>
+                    <button type="button" class="pcg-context-item" role="menuitem"
+                            @onclick="() => RunMenuItem(() => StartCombiCopy(menu.Index))">Copy</button>
+                    @if (_combiCopySource is not null)
+                    {
+                        <button type="button" class="pcg-context-item" role="menuitem"
+                                @onclick="() => RunMenuItem(() => PasteCombiInto(menu.Index))">Paste here</button>
+                    }
+                    <div class="pcg-context-divider"></div>
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(combiInit is null)"
+                            title="@(combiInit is null ? "No init combi in this file to copy from" : "Overwrite this combi with an init combi")"
+                            @onclick="() => RunMenuItem(() => ClearCombi(menu.Index))">Clear to init</button>
+                    break;
+                }
+                case "programs":
+                {
+                    var bank = _catalog.ProgramBanks.ElementAtOrDefault(_selectedProgramBank);
+                    if (bank is null || menu.Index >= bank.Count) break;
+                    var programInit = FindInitProgramSource(_selectedProgramBank, menu.Index);
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(menu.Index == 0)"
+                            @onclick="() => RunMenuItem(() => MoveProgram(menu.Index, -1))">Move up</button>
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(menu.Index >= bank.Count - 1)"
+                            @onclick="() => RunMenuItem(() => MoveProgram(menu.Index, 1))">Move down</button>
+                    <button type="button" class="pcg-context-item" role="menuitem"
+                            @onclick="() => RunMenuItem(() => StartProgramCopy(menu.Index))">Copy</button>
+                    @if (_programCopySource is not null)
+                    {
+                        var pasteOk = _catalog.ProgramBankTypes[_programCopySource!.Value.Bank] == _catalog.ProgramBankTypes[_selectedProgramBank];
+                        <button type="button" class="pcg-context-item" role="menuitem" disabled="@(!pasteOk)"
+                                title="@(pasteOk ? null : "This bank's engine type (HD-1/EXi) differs from the copied program's bank")"
+                                @onclick="() => RunMenuItem(() => PasteProgramInto(menu.Index))">Paste here</button>
+                    }
+                    <div class="pcg-context-divider"></div>
+                    <button type="button" class="pcg-context-item" role="menuitem" disabled="@(programInit is null)"
+                            title="@(programInit is null ? "No matching-engine init program in this file to copy from" : "Overwrite this program with an init program")"
+                            @onclick="() => RunMenuItem(() => ClearProgram(menu.Index))">Clear to init</button>
+                    break;
+                }
+            }
+        </div>
+    };
+
+    void ClearSlot(int slot)
+    {
+        if (_pcg is null) return;
+        ApplyEdit(PcgEditor.ClearSetListSlot(_pcg, _selectedSetList, slot), "Clear slot");
+    }
+
+    // First init-style combi anywhere in the combi banks, excluding the target itself;
+    // records literally named "Init Combi" are preferred over empty-named ones.
+    (int Bank, int Index)? FindInitCombiSource(int excludeBank, int excludeIndex) =>
+        _catalog is null ? null
+        : (from b in Enumerable.Range(0, _catalog.CombiBanks.Count)
+           from i in Enumerable.Range(0, _catalog.CombiBanks[b].Count)
+           where (b != excludeBank || i != excludeIndex) && Combi.IsEmptyOrInitName(_catalog.CombiBanks[b][i])
+           orderby string.IsNullOrEmpty(_catalog.CombiBanks[b][i])
+           select ((int, int)?)(b, i)).FirstOrDefault();
+
+    // Same-engine-type init program (CopyProgram refuses cross-type moves, so the source
+    // must match the destination bank's HD-1/EXi type).
+    (int Bank, int Index)? FindInitProgramSource(int dstBank, int excludeIndex)
+    {
+        if (_catalog is null) return null;
+        var dstType = _catalog.ProgramBankTypes[dstBank];
+        return (from b in Enumerable.Range(0, _catalog.ProgramBanks.Count)
+                let t = _catalog.ProgramBankTypes[b]
+                where t is null || dstType is null || t == dstType
+                from i in Enumerable.Range(0, _catalog.ProgramBanks[b].Count)
+                where (b != dstBank || i != excludeIndex) && PcgOrganizer.IsProgramPlaceholder(_catalog.ProgramBanks[b][i])
+                orderby string.IsNullOrEmpty(_catalog.ProgramBanks[b][i])
+                select ((int, int)?)(b, i)).FirstOrDefault();
+    }
+
+    void ClearCombi(int index)
+    {
+        if (_pcg is null || FindInitCombiSource(_selectedCombiBank, index) is not { } src) return;
+        ApplyEdit(PcgEditor.CopyCombi(_pcg, src.Bank, src.Index, _selectedCombiBank, index), "Clear combi");
+    }
+
+    void ClearProgram(int index)
+    {
+        if (_pcg is null || FindInitProgramSource(_selectedProgramBank, index) is not { } src) return;
+        ApplyEdit(PcgEditor.CopyProgram(_pcg, src.Bank, src.Index, _selectedProgramBank, index), "Clear program");
     }
 
     private RenderFragment BankMapColumn(string heading, IReadOnlyList<BankMapRow> rows, Action<int> open) => __builder =>
@@ -3110,6 +3293,12 @@
             // nothing mode-dependent is on screen before a file loads.
             try { _editMode = await JS.InvokeAsync<bool>("pcgGetEditMode"); }
             catch (Exception ex) { Logger.LogDebug(ex, "pcgGetEditMode unavailable; mode not persisted"); }
+            try
+            {
+                _selfRef = DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("pcgInitRowDrag", _selfRef);
+            }
+            catch (Exception ex) { Logger.LogDebug(ex, "pcgInitRowDrag unavailable; drag reorder disabled"); }
             await RestoreCheckAsync();
         }
         if (_pendingReveal is { } revealId)
@@ -3117,11 +3306,64 @@
             _pendingReveal = null;
             await JS.InvokeVoidAsync("pcgRevealRow", revealId);
         }
+        if (_menuClampPending && _rowMenu is not null)
+        {
+            _menuClampPending = false;
+            await JS.InvokeVoidAsync("pcgClampMenu", "pcg-row-menu");
+        }
         if (_focusSearch)
         {
             _focusSearch = false;
             await _searchInput.FocusAsync();
         }
+    }
+
+    // ----- Drag-to-position (the gesture runs in download.js; .NET hears one drop call) -----
+
+    DotNetObjectReference<Home>? _selfRef;
+
+    public void Dispose() => _selfRef?.Dispose();
+
+    [JSInvokable]
+    public async Task OnRowDrop(string table, int from, int to)
+    {
+        if (_pcg is null || _catalog is null || !_editMode || from == to)
+            return;
+
+        byte[]? edited;
+        string label, revealId;
+        switch (table)
+        {
+            case "slots":
+                int slotCount = _setLists.ElementAtOrDefault(_selectedSetList)?.Slots.Count ?? 0;
+                if (from < 0 || from >= slotCount || to < 0 || to >= slotCount) return; // stale drop
+                edited = PcgOrganizer.MoveSetListSlot(_pcg, _selectedSetList, from, to);
+                label = $"Move slot to #{to:D3}";
+                revealId = $"slot-row-{to}";
+                break;
+            case "combis":
+                if (!string.IsNullOrWhiteSpace(_combiFilter)) return; // server-side twin of the disabled handle
+                int combiCount = _catalog.CombiBanks[_selectedCombiBank].Count;
+                if (from < 0 || from >= combiCount || to < 0 || to >= combiCount) return;
+                edited = PcgOrganizer.MoveCombiToPosition(_pcg, _selectedCombiBank, from, to);
+                label = $"Move combi to #{to:D3}";
+                revealId = $"combi-row-{to}";
+                break;
+            case "programs":
+                if (!string.IsNullOrWhiteSpace(_programFilter)) return;
+                int programCount = _catalog.ProgramBanks[_selectedProgramBank].Count;
+                if (from < 0 || from >= programCount || to < 0 || to >= programCount) return;
+                edited = PcgOrganizer.MoveProgramToPosition(_pcg, _selectedProgramBank, from, to);
+                label = $"Move program to #{to:D3}";
+                revealId = $"program-row-{to}";
+                break;
+            default:
+                return;
+        }
+        if (edited is null) return;
+        ApplyEdit(edited, label);
+        _pendingReveal = revealId;          // the landed row scrolls into view and flashes
+        await InvokeAsync(StateHasChanged); // JSInvokable path — no automatic render
     }
 
     // ----- Set-list slots: the combi a song loads, inline -----

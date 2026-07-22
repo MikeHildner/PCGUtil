@@ -77,6 +77,73 @@ public class PcgEditorTests
         Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SwapSetListSlots(pcg, 0, 1, 999));
     }
 
+    [Fact]
+    public void ReorderSetListSlots_moves_whole_blocks_and_nothing_else()
+    {
+        var pcg = Sample.Parse();
+        var before = SetListReader.Read(pcg)[0];
+        Assert.Equal("Let's Go Crazy", before.Slots[1].Name);
+        string slot2Name = before.Slots[2].Name;
+        string slot3Name = before.Slots[3].Name;
+
+        // Slot 1 moves to position 3; 2 and 3 shift up (newOrder[newPos] = oldIndex).
+        var newOrder = Enumerable.Range(0, before.Slots.Count).ToArray();
+        newOrder[1] = 2;
+        newOrder[2] = 3;
+        newOrder[3] = 1;
+        var edited = PcgEditor.ReorderSetListSlots(pcg, 0, newOrder);
+
+        var after = SetListReader.Read(PcgReader.Parse(edited))[0];
+        Assert.Equal(slot2Name, after.Slots[1].Name);
+        Assert.Equal(slot3Name, after.Slots[2].Name);
+        Assert.Equal("Let's Go Crazy", after.Slots[3].Name);
+        // The whole block travelled: the reference (and everything else) came along.
+        Assert.Equal(57, after.Slots[3].Reference.Index);
+        Assert.Equal(before.Slots[1].Color, after.Slots[3].Color);
+        Assert.Equal(before.Slots[1].Description, after.Slots[3].Description);
+
+        // Surgical: a 3-block rotation touches at most 3 slot blocks; the chunk checksum
+        // byte is unchanged because a permutation preserves the byte sum.
+        Assert.True(DiffCount(pcg.Data, edited) <= 3 * SetListReader.SlotSize);
+    }
+
+    [Fact]
+    public void ReorderSetListSlots_rejects_non_permutations()
+    {
+        var pcg = Sample.Parse();
+        int count = SetListReader.Read(pcg)[0].Slots.Count;
+
+        var duplicate = Enumerable.Range(0, count).ToArray();
+        duplicate[1] = 0; // 0 appears twice
+        Assert.Throws<ArgumentException>(() => PcgEditor.ReorderSetListSlots(pcg, 0, duplicate));
+        Assert.Throws<ArgumentException>(() => PcgEditor.ReorderSetListSlots(pcg, 0, new[] { 0, 1, 2 }));
+    }
+
+    [Fact]
+    public void ClearSetListSlot_blanks_name_and_notes_but_keeps_the_reference_bytes()
+    {
+        var pcg = Sample.Parse();
+        var before = SetListReader.Read(pcg)[0].Slots[1];
+        Assert.False(before.IsEmpty);
+
+        var edited = PcgEditor.ClearSetListSlot(pcg, setListIndex: 0, slot: 1);
+
+        var after = SetListReader.Read(PcgReader.Parse(edited))[0].Slots[1];
+        Assert.True(after.IsEmpty);
+        Assert.Equal(string.Empty, after.Description);
+        // The reference and settings bytes are untouched — empty is name-only.
+        Assert.Equal(before.Reference.Kind, after.Reference.Kind);
+        Assert.Equal(57, after.Reference.Index);
+        Assert.Equal(before.Color, after.Color);
+        Assert.Equal(before.Volume, after.Volume);
+        Assert.Equal(before.Transpose, after.Transpose);
+        Assert.Equal(before.HoldTimeIndex, after.HoldTimeIndex);
+
+        // Surgical: name + description fields plus the one chunk checksum byte.
+        Assert.True(DiffCount(pcg.Data, edited)
+            <= SetListReader.SlotNameLength + SetListReader.SlotDescriptionLength + 1);
+    }
+
     private static int DiffCount(byte[] a, byte[] b)
     {
         int diff = 0;

@@ -416,6 +416,38 @@ html {
     min-width: 4.25rem;
 }
 
+/* ---- Row drag-to-position (edit mode; classes toggled by download.js) ---- */
+.pcg-drag-handle {
+    cursor: grab;
+}
+
+.pcg-drag-handle:active {
+    cursor: grabbing;
+}
+
+tr.pcg-drag-source > td {
+    opacity: 0.5;
+}
+
+/* Insertion indicator: an accent line on the edge the record will land on.
+   Inset box-shadow, not border — borders would change the row height. */
+tr.pcg-drop-above > td {
+    box-shadow: inset 0 2px 0 var(--bs-primary);
+}
+
+tr.pcg-drop-below > td {
+    box-shadow: inset 0 -2px 0 var(--bs-primary);
+}
+
+/* Touch keeps the ▲▼ buttons; the grip is a fine-pointer affordance only.
+   (pointer:coarse alone, without the max-width clause the sizing block uses —
+   a narrow desktop window should still allow dragging.) */
+@media (pointer: coarse) {
+    .pcg-drag-handle {
+        display: none;
+    }
+}
+
 /* ---- Comfortable targets on touch and small screens (music-stand mode) ----
    The width clause mirrors pointer:coarse so tablets always qualify and the
    behavior is testable by resizing. Taller table rows are the intended trade. */

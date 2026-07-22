@@ -93,9 +93,15 @@ public class ProgramReaderTests
     }
 
     [Fact]
-    public void Sample_without_starred_programs_shows_no_favorites()
+    public void Sample_shows_exactly_the_hardware_starred_program()
     {
-        Assert.DoesNotContain(ProgramReader.Read(Sample.Parse()), p => p.Favorite);
+        // The 2026-07-22 gig backup carries the one star set during the favorites-probe
+        // hardware session (USER-GG 000 "GET LUCKY VOCODER") — the bit must read back on
+        // a real backup, and nothing else may false-positive.
+        var starred = Assert.Single(ProgramReader.Read(Sample.Parse()), p => p.Favorite);
+        Assert.Equal(19, starred.Bank);
+        Assert.Equal(0, starred.Index);
+        Assert.Equal("GET LUCKY VOCODER", starred.Name);
     }
 
     [Fact]

@@ -118,6 +118,93 @@ window.pcgSetEditMode = (on) => {
     try { localStorage.setItem("pcgEditMode", on ? "1" : "0"); } catch (e) { }
 };
 
+// ---- Row drag-to-position (edit mode) ----
+// The whole gesture runs client-side: Blazor Server can't afford a SignalR round trip
+// per dragover, so .NET hears about a drag exactly once, on drop.
+let pcgDragNet = null;   // DotNetObjectReference from Home (recreated per circuit)
+let pcgDrag = null;      // { table, from } while a grip-drag is live
+let pcgDropRow = null;   // row currently showing the insertion indicator
+
+window.pcgInitRowDrag = (dotnetRef) => { pcgDragNet = dotnetRef; };
+
+const pcgDragRowOf = (el) =>
+    el instanceof Element ? el.closest("tr[data-drag-index]") : null;
+const pcgClearDropMark = () => {
+    if (pcgDropRow) pcgDropRow.classList.remove("pcg-drop-above", "pcg-drop-below");
+    pcgDropRow = null;
+};
+
+document.addEventListener("dragstart", (e) => {
+    const handle = e.target instanceof Element ? e.target.closest(".pcg-drag-handle") : null;
+    const row = pcgDragRowOf(handle);
+    const table = row ? row.closest("[data-drag-table]") : null;
+    if (!handle || handle.disabled || !row || !table) return;
+    pcgDrag = { table: table.getAttribute("data-drag-table"), from: +row.dataset.dragIndex };
+    e.dataTransfer.setData("text/plain", String(pcgDrag.from)); // Firefox refuses dataless drags
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setDragImage(row, 24, row.offsetHeight / 2); // ghost the row, not the grip
+    row.classList.add("pcg-drag-source");
+});
+
+document.addEventListener("dragover", (e) => {
+    if (!pcgDrag) return;
+    const row = pcgDragRowOf(e.target);
+    const table = row ? row.closest("[data-drag-table]") : null;
+    if (!row || !table || table.getAttribute("data-drag-table") !== pcgDrag.table) return;
+    e.preventDefault();                      // this is what permits the drop
+    e.dataTransfer.dropEffect = "move";
+    const to = +row.dataset.dragIndex;
+    if (row !== pcgDropRow) pcgClearDropMark();
+    if (to === pcgDrag.from) return;
+    pcgDropRow = row;
+    const cls = to > pcgDrag.from ? "pcg-drop-below" : "pcg-drop-above";
+    if (!row.classList.contains(cls)) {      // touch the DOM only when the edge flips
+        row.classList.remove("pcg-drop-above", "pcg-drop-below");
+        row.classList.add(cls);
+    }
+});
+
+document.addEventListener("dragleave", (e) => {
+    if (pcgDrag && e.relatedTarget === null) pcgClearDropMark(); // left the window
+});
+
+document.addEventListener("drop", (e) => {
+    if (!pcgDrag) return;
+    const drag = pcgDrag;
+    pcgDrag = null;
+    pcgClearDropMark();
+    const row = pcgDragRowOf(e.target);
+    const table = row ? row.closest("[data-drag-table]") : null;
+    if (!row || !table || table.getAttribute("data-drag-table") !== drag.table) return;
+    e.preventDefault();
+    const to = +row.dataset.dragIndex;
+    if (to === drag.from || !pcgDragNet) return;
+    pcgDragNet.invokeMethodAsync("OnRowDrop", drag.table, drag.from, to)
+        .catch(() => { });                   // circuit gone: nothing to do client-side
+});
+
+document.addEventListener("dragend", () => { // fires after drop AND on Esc / out-of-window cancel
+    pcgDrag = null;
+    pcgClearDropMark();
+    document.querySelectorAll(".pcg-drag-source")
+        .forEach(r => r.classList.remove("pcg-drag-source"));
+});
+
+// One-shot viewport clamp for the fixed-position row menu: after Blazor renders it at
+// the cursor, nudge it fully on-screen. Stateless, mirrors pcgRevealRow.
+window.pcgClampMenu = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const r = el.getBoundingClientRect(), pad = 8;
+    let left = r.left, top = r.top;
+    if (r.right > window.innerWidth - pad) left = window.innerWidth - pad - r.width;
+    if (r.bottom > window.innerHeight - pad) top = window.innerHeight - pad - r.height;
+    left = Math.max(pad, left);
+    top = Math.max(pad, top);
+    if (left !== r.left) el.style.left = left + "px";
+    if (top !== r.top) el.style.top = top + "px";
+};
+
 // Scrolls a just-jumped-to table row into view and flashes it so the eye lands there.
 // block:center keeps the row clear of the sticky file header.
 window.pcgRevealRow = (id) => {
