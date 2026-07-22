@@ -1143,7 +1143,7 @@
                             {
                                 <tr @key="@($"timbres-{idx}")">
                                     <td></td>
-                                    <td colspan="@(_editMode ? 4 : 3)">@TimbreTable(_timbreDetail, _catalog)</td>
+                                    <td colspan="@(_editMode ? 4 : 3)">@TimbreTable(_timbreDetail, _catalog, editable: _editMode)</td>
                                 </tr>
                             }
                         }
@@ -2385,8 +2385,19 @@
         _diffReport = null;   // likewise for the Differences tab
         _crossDeepPlan = null; // free slots / records may have changed
         _addPlan = null;       // wizard plan too
-        _timbreCombi = null;  // combi records may have moved
-        _timbreDetail = null;
+        // Combi records may have moved; but keep an open timbre panel alive across edits
+        // (timbre quick-edit writes from inside it — closing on every change would fight
+        // the user), re-reading its combi from the new image.
+        if (preserveSelection && _timbreCombi is { } openTimbre)
+        {
+            _timbreDetail = FindCombi(_selectedCombiBank, openTimbre);
+            if (_timbreDetail is null) _timbreCombi = null;
+        }
+        else
+        {
+            _timbreCombi = null;
+            _timbreDetail = null;
+        }
         _slotDetailSlot = null;  // likewise for the set-list slot panel
         _slotDetailCombi = null;
 
@@ -3094,6 +3105,56 @@
     Combi? FindCombi(int bank, int index) => _pcg is null ? null
         : CombiReader.Read(_pcg).FirstOrDefault(c => c.Bank == bank && c.Index == index);
 
+    // ----- Timbre quick-edit (zone view, Combis tab, edit mode) -----
+    // Moving one end of a zone past the other drags the partner along instead of erroring —
+    // sliding a split point around shouldn't require editing the ends in a magic order.
+
+    void SetTimbreKeyLow(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || !int.TryParse(value, out var low)) return;
+        low = Math.Clamp(low, 0, 127);
+        ApplyEdit(PcgEditor.SetTimbreKeyZone(_pcg, combi.Bank, combi.Index, t.Index, low, Math.Max(low, t.TopKey)),
+            $"T{t.Index + 1} key zone");
+    }
+
+    void SetTimbreKeyHigh(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || !int.TryParse(value, out var high)) return;
+        high = Math.Clamp(high, 0, 127);
+        ApplyEdit(PcgEditor.SetTimbreKeyZone(_pcg, combi.Bank, combi.Index, t.Index, Math.Min(t.BottomKey, high), high),
+            $"T{t.Index + 1} key zone");
+    }
+
+    void SetTimbreVelLow(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || !int.TryParse(value, out var low)) return;
+        low = Math.Clamp(low, 1, 127);
+        ApplyEdit(PcgEditor.SetTimbreVelocityZone(_pcg, combi.Bank, combi.Index, t.Index, low, Math.Max(low, t.TopVelocity)),
+            $"T{t.Index + 1} velocity zone");
+    }
+
+    void SetTimbreVelHigh(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || !int.TryParse(value, out var high)) return;
+        high = Math.Clamp(high, 1, 127);
+        ApplyEdit(PcgEditor.SetTimbreVelocityZone(_pcg, combi.Bank, combi.Index, t.Index, Math.Min(t.BottomVelocity, high), high),
+            $"T{t.Index + 1} velocity zone");
+    }
+
+    void SetTimbreVol(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || !int.TryParse(value, out var vol)) return;
+        ApplyEdit(PcgEditor.SetTimbreVolume(_pcg, combi.Bank, combi.Index, t.Index, Math.Clamp(vol, 0, 127)),
+            $"T{t.Index + 1} volume");
+    }
+
+    void SetTimbreXpose(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || !int.TryParse(value, out var st)) return;
+        ApplyEdit(PcgEditor.SetTimbreTranspose(_pcg, combi.Bank, combi.Index, t.Index, Math.Clamp(st, -60, 60)),
+            $"T{t.Index + 1} transpose");
+    }
+
     // Companion .KGE: user KARMA GE names (USER-A..L), attached from the file header.
     IReadOnlyList<IReadOnlyList<string>>? _kgeBanks;
     string? _kgeFileName;
@@ -3428,7 +3489,9 @@
     // "What's inside this combi": category/tempo header, a key-zone map of the splits and
     // layers, and the timbre table — programs resolved against the given catalog (the main
     // file's or the Copy tab's read-only source).
-    private RenderFragment TimbreTable(Combi combi, PcgCatalog? catalog) => __builder =>
+    // editable is passed only where the combi belongs to the OWNED file in edit mode —
+    // the Copy-tab call sites render a read-only source file and must never pass it.
+    private RenderFragment TimbreTable(Combi combi, PcgCatalog? catalog, bool editable = false) => __builder =>
     {
         var activeTimbres = combi.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
         <div class="small text-body-secondary mb-1">
@@ -3504,11 +3567,58 @@
                                 <span> — @timbreProgram</span>
                             }
                         </td>
-                        <td class="@(t.HasKeyZone ? null : "text-body-tertiary")">@PcgNotes.Name(t.BottomKey)–@PcgNotes.Name(t.TopKey)</td>
-                        <td class="@(t.HasVelocityZone ? null : "text-body-tertiary")">@t.BottomVelocity–@t.TopVelocity</td>
+                        @if (editable)
+                        {
+                            <td class="text-nowrap">
+                                <select class="form-select form-select-sm d-inline-block" style="width:4.6rem"
+                                        aria-label="Bottom key" value="@t.BottomKey"
+                                        @onchange="@(e => SetTimbreKeyLow(combi, t, e.Value?.ToString()))">
+                                    @for (var n = 0; n <= 127; n++)
+                                    {
+                                        <option value="@n" selected="@(n == t.BottomKey)">@PcgNotes.Name(n)</option>
+                                    }
+                                </select>–<select class="form-select form-select-sm d-inline-block" style="width:4.6rem"
+                                        aria-label="Top key" value="@t.TopKey"
+                                        @onchange="@(e => SetTimbreKeyHigh(combi, t, e.Value?.ToString()))">
+                                    @for (var n = 0; n <= 127; n++)
+                                    {
+                                        <option value="@n" selected="@(n == t.TopKey)">@PcgNotes.Name(n)</option>
+                                    }
+                                </select>
+                            </td>
+                            <td class="text-nowrap">
+                                <input type="number" min="1" max="127" class="form-control form-control-sm d-inline-block" style="width:3.9rem"
+                                       aria-label="Bottom velocity" value="@t.BottomVelocity"
+                                       @onchange="@(e => SetTimbreVelLow(combi, t, e.Value?.ToString()))" />–<input
+                                       type="number" min="1" max="127" class="form-control form-control-sm d-inline-block" style="width:3.9rem"
+                                       aria-label="Top velocity" value="@t.TopVelocity"
+                                       @onchange="@(e => SetTimbreVelHigh(combi, t, e.Value?.ToString()))" />
+                            </td>
+                        }
+                        else
+                        {
+                            <td class="@(t.HasKeyZone ? null : "text-body-tertiary")">@PcgNotes.Name(t.BottomKey)–@PcgNotes.Name(t.TopKey)</td>
+                            <td class="@(t.HasVelocityZone ? null : "text-body-tertiary")">@t.BottomVelocity–@t.TopVelocity</td>
+                        }
                         <td class="d-none d-md-table-cell">@(t.MidiChannel == 16 ? "Gch" : (t.MidiChannel + 1).ToString())</td>
-                        <td class="d-none d-md-table-cell">@t.Volume</td>
-                        <td class="d-none d-md-table-cell @(t.Transpose == 0 ? "text-body-tertiary" : null)">@(t.Transpose == 0 ? "—" : t.Transpose.ToString("+0;-0"))</td>
+                        @if (editable)
+                        {
+                            <td class="d-none d-md-table-cell">
+                                <input type="number" min="0" max="127" class="form-control form-control-sm" style="width:3.9rem"
+                                       aria-label="Timbre volume" value="@t.Volume"
+                                       @onchange="@(e => SetTimbreVol(combi, t, e.Value?.ToString()))" />
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                <input type="number" min="-60" max="60" class="form-control form-control-sm" style="width:3.9rem"
+                                       aria-label="Timbre transpose" value="@t.Transpose"
+                                       @onchange="@(e => SetTimbreXpose(combi, t, e.Value?.ToString()))" />
+                            </td>
+                        }
+                        else
+                        {
+                            <td class="d-none d-md-table-cell">@t.Volume</td>
+                            <td class="d-none d-md-table-cell @(t.Transpose == 0 ? "text-body-tertiary" : null)">@(t.Transpose == 0 ? "—" : t.Transpose.ToString("+0;-0"))</td>
+                        }
                     </tr>
                 }
             </tbody>

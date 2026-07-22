@@ -135,6 +135,22 @@ so this is a load formality.
 - [ ] Right-click a combi or program → **Clear to init**, download, load: the slot plays a
       bare init patch and the file loads with no error.
 
+## 15. Timbre quick-edit (key/velocity zones, volume, transpose)
+Status: **pending — REQUIRED before this feature counts as verified.** These are the first
+writes ever made to timbre bytes +37/+38 (key zone), +40/+41 (velocity zone), +5 (volume),
+and +7 (transpose); the offsets were decoded from a vendor pack's prose set-list notes and
+have never been confirmed by a hardware write round-trip.
+- [ ] In a USER combi (Combis tab → Edit → **Timbres**), set one timbre's key zone to a
+      distinctive split (e.g. C4–G9), download, load: the instrument's combi Timbre
+      Parameters page shows exactly that bottom/top key, and playing across the split point
+      confirms it.
+- [ ] Set a velocity zone on a timbre (e.g. 89–127), download, load: soft notes skip the
+      timbre, hard notes trigger it, and the instrument shows the same velocity window.
+- [ ] Set a timbre's volume and transpose, download, load: the mix balance changes and the
+      timbre sounds transposed by the chosen semitones; the instrument's mixer page shows
+      the written values.
+- [ ] The combi's other timbres — programs, zones, status — are untouched.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.

@@ -21,6 +21,23 @@ public class PcgHtmlReportTests
     }
 
     [Fact]
+    public void SetList_html_carries_transpose_and_hold_columns()
+    {
+        var pcg = Sample.Parse();
+        var catalog = PcgCatalog.Build(pcg);
+        var sl = SetListReader.Read(pcg)[0];
+
+        var html = PcgHtmlReport.SetList(sl, catalog);
+
+        Assert.Contains("<th class=\"num\">Xpose</th>", html);
+        Assert.Contains("<th class=\"num\">Hold</th>", html);
+        // The gig list plays most songs at −1: the sheet must show it.
+        Assert.Contains(">-1</td>", html);
+        // Hold time renders as the hardware's label, not a raw index.
+        Assert.Contains("sec", html);
+    }
+
+    [Fact]
     public void AllSetLists_html_page_breaks_between_lists()
     {
         var pcg = Sample.Parse();

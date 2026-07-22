@@ -13,9 +13,7 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T4] Timbre quick-edit in the zone view — edit key/velocity zones (maybe volume/transpose) directly from the combi zone map *(Dan feedback)* | 2026-07-18 | — |
 | [T5] Multi-file workspace — tabs for several open PCGs → a three-pane merge view (two source wings + a center target, e.g. an empty Kronos-2/3 default) with drag-to-merge, dependency pulling, and duplicate scan; supersedes the single read-only Copy source *(Dan feedback; the big one)* | 2026-07-18 | — |
-| [T1] Add color / transpose / hold-time to the printed set-list cheat sheet (now that all three decode) | 2026-07-18 | — |
 | [T2] Bend range & portamento per timbre — surface the two known-offset depths in the combi timbre table | 2026-07-18 | — |
 | [T2] Keyboard track — the last undecoded set-list slot field (Song slots); needs a written-set-list hardware probe | 2026-07-18 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
@@ -34,6 +32,8 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 
 | Task | Created | Completed |
 |------|---------|-----------|
+| [T4] Timbre quick-edit — key/velocity zones, volume, and transpose editable inline in the combi zone view (first-ever writes to timbre bytes +37/38/40/41/5/7; zone ends drag their partner instead of erroring; panel survives edits; per-timbre undo labels) — **hardware §15 pending, offsets never write-verified** *(Dan feedback)* | 2026-07-18 | 2026-07-22 |
+| [T1] Printed set-list cheat sheet gains Xpose and Hold columns (color swatch was already there) | 2026-07-18 | 2026-07-22 |
 | [T3] Row actions — right-click context menu on every browse row (move/copy/paste/notes/settings/load/clear, per kind) and drag-to-position reorder via a ⠿ grip (insert-shift semantics through the reference-retargeting reorder machinery; new ReorderSetListSlots/ClearSetListSlot writers; clear-to-init = copy from an existing init record, engine-type aware); touch keeps ▲▼, filters block drag with a tooltip *(Dan feedback)* | 2026-07-18 | 2026-07-22 |
 | [T3] Edit-first + undo — hidden Edit-mode checkbox replaced by a prominent per-tab Browse \| Edit switch (sticky per browser, Browse default for stage safety) and a real undo/redo stack: sparse byte patches (PcgBytePatch/PcgEditHistory, 64 MB cap), labeled top-bar ↶/↷ with Ctrl+Z/Y, dirty pill turns off when undo reaches pristine *(Dan feedback)* | 2026-07-18 | 2026-07-21 |
 | [T2] Content-hash duplicate/init detection — duplicates grouped by sound hash (name zeroed + favorite bit masked, engine-typed), name collisions listed separately, renamed init placeholders detected by content (found 4 phantom combis + 3 phantom programs in the gig file); write paths stay conservatively name-based *(Dan feedback)* | 2026-07-18 | 2026-07-21 |

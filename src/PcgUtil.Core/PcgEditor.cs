@@ -402,6 +402,80 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    // ----- Combi timbre fields (188-byte timbre blocks at combi offset 4802) -----
+    // NOTE: within each zone pair the TOP byte comes first (+37 key top / +38 key bottom;
+    // +40 velocity top / +41 velocity bottom).
+
+    /// <summary>Returns a copy with one timbre's key zone rewritten (notes 0–127,
+    /// bottom ≤ top). Every other timbre byte is preserved.</summary>
+    public static byte[] SetTimbreKeyZone(PcgFile pcg, int bank, int index, int timbre, int bottomKey, int topKey)
+    {
+        if (bottomKey is < 0 or > 127)
+            throw new ArgumentOutOfRangeException(nameof(bottomKey), bottomKey, "Keys are 0–127.");
+        if (topKey is < 0 or > 127)
+            throw new ArgumentOutOfRangeException(nameof(topKey), topKey, "Keys are 0–127.");
+        if (bottomKey > topKey)
+            throw new ArgumentException("The bottom key must not be above the top key.", nameof(bottomKey));
+
+        var (data, tOff) = CloneWithTimbre(pcg, bank, index, timbre);
+        data[tOff + 37] = (byte)topKey;
+        data[tOff + 38] = (byte)bottomKey;
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>Returns a copy with one timbre's velocity zone rewritten (1–127,
+    /// bottom ≤ top — the hardware's velocity floor is 1, not 0).</summary>
+    public static byte[] SetTimbreVelocityZone(PcgFile pcg, int bank, int index, int timbre, int bottomVelocity, int topVelocity)
+    {
+        if (bottomVelocity is < 1 or > 127)
+            throw new ArgumentOutOfRangeException(nameof(bottomVelocity), bottomVelocity, "Velocities are 1–127.");
+        if (topVelocity is < 1 or > 127)
+            throw new ArgumentOutOfRangeException(nameof(topVelocity), topVelocity, "Velocities are 1–127.");
+        if (bottomVelocity > topVelocity)
+            throw new ArgumentException("The bottom velocity must not exceed the top velocity.", nameof(bottomVelocity));
+
+        var (data, tOff) = CloneWithTimbre(pcg, bank, index, timbre);
+        data[tOff + 40] = (byte)topVelocity;
+        data[tOff + 41] = (byte)bottomVelocity;
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>Returns a copy with one timbre's volume (0–127) rewritten.</summary>
+    public static byte[] SetTimbreVolume(PcgFile pcg, int bank, int index, int timbre, int volume)
+    {
+        if (volume is < 0 or > 127)
+            throw new ArgumentOutOfRangeException(nameof(volume), volume, "Timbre volume is 0–127.");
+
+        var (data, tOff) = CloneWithTimbre(pcg, bank, index, timbre);
+        data[tOff + 5] = (byte)volume;
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>Returns a copy with one timbre's transpose (−60..+60 semitones) rewritten.</summary>
+    public static byte[] SetTimbreTranspose(PcgFile pcg, int bank, int index, int timbre, int semitones)
+    {
+        if (semitones is < -60 or > 60)
+            throw new ArgumentOutOfRangeException(nameof(semitones), semitones, "Timbre transpose is −60..+60 semitones.");
+
+        var (data, tOff) = CloneWithTimbre(pcg, bank, index, timbre);
+        data[tOff + 7] = unchecked((byte)(sbyte)semitones);
+        return Finalized(pcg, data);
+    }
+
+    // Clones the image and returns it with the validated absolute offset of one timbre block.
+    private static (byte[] Data, long TimbreOffset) CloneWithTimbre(PcgFile pcg, int bank, int index, int timbre)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        if (timbre is < 0 or >= CombiReader.TimbresPerCombi)
+            throw new ArgumentOutOfRangeException(nameof(timbre), timbre, "Timbres are 0–15.");
+        var (offset, recordSize) = LocateCombi(pcg, bank, index);
+        if (CombiReader.TimbresOffset + (timbre + 1) * CombiReader.TimbreStride > recordSize)
+            throw new InvalidOperationException($"Timbre {timbre + 1} lies outside the combi record.");
+
+        var data = (byte[])pcg.Data.Clone();
+        return (data, offset + CombiReader.TimbresOffset + (long)timbre * CombiReader.TimbreStride);
+    }
+
     /// <summary>
     /// Returns a copy with one combi bank's records rearranged in a single pass: the record at
     /// position <c>i</c> afterwards is the one that was at <c>newOrder[i]</c> (<paramref name="newOrder"/>
