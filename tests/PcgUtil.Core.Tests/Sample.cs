@@ -91,6 +91,21 @@ internal static class FavoritesProbe
 }
 
 /// <summary>
+/// Locates the optional single-program pack (ONETHINGLEADS.PCG — one EXi program in USER-G,
+/// no combi or set-list sections at all; the file that exposed the absent-section compat
+/// bug, 2026-07-22). Silently absent-safe.
+/// </summary>
+internal static class OneProgramPack
+{
+    public static PcgFile? Parse()
+    {
+        var path = System.IO.Path.Combine(
+            System.IO.Path.GetDirectoryName(Sample.Path)!, "ONETHINGLEADS.PCG");
+        return File.Exists(path) ? PcgReader.Parse(File.ReadAllBytes(path)) : null;
+    }
+}
+
+/// <summary>
 /// Locates the optional vendor-pack PCG (a partial file carrying only a few USER banks) under
 /// files/. Tests that depend on it must silently pass when it's absent — unlike the main
 /// sample, it isn't required.

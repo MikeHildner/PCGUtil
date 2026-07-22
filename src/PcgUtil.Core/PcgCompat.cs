@@ -24,9 +24,11 @@ public sealed record PcgCompatResult(bool ProgramsMatch, bool CombisMatch, bool 
 /// <summary>
 /// Same-model heuristic for cross-file operations: two files are treated as compatible when
 /// every bank they <em>both</em> carry (paired by canonical index) has the same record count
-/// and size, and their record sizes agree across the section. A bank only one file carries —
-/// vendor packs ship a subset — doesn't block compatibility: copies address specific banks,
-/// and <see cref="PcgEditor"/> re-checks record sizes per operation before landing raw bytes.
+/// and size, and their record sizes agree across the section. Whole sections — like banks —
+/// can be absent from one file: single-kind packs ship just a PRG1 (a lone program, no combis
+/// or set lists), and an absent section can't disagree with anything, so it never blocks
+/// compatibility. Copies address specific banks, and <see cref="PcgEditor"/> re-checks record
+/// sizes per operation before landing raw bytes.
 /// </summary>
 public static class PcgCompat
 {
@@ -45,7 +47,7 @@ public static class PcgCompat
         var banksA = PcgBankIdentity.CanonicalBanks(a, sectionId);
         var banksB = PcgBankIdentity.CanonicalBanks(b, sectionId);
         if (banksA.Count == 0 || banksB.Count == 0)
-            return banksA.Count == banksB.Count; // section absent from just one file → mismatch
+            return true; // section absent from a file can't disagree (single-kind packs)
 
         // Every record size in the section must agree between the files (same-model check even
         // when the files share no banks), and shared banks must have identical layouts.
@@ -71,7 +73,7 @@ public static class PcgCompat
         var sbkA = a.FindFirst("SBK1");
         var sbkB = b.FindFirst("SBK1");
         if (sbkA is null || sbkB is null)
-            return (sbkA is null) == (sbkB is null);
+            return true; // absent from a file can't disagree (single-kind packs)
         return Layout(a, sbkA) == Layout(b, sbkB);
     }
 

@@ -1408,10 +1408,16 @@
                     <div class="d-flex align-items-end gap-2 flex-wrap mb-2">
                         <div class="btn-group">
                             <button type="button" class="btn btn-sm @(_crossKind == CrossKind.Programs ? "btn-secondary" : "btn-outline-secondary")"
+                                    disabled="@(!CrossKindAvailable(CrossKind.Programs))"
+                                    title="@(CrossKindAvailable(CrossKind.Programs) ? null : "This file carries no programs")"
                                     @onclick="() => SetCrossKind(CrossKind.Programs)">Programs</button>
                             <button type="button" class="btn btn-sm @(_crossKind == CrossKind.Combis ? "btn-secondary" : "btn-outline-secondary")"
+                                    disabled="@(!CrossKindAvailable(CrossKind.Combis))"
+                                    title="@(CrossKindAvailable(CrossKind.Combis) ? null : "This file carries no combis")"
                                     @onclick="() => SetCrossKind(CrossKind.Combis)">Combis</button>
                             <button type="button" class="btn btn-sm @(_crossKind == CrossKind.SetListSlots ? "btn-secondary" : "btn-outline-secondary")"
+                                    disabled="@(!CrossKindAvailable(CrossKind.SetListSlots))"
+                                    title="@(CrossKindAvailable(CrossKind.SetListSlots) ? null : "This file carries no set lists")"
                                     @onclick="() => SetCrossKind(CrossKind.SetListSlots)">Set-list slots</button>
                         </div>
                         <div>
@@ -3770,6 +3776,7 @@
             _srcPcg = PcgReader.Parse(ms.ToArray());
             _srcCatalog = PcgCatalog.Build(_srcPcg);
             _srcSetLists = SetListReader.Read(_srcPcg).ToList();
+            EnsureAvailableCrossKind(); // single-kind packs may lack the current kind entirely
             _crossSrcBank = CrossSrcDefaultBank();
             _crossFilter = string.Empty;
             _diffReport = null;
@@ -3844,6 +3851,31 @@
         CrossKind.Combis when _srcCatalog is not null => SnapToPresent(0, _srcCatalog.CombiBanks),
         _ => 0,
     };
+
+    // Whether the SOURCE file has anything of this kind to offer — single-kind packs
+    // (a lone program, no combis or set lists) legitimately lack whole sections.
+    bool CrossKindAvailable(CrossKind kind) => kind switch
+    {
+        CrossKind.Programs => _srcCatalog is not null && PresentBanks(_srcCatalog.ProgramBanks).Any(),
+        CrossKind.Combis => _srcCatalog is not null && PresentBanks(_srcCatalog.CombiBanks).Any(),
+        _ => _srcSetLists.Count > 0,
+    };
+
+    // Lands the kind picker on something the source actually carries (a combi-less pack
+    // opening on "Combis" would show an empty list).
+    void EnsureAvailableCrossKind()
+    {
+        if (CrossKindAvailable(_crossKind))
+            return;
+        foreach (var kind in new[] { CrossKind.Programs, CrossKind.Combis, CrossKind.SetListSlots })
+        {
+            if (CrossKindAvailable(kind))
+            {
+                _crossKind = kind;
+                return;
+            }
+        }
+    }
 
     int CrossDstDefaultBank() => _crossKind switch
     {

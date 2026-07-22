@@ -120,6 +120,27 @@ public class PcgBankIdentityTests
         Assert.False(PcgCompat.Compare(partial, otherModel).ProgramsMatch);
     }
 
+    [Fact]
+    public void Compat_treats_a_section_absent_from_one_file_as_vacuously_compatible()
+    {
+        // A single-kind pack (one lone program, no combi or set-list sections at all) must
+        // not read as "a different instrument" — an absent section can't disagree.
+        var programsOnly = PcgReader.Parse(BuildFile(
+            Section("PRG1", Bank("MBK1", 0x2000B, "LONE PROGRAM"))));
+        var both = PcgReader.Parse(BuildFile(
+            Section("PRG1", Bank("MBK1", 0x2000B, "OTHER")),
+            Section("CMB1", Bank("CBK1", 0x00000, "SOME COMBI"))));
+
+        var compat = PcgCompat.Compare(programsOnly, both);
+        Assert.True(compat.AllMatch);
+
+        // A REAL layout disagreement in a section both files carry still blocks.
+        var otherModel = PcgReader.Parse(BuildFile(
+            Section("PRG1", Bank("MBK1", 0x2000B, "LONE PROGRAM", recordSize: 96)),
+            Section("CMB1", Bank("CBK1", 0x00000, "SOME COMBI"))));
+        Assert.False(PcgCompat.Compare(otherModel, both).AllMatch);
+    }
+
     // ----- Program bank engine types (PBK1 = HD-1, MBK1 = EXi) -----
 
     // Pins against the sample (this instrument's user-configured types) and the vendor
@@ -137,6 +158,34 @@ public class PcgBankIdentityTests
         var catalog = PcgCatalog.Build(pcg);
         Assert.Equal(catalog.ProgramBanks.Count, catalog.ProgramBankTypes.Count);
         Assert.Equal(ProgramBankType.Hd1, catalog.ProgramBankTypes[19]);
+    }
+
+    [Fact]
+    public void One_program_pack_is_compatible_and_copyable_into_the_sample()
+    {
+        if (OneProgramPack.Parse() is not { } pack)
+            return;
+
+        // The pack's lone bank keys to USER-G (canonical 12), EXi, one real program.
+        var compat = PcgCompat.Compare(Sample.Parse(), pack);
+        Assert.True(compat.AllMatch);
+        var catalog = PcgCatalog.Build(pack);
+        Assert.Equal("ONE THING SYNTH SWEEP", catalog.ProgramBanks[12][0]);
+        Assert.Equal(ProgramBankType.Exi, PcgBankIdentity.ProgramBankType(pack, 12));
+
+        // Differences tolerates the absent sections, and the copy itself lands: the pack's
+        // program into an EXi placeholder slot of the main file.
+        _ = PcgDiff.Compare(Sample.Parse(), pack);
+        var main = Sample.Parse();
+        var mainCatalog = PcgCatalog.Build(main);
+        var dst = Enumerable.Range(0, mainCatalog.ProgramBanks.Count)
+            .Where(b => mainCatalog.ProgramBankTypes[b] == ProgramBankType.Exi)
+            .SelectMany(b => Enumerable.Range(0, mainCatalog.ProgramBanks[b].Count)
+                .Where(i => PcgOrganizer.IsProgramPlaceholder(mainCatalog.ProgramBanks[b][i]))
+                .Select(i => (Bank: b, Index: i)))
+            .First();
+        var edited = PcgReader.Parse(PcgEditor.CopyProgramAcross(pack, 12, 0, main, dst.Bank, dst.Index));
+        Assert.Equal("ONE THING SYNTH SWEEP", PcgCatalog.Build(edited).ProgramBanks[dst.Bank][dst.Index]);
     }
 
     [Fact]
