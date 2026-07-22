@@ -19,8 +19,8 @@ public static class ProgramReader
 {
     public const int NameLength = 24;
     private const int SubHeaderSize = 12;
-    private const int FavoriteOffset = 2558;
-    private const int FavoriteBit = 0x20;
+    public const int FavoriteOffset = 2558;
+    public const int FavoriteBit = 0x20;
     private const int CategoryOffset = 2568;
     private const int ExiEngineOffset = 2857;
 

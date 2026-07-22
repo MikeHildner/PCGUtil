@@ -13,7 +13,6 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T2] Content-hash duplicate/init detection — group duplicates and detect "empty/init" by byte-identical record hash, not name only (name-based is the current heuristic; hashing guarantees truly-identical sounds) *(Dan feedback)* | 2026-07-18 | — |
 | [T3] Edit-first mode + undo — make Edit mode prominent (Dan didn't notice it); consider edit-by-default with an undo/revert stack over the ApplyEdit full-image history *(Dan feedback)* | 2026-07-18 | — |
 | [T3] Row actions — right-click a program/combi/slot row for move / copy / clear-init / edit, plus drag-to-position reorder on desktop (touch keeps the ▲▼ arrows); merges the earlier 2026-06-02 "editing polish" item *(Dan feedback)* | 2026-07-18 | — |
 | [T4] Timbre quick-edit in the zone view — edit key/velocity zones (maybe volume/transpose) directly from the combi zone map *(Dan feedback)* | 2026-07-18 | — |
@@ -37,6 +36,7 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 
 | Task | Created | Completed |
 |------|---------|-----------|
+| [T2] Content-hash duplicate/init detection — duplicates grouped by sound hash (name zeroed + favorite bit masked, engine-typed), name collisions listed separately, renamed init placeholders detected by content (found 4 phantom combis + 3 phantom programs in the gig file); write paths stay conservatively name-based *(Dan feedback)* | 2026-07-18 | 2026-07-21 |
 | Identify the file format and inspect the sample (`files/20260602.PCG`) | 2026-06-02 | 2026-06-02 |
 | Scaffold Blazor Server (.NET 10) + `PcgUtil.Core` library solution | 2026-06-02 | 2026-06-02 |
 | Implement chunk-tree parser (`PcgReader`) and printable-string extraction | 2026-06-02 | 2026-06-02 |

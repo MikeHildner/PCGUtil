@@ -1883,59 +1883,147 @@
 
             <h2 class="h5">Duplicate patches</h2>
             <p class="text-body-secondary small">
-                Programs and combis that share a name. <span class="badge text-bg-secondary">identical</span>
-                means they're exact copies of the same sound (a true redundant copy); without it, the name is
-                reused for a different sound.
+                Copies are matched by their <em>sound data</em>, not their name — a copy that was renamed
+                or starred as a favorite still counts. <span class="badge text-bg-secondary">identical</span>
+                marks exact copies; <span class="badge text-bg-warning">different names</span> marks one
+                sound saved under several names. Factory init placeholders are recognized the same way and
+                summarized instead of listed.
             </p>
 
-            <h3 class="h6 mt-3">Combis — @dupCombis.Count duplicate name@(dupCombis.Count == 1 ? "" : "s")</h3>
-            @if (dupCombis.Count == 0)
+            <h3 class="h6 mt-3">Combis — @dupCombis.SoundDuplicates.Count duplicated sound@(dupCombis.SoundDuplicates.Count == 1 ? "" : "s")</h3>
+            @if (dupCombis.SoundDuplicates.Count == 0)
             {
-                <p class="text-body-secondary small">No duplicate combi names.</p>
+                <p class="text-body-secondary small">No duplicated combi sounds.</p>
             }
             else
             {
-                <table class="table table-sm align-middle">
-                    <thead><tr><th>Name</th><th style="width:5rem" class="text-end">Count</th><th>Members</th></tr></thead>
-                    <tbody>
-                        @foreach (var g in dupCombis)
-                        {
-                            <tr>
-                                <td>
-                                    @g.Name
-                                    @if (g.AllByteIdentical) { <span class="badge text-bg-secondary">identical</span> }
-                                </td>
-                                <td class="text-end">@g.Count</td>
-                                <td class="small text-body-secondary">@MemberList(g, isProgram: false)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Sound</th><th style="width:5rem" class="text-end">Count</th><th>Where</th></tr></thead>
+                        <tbody>
+                            @foreach (var g in dupCombis.SoundDuplicates)
+                            {
+                                <tr>
+                                    <td>
+                                        @g.Label
+                                        @if (g.AllExact) { <span class="badge text-bg-secondary">identical</span> }
+                                        else if (g.FavoriteOnly) { <span class="badge text-bg-info">identical · favorite differs</span> }
+                                        else if (g.Names.Count > 1) { <span class="badge text-bg-warning">different names</span> }
+                                    </td>
+                                    <td class="text-end">@g.Count</td>
+                                    <td class="small text-body-secondary">@MemberList(g.Members, isProgram: false, withNames: g.Names.Count > 1)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (dupCombis.NameCollisions.Count > 0)
+            {
+                <h3 class="h6 mt-3">Same name, different sound — @dupCombis.NameCollisions.Count name@(dupCombis.NameCollisions.Count == 1 ? "" : "s")</h3>
+                <p class="text-body-secondary small">These combis share a name but are different sounds — easy to mix up on the instrument.</p>
+                <div class="table-scroll">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Name</th><th style="width:5rem" class="text-end">Count</th><th>Where</th></tr></thead>
+                        <tbody>
+                            @foreach (var g in dupCombis.NameCollisions)
+                            {
+                                <tr>
+                                    <td>@g.Name <span class="text-body-secondary small">(@g.DistinctSounds sounds)</span></td>
+                                    <td class="text-end">@g.Count</td>
+                                    <td class="small text-body-secondary">@MemberList(g.Members, isProgram: false)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (dupCombis.RenamedInits.Count > 0)
+            {
+                <h3 class="h6 mt-3">Init placeholders with a real name — @dupCombis.RenamedInits.Count</h3>
+                <p class="text-body-secondary small">These slots hold the factory init sound but carry a name — they look like songs, but are empty shells.</p>
+                <ul class="small">
+                    @foreach (var m in dupCombis.RenamedInits.Take(20))
+                    {
+                        <li>@PcgBankLabels.Combi(m.Bank) #@m.Index.ToString("D3") — <strong>@m.Name</strong></li>
+                    }
+                    @if (dupCombis.RenamedInits.Count > 20)
+                    {
+                        <li class="text-body-secondary">… +@(dupCombis.RenamedInits.Count - 20) more</li>
+                    }
+                </ul>
+            }
+            @if (dupCombis.InitPlaceholderCount > 0)
+            {
+                <p class="text-body-secondary small">@dupCombis.InitPlaceholderCount init/empty placeholder slot@(dupCombis.InitPlaceholderCount == 1 ? "" : "s") skipped.</p>
             }
 
-            <h3 class="h6 mt-4">Programs — @dupPrograms.Count duplicate name@(dupPrograms.Count == 1 ? "" : "s")</h3>
-            @if (dupPrograms.Count == 0)
+            <h3 class="h6 mt-4">Programs — @dupPrograms.SoundDuplicates.Count duplicated sound@(dupPrograms.SoundDuplicates.Count == 1 ? "" : "s")</h3>
+            @if (dupPrograms.SoundDuplicates.Count == 0)
             {
-                <p class="text-body-secondary small">No duplicate program names.</p>
+                <p class="text-body-secondary small">No duplicated program sounds.</p>
             }
             else
             {
-                <table class="table table-sm align-middle">
-                    <thead><tr><th>Name</th><th style="width:5rem" class="text-end">Count</th><th>Members</th></tr></thead>
-                    <tbody>
-                        @foreach (var g in dupPrograms)
-                        {
-                            <tr>
-                                <td>
-                                    @g.Name
-                                    @if (g.AllByteIdentical) { <span class="badge text-bg-secondary">identical</span> }
-                                </td>
-                                <td class="text-end">@g.Count</td>
-                                <td class="small text-body-secondary">@MemberList(g, isProgram: true)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Sound</th><th style="width:5rem" class="text-end">Count</th><th>Where</th></tr></thead>
+                        <tbody>
+                            @foreach (var g in dupPrograms.SoundDuplicates)
+                            {
+                                <tr>
+                                    <td>
+                                        @g.Label
+                                        @if (g.AllExact) { <span class="badge text-bg-secondary">identical</span> }
+                                        else if (g.FavoriteOnly) { <span class="badge text-bg-info">identical · favorite differs</span> }
+                                        else if (g.Names.Count > 1) { <span class="badge text-bg-warning">different names</span> }
+                                    </td>
+                                    <td class="text-end">@g.Count</td>
+                                    <td class="small text-body-secondary">@MemberList(g.Members, isProgram: true, withNames: g.Names.Count > 1)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (dupPrograms.NameCollisions.Count > 0)
+            {
+                <h3 class="h6 mt-3">Same name, different sound — @dupPrograms.NameCollisions.Count name@(dupPrograms.NameCollisions.Count == 1 ? "" : "s")</h3>
+                <p class="text-body-secondary small">These programs share a name but are different sounds — easy to mix up on the instrument.</p>
+                <div class="table-scroll">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Name</th><th style="width:5rem" class="text-end">Count</th><th>Where</th></tr></thead>
+                        <tbody>
+                            @foreach (var g in dupPrograms.NameCollisions)
+                            {
+                                <tr>
+                                    <td>@g.Name <span class="text-body-secondary small">(@g.DistinctSounds sounds)</span></td>
+                                    <td class="text-end">@g.Count</td>
+                                    <td class="small text-body-secondary">@MemberList(g.Members, isProgram: true)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (dupPrograms.RenamedInits.Count > 0)
+            {
+                <h3 class="h6 mt-3">Init placeholders with a real name — @dupPrograms.RenamedInits.Count</h3>
+                <p class="text-body-secondary small">These slots hold the factory init sound but carry a name — they look like sounds, but are empty shells.</p>
+                <ul class="small">
+                    @foreach (var m in dupPrograms.RenamedInits.Take(20))
+                    {
+                        <li>@PcgBankLabels.Program(m.Bank) #@m.Index.ToString("D3") — <strong>@m.Name</strong></li>
+                    }
+                    @if (dupPrograms.RenamedInits.Count > 20)
+                    {
+                        <li class="text-body-secondary">… +@(dupPrograms.RenamedInits.Count - 20) more</li>
+                    }
+                </ul>
+            }
+            @if (dupPrograms.InitPlaceholderCount > 0)
+            {
+                <p class="text-body-secondary small">@dupPrograms.InitPlaceholderCount init/empty placeholder slot@(dupPrograms.InitPlaceholderCount == 1 ? "" : "s") skipped.</p>
             }
             break;
         }
@@ -4007,13 +4095,16 @@
         _ => "—",
     };
 
-    static string MemberList(DuplicateGroup g, bool isProgram)
+    static string MemberList(IReadOnlyList<DuplicateMember> members, bool isProgram, bool withNames = false)
     {
         const int max = 12;
-        var labels = g.Members.Take(max).Select(m =>
-            $"{(isProgram ? PcgBankLabels.Program(m.Bank) : PcgBankLabels.Combi(m.Bank))} #{m.Index:D3}");
+        var labels = members.Take(max).Select(m =>
+        {
+            var slot = $"{(isProgram ? PcgBankLabels.Program(m.Bank) : PcgBankLabels.Combi(m.Bank))} #{m.Index:D3}";
+            return withNames ? $"{slot} '{m.Name}'" : slot;
+        });
         var text = string.Join(", ", labels);
-        return g.Count > max ? $"{text} … +{g.Count - max} more" : text;
+        return members.Count > max ? $"{text} … +{members.Count - max} more" : text;
     }
 
     static string HitKindLabel(SearchHitKind k) => k switch

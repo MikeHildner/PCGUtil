@@ -34,6 +34,8 @@ public static class CombiReader
     private const int SubHeaderSize = 12;
     private const int TempoOffset = 1304;
     private const int CategoryOffset = 4790;
+    public const int FavoriteOffset = 4791; // = CategoryOffset + 1 (hardware-verified 2026-07-18)
+    public const int FavoriteBit = 0x01;
     private static readonly int[] KarmaGeSelectOffsets = { 1814, 2558, 3302, 4046 };
 
     private const int IfxBase = 88;
@@ -76,7 +78,7 @@ public static class CombiReader
                     Name = PcgText.ReadFixedString(data, record, NameLength),
                     Category = recordSize > CategoryOffset ? data[record + CategoryOffset] & 0x1F : 0,
                     SubCategory = recordSize > CategoryOffset ? (data[record + CategoryOffset] >> 5) & 0x07 : 0,
-                    Favorite = recordSize > CategoryOffset + 1 && (data[record + CategoryOffset + 1] & 0x01) != 0,
+                    Favorite = recordSize > FavoriteOffset && (data[record + FavoriteOffset] & FavoriteBit) != 0,
                     Tempo = recordSize >= TempoOffset + 2
                         ? BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan((int)record + TempoOffset, 2)) / 100m
                         : 0m,
