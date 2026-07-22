@@ -411,6 +411,11 @@ html {
     }
 }
 
+/* Even halves for the per-tab Browse | Edit switch. */
+.pcg-mode-toggle .btn {
+    min-width: 4.25rem;
+}
+
 /* ---- Comfortable targets on touch and small screens (music-stand mode) ----
    The width clause mirrors pointer:coarse so tablets always qualify and the
    behavior is testable by resizing. Taller table rows are the intended trade. */

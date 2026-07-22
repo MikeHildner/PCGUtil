@@ -90,6 +90,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
+// Ctrl+Z / Ctrl+Y (Cmd on Mac; Ctrl+Shift+Z = redo) drive the header undo/redo buttons.
+// Clicking the real buttons keeps Blazor's delegated handlers, disabled states, and
+// no-file guards in charge — no interop objects needed. Inside text fields the browser's
+// native text undo stays untouched (same guard as "/").
+document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k !== "z" && k !== "y") return;
+    const t = e.target;
+    if (t instanceof Element && (t.tagName === "INPUT" || t.tagName === "TEXTAREA"
+        || t.tagName === "SELECT" || t.isContentEditable))
+        return; // typing a rename or note: leave the field's own undo alone
+    const btn = document.getElementById(
+        (k === "y" || e.shiftKey) ? "pcg-redo-btn" : "pcg-undo-btn");
+    if (!btn) return; // no file loaded — no header, nothing to undo
+    e.preventDefault();
+    if (!btn.disabled) btn.click();
+});
+
+// Last chosen Browse|Edit mode ("1" = edit). Absent = Browse, so fresh browsers stay
+// stage-safe. Mirrors the pcgTheme try/catch pattern.
+window.pcgGetEditMode = () => {
+    try { return localStorage.getItem("pcgEditMode") === "1"; } catch (e) { return false; }
+};
+window.pcgSetEditMode = (on) => {
+    try { localStorage.setItem("pcgEditMode", on ? "1" : "0"); } catch (e) { }
+};
+
 // Scrolls a just-jumped-to table row into view and flashes it so the eye lands there.
 // block:center keeps the row clear of the sticky file header.
 window.pcgRevealRow = (id) => {

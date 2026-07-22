@@ -62,6 +62,16 @@
             <span class="badge text-bg-warning" title="Edits are held in memory until you download the new file">unsaved edits</span>
             <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
         }
+        <div class="btn-group" role="group" aria-label="Undo and redo">
+            <button type="button" id="pcg-undo-btn" class="btn btn-sm btn-outline-secondary px-2"
+                    disabled="@(!_history.CanUndo)" aria-label="Undo" aria-keyshortcuts="Control+Z"
+                    title="@(_history.CanUndo ? $"Undo: {_history.UndoLabel} (Ctrl+Z)" : "Nothing to undo")"
+                    @onclick="Undo">↶</button>
+            <button type="button" id="pcg-redo-btn" class="btn btn-sm btn-outline-secondary px-2"
+                    disabled="@(!_history.CanRedo)" aria-label="Redo" aria-keyshortcuts="Control+Y"
+                    title="@(_history.CanRedo ? $"Redo: {_history.RedoLabel} (Ctrl+Y)" : "Nothing to redo")"
+                    @onclick="Redo">↷</button>
+        </div>
         @if (_loading)
         {
             <span class="small text-body-secondary">
@@ -681,10 +691,7 @@
                         </select>
                     </div>
                     <div class="col-md-5 d-flex gap-3 align-items-center pt-3">
-                        <div class="form-check mb-0">
-                            <input class="form-check-input" type="checkbox" id="editMode" @bind="_editMode" />
-                            <label class="form-check-label small" for="editMode">Edit mode</label>
-                        </div>
+                        @ModeToggle
                         @if (!_editMode)
                         {
                             <div class="form-check mb-0">
@@ -726,6 +733,7 @@
                     </div>
                 }
 
+                <div class="table-scroll">
                 <table class="table table-sm table-hover align-middle">
                     <thead>
                         <tr>
@@ -968,6 +976,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 <p class="text-body-secondary small">
                     "Loads" is the Program/Combi each slot recalls. In <strong>Edit mode</strong> you can rename, reorder
                     (▲▼), and copy slots; changes accumulate in memory until you Download edited .PCG.
@@ -1008,10 +1017,7 @@
                                @bind="_combiFilter" @bind:event="oninput" />
                     </div>
                     <div class="col-md-4 d-flex gap-3 align-items-center pt-3">
-                        <div class="form-check mb-0">
-                            <input class="form-check-input" type="checkbox" id="combiEdit" @bind="_editMode" />
-                            <label class="form-check-label small" for="combiEdit">Edit mode</label>
-                        </div>
+                        @ModeToggle
                         <div class="form-check mb-0">
                             <input class="form-check-input" type="checkbox" id="combiShowEmpty" @bind="_showEmptySlots" />
                             <label class="form-check-label small" for="combiShowEmpty">Show empty</label>
@@ -1059,6 +1065,7 @@
                     </div>
                 }
 
+                <div class="table-scroll">
                 <table class="table table-sm table-hover align-middle">
                     <thead>
                         <tr>
@@ -1126,6 +1133,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 <p class="text-body-secondary small">
                     Reorder (▲▼) swaps two combis; the set lists that use them follow automatically, so your songs keep
                     their sound. "Used by" is how many set-list slots load each combi. Copy overwrites the target.
@@ -1173,10 +1181,7 @@
                                @bind="_programFilter" @bind:event="oninput" />
                     </div>
                     <div class="col-md-4 d-flex gap-3 align-items-center pt-3">
-                        <div class="form-check mb-0">
-                            <input class="form-check-input" type="checkbox" id="programEdit" @bind="_editMode" />
-                            <label class="form-check-label small" for="programEdit">Edit mode</label>
-                        </div>
+                        @ModeToggle
                         <div class="form-check mb-0">
                             <input class="form-check-input" type="checkbox" id="programShowEmpty" @bind="_showEmptySlots" />
                             <label class="form-check-label small" for="programShowEmpty">Show empty</label>
@@ -1225,6 +1230,7 @@
                     </div>
                 }
 
+                <div class="table-scroll">
                 <table class="table table-sm table-hover align-middle">
                     <thead>
                         <tr>
@@ -1294,6 +1300,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 <p class="text-body-secondary small">
                     Reorder (▲▼) swaps two programs; the combis and set lists that use them follow automatically, so
                     everything keeps its sound. "Used by" is how many places load each program. Copy overwrites the target.
@@ -2182,6 +2189,8 @@
     // Editing state
     bool _editMode;
     bool _dirty;
+    readonly PcgEditHistory _history = new();
+    bool _baselineDirty; // dirty state of the image the history was seeded from (restore case)
     (int SetList, int Slot)? _copySource;
     string _copySourceName = string.Empty;
 
@@ -2278,6 +2287,7 @@
 
             _pcg = PcgReader.Parse(ms.ToArray());
             _dirty = false;
+            ResetHistory(baselineDirty: false);
             ResetForNewPcg();
             LoadDerived(preserveSelection: false);
             PushToCache();
@@ -2295,12 +2305,13 @@
     }
 
     // Post-load reset shared by OnFileSelected and RestoreFromCache (callers set _dirty).
+    // _editMode deliberately survives: it's a per-browser preference now (localStorage),
+    // and the undo history is the safety net that made auto-reverting to Browse necessary.
     void ResetForNewPcg()
     {
         _view = View.Home; // land on the task cards: "what would you like to do?"
         _showAdvanced = false;
         _showMoreCards = false;
-        _editMode = false;
         _copySource = null;
         _combiCopySource = null;
         _programCopySource = null;
@@ -2349,12 +2360,44 @@
     }
 
     // Applies an edit (a new byte image) and refreshes, staying on the current set list.
-    void ApplyEdit(byte[] newData)
+    // The label names the edit on the undo/redo buttons ("Undo: Rename slot").
+    void ApplyEdit(byte[] newData, string label)
     {
+        if (_pcg is null) return;
+        var before = _pcg.Data;            // capture before Parse replaces _pcg
         _pcg = PcgReader.Parse(newData);
-        _dirty = true;
+        if (_history.Push(before, newData, label))
+            RecomputeDirty();              // byte-identical writes stay a visual no-op
         LoadDerived(preserveSelection: true);
         PushToCache(); // unsaved edits survive a circuit drop too
+    }
+
+    // Pristine ⇔ the history reaches the upload baseline and that baseline was clean.
+    void RecomputeDirty() =>
+        _dirty = _baselineDirty || _history.Trimmed || _history.UndoCount > 0;
+
+    void ResetHistory(bool baselineDirty)
+    {
+        _history.Clear();
+        _baselineDirty = baselineDirty;
+    }
+
+    void Undo()
+    {
+        if (_pcg is null || !_history.CanUndo) return;
+        _pcg = PcgReader.Parse(_history.Undo(_pcg.Data));
+        RecomputeDirty();
+        LoadDerived(preserveSelection: true);
+        PushToCache(); // restore always offers the latest state
+    }
+
+    void Redo()
+    {
+        if (_pcg is null || !_history.CanRedo) return;
+        _pcg = PcgReader.Parse(_history.Redo(_pcg.Data));
+        RecomputeDirty();
+        LoadDerived(preserveSelection: true);
+        PushToCache();
     }
 
     void RefreshStrings()
@@ -2505,6 +2548,25 @@
         _view = View.Programs;
         _selectedProgramBank = bank;
         _programFilter = string.Empty;
+    }
+
+    // The per-tab Browse | Edit switch — one shared _editMode behind three placements.
+    private RenderFragment ModeToggle => __builder =>
+    {
+        <div class="btn-group pcg-mode-toggle" role="group" aria-label="Browse or edit">
+            <button type="button" class="btn btn-sm @(!_editMode ? "btn-secondary" : "btn-outline-secondary")"
+                    aria-pressed="@(!_editMode)" @onclick="() => SetEditModeAsync(false)">Browse</button>
+            <button type="button" class="btn btn-sm @(_editMode ? "btn-secondary" : "btn-outline-secondary")"
+                    aria-pressed="@_editMode" @onclick="() => SetEditModeAsync(true)">Edit</button>
+        </div>
+    };
+
+    async Task SetEditModeAsync(bool on)
+    {
+        if (_editMode == on) return;
+        _editMode = on;
+        try { await JS.InvokeVoidAsync("pcgSetEditMode", on); }
+        catch (Exception) { } // storage-blocked browsers simply don't remember the mode
     }
 
     private RenderFragment BankMapColumn(string heading, IReadOnlyList<BankMapRow> rows, Action<int> open) => __builder =>
@@ -2659,19 +2721,19 @@
         if (_pcg is null) return;
         int target = slot + delta;
         if (target < 0 || target >= _setLists[_selectedSetList].Slots.Count) return;
-        ApplyEdit(PcgEditor.SwapSetListSlots(_pcg, _selectedSetList, slot, target));
+        ApplyEdit(PcgEditor.SwapSetListSlots(_pcg, _selectedSetList, slot, target), "Move slot");
     }
 
     void RenameSlot(int slot, string? name)
     {
         if (_pcg is null) return;
-        ApplyEdit(PcgEditor.RenameSetListSlot(_pcg, _selectedSetList, slot, name ?? string.Empty));
+        ApplyEdit(PcgEditor.RenameSetListSlot(_pcg, _selectedSetList, slot, name ?? string.Empty), "Rename slot");
     }
 
     void RenameCurrentSetList(string? name)
     {
         if (_pcg is null) return;
-        ApplyEdit(PcgEditor.RenameSetList(_pcg, _selectedSetList, name ?? string.Empty));
+        ApplyEdit(PcgEditor.RenameSetList(_pcg, _selectedSetList, name ?? string.Empty), "Rename set list");
     }
 
     void StartCopy(SetListSlot slot)
@@ -2690,7 +2752,7 @@
     void SetSlotDescription(int slot, string? text)
     {
         if (_pcg is null) return;
-        ApplyEdit(PcgEditor.SetSetListSlotDescription(_pcg, _selectedSetList, slot, text ?? string.Empty));
+        ApplyEdit(PcgEditor.SetSetListSlotDescription(_pcg, _selectedSetList, slot, text ?? string.Empty), "Slot notes");
     }
 
     void ToggleSettingsEditor(int slot)
@@ -2703,26 +2765,26 @@
     void SetSlotColor(int slot, int color)
     {
         if (_pcg is null) return;
-        ApplyEdit(PcgEditor.SetSetListSlotColor(_pcg, _selectedSetList, slot, color));
+        ApplyEdit(PcgEditor.SetSetListSlotColor(_pcg, _selectedSetList, slot, color), "Slot color");
     }
 
     void SetSlotVolume(int slot, string? value)
     {
         if (_pcg is null || !int.TryParse(value, out var volume)) return;
-        ApplyEdit(PcgEditor.SetSetListSlotVolume(_pcg, _selectedSetList, slot, Math.Clamp(volume, 0, 127)));
+        ApplyEdit(PcgEditor.SetSetListSlotVolume(_pcg, _selectedSetList, slot, Math.Clamp(volume, 0, 127)), "Slot volume");
     }
 
     void SetSlotTranspose(int slot, string? value)
     {
         if (_pcg is null || !int.TryParse(value, out var semitones)) return;
-        ApplyEdit(PcgEditor.SetSetListSlotTranspose(_pcg, _selectedSetList, slot, Math.Clamp(semitones, -12, 12)));
+        ApplyEdit(PcgEditor.SetSetListSlotTranspose(_pcg, _selectedSetList, slot, Math.Clamp(semitones, -12, 12)), "Slot transpose");
     }
 
     void SetSlotHoldTime(int slot, string? value)
     {
         if (_pcg is null || !int.TryParse(value, out var index)) return;
         ApplyEdit(PcgEditor.SetSetListSlotHoldTime(_pcg, _selectedSetList, slot,
-            Math.Clamp(index, 0, SetListHoldTimes.Count - 1)));
+            Math.Clamp(index, 0, SetListHoldTimes.Count - 1)), "Slot hold time");
     }
 
     void ToggleRepoint(SetListSlot slot)
@@ -2781,7 +2843,7 @@
     void ApplyRepoint()
     {
         if (_pcg is null || _repointSlot is null) return;
-        ApplyEdit(PcgEditor.RepointSetListSlot(_pcg, _selectedSetList, _repointSlot.Value, _repointKind, _repointBank, _repointIndex));
+        ApplyEdit(PcgEditor.RepointSetListSlot(_pcg, _selectedSetList, _repointSlot.Value, _repointKind, _repointBank, _repointIndex), "Slot load target");
         _repointSlot = null;
     }
 
@@ -2789,7 +2851,7 @@
     {
         if (_pcg is null || _copySource is null) return;
         var src = _copySource.Value;
-        ApplyEdit(PcgEditor.CopySetListSlot(_pcg, src.SetList, src.Slot, _selectedSetList, slot));
+        ApplyEdit(PcgEditor.CopySetListSlot(_pcg, src.SetList, src.Slot, _selectedSetList, slot), "Paste slot");
     }
 
     async Task DownloadEditedPcg()
@@ -2922,6 +2984,9 @@
         {
             _pcg = PcgReader.Parse(entry.Bytes);
             _dirty = entry.Dirty;
+            // History is per-circuit and can't survive a drop: the restored session starts
+            // with empty stacks, and the cached dirty flag becomes the new baseline truth.
+            ResetHistory(baselineDirty: entry.Dirty);
             _kgeBanks = entry.KgeBanks;
             _kgeFileName = entry.KgeFileName;
             ResetForNewPcg();
@@ -2931,6 +2996,7 @@
         catch (Exception ex)
         {
             _pcg = null;
+            ResetHistory(baselineDirty: false);
             _error = $"Could not restore '{entry.FileName}': {ex.Message}";
             Logger.LogWarning(ex, "Failed to restore cached PCG {File}", entry.FileName);
         }
@@ -3040,6 +3106,10 @@
     {
         if (firstRender)
         {
+            // The per-browser Browse|Edit preference; safe to set without StateHasChanged —
+            // nothing mode-dependent is on screen before a file loads.
+            try { _editMode = await JS.InvokeAsync<bool>("pcgGetEditMode"); }
+            catch (Exception ex) { Logger.LogDebug(ex, "pcgGetEditMode unavailable; mode not persisted"); }
             await RestoreCheckAsync();
         }
         if (_pendingReveal is { } revealId)
@@ -3358,13 +3428,13 @@
         if (_pcg is null || _catalog is null) return;
         int target = index + delta;
         if (target < 0 || target >= _catalog.CombiBanks[_selectedCombiBank].Count) return;
-        ApplyEdit(PcgEditor.SwapCombis(_pcg, _selectedCombiBank, index, _selectedCombiBank, target));
+        ApplyEdit(PcgEditor.SwapCombis(_pcg, _selectedCombiBank, index, _selectedCombiBank, target), "Move combi");
     }
 
     void RenameCombiAt(int index, string? name)
     {
         if (_pcg is null) return;
-        ApplyEdit(PcgEditor.RenameCombi(_pcg, _selectedCombiBank, index, name ?? string.Empty));
+        ApplyEdit(PcgEditor.RenameCombi(_pcg, _selectedCombiBank, index, name ?? string.Empty), "Rename combi");
     }
 
     void StartCombiCopy(int index)
@@ -3379,21 +3449,21 @@
     {
         if (_pcg is null || _combiCopySource is null) return;
         var src = _combiCopySource.Value;
-        ApplyEdit(PcgEditor.CopyCombi(_pcg, src.Bank, src.Index, _selectedCombiBank, index));
+        ApplyEdit(PcgEditor.CopyCombi(_pcg, src.Bank, src.Index, _selectedCombiBank, index), "Paste combi");
     }
 
     void SortCombiBank()
     {
         if (_pcg is null) return;
         if (PcgOrganizer.SortCombiBankByName(_pcg, _selectedCombiBank) is { } edited)
-            ApplyEdit(edited);
+            ApplyEdit(edited, $"Sort {PcgBankLabels.Combi(_selectedCombiBank)} A–Z");
     }
 
     void CompactCombiBank()
     {
         if (_pcg is null) return;
         if (PcgOrganizer.CompactCombiBank(_pcg, _selectedCombiBank) is { } edited)
-            ApplyEdit(edited);
+            ApplyEdit(edited, $"Compact {PcgBankLabels.Combi(_selectedCombiBank)}");
     }
 
     // ----- Program reorganization -----
@@ -3413,13 +3483,13 @@
         if (_pcg is null || _catalog is null) return;
         int target = index + delta;
         if (target < 0 || target >= _catalog.ProgramBanks[_selectedProgramBank].Count) return;
-        ApplyEdit(PcgEditor.SwapPrograms(_pcg, _selectedProgramBank, index, _selectedProgramBank, target));
+        ApplyEdit(PcgEditor.SwapPrograms(_pcg, _selectedProgramBank, index, _selectedProgramBank, target), "Move program");
     }
 
     void RenameProgramAt(int index, string? name)
     {
         if (_pcg is null) return;
-        ApplyEdit(PcgEditor.RenameProgram(_pcg, _selectedProgramBank, index, name ?? string.Empty));
+        ApplyEdit(PcgEditor.RenameProgram(_pcg, _selectedProgramBank, index, name ?? string.Empty), "Rename program");
     }
 
     void StartProgramCopy(int index)
@@ -3434,7 +3504,7 @@
     {
         if (_pcg is null || _programCopySource is null) return;
         var src = _programCopySource.Value;
-        ApplyEdit(PcgEditor.CopyProgram(_pcg, src.Bank, src.Index, _selectedProgramBank, index));
+        ApplyEdit(PcgEditor.CopyProgram(_pcg, src.Bank, src.Index, _selectedProgramBank, index), "Paste program");
     }
 
     // ----- Cross-file copy (Copy tab) -----
@@ -3596,7 +3666,7 @@
         if (_crossKind == CrossKind.Combis && _crossDeepMode)
         {
             if (CurrentDeepPlan() is not { CanApply: true } plan) return;
-            ApplyEdit(PcgEditor.CopyCombiDeepAcross(_srcPcg, _pcg, _crossDstBank, _crossDstIndex, plan));
+            ApplyEdit(PcgEditor.CopyCombiDeepAcross(_srcPcg, _pcg, _crossDstBank, _crossDstIndex, plan), "Copy combi + sounds in");
             var into = string.Join(" and ", plan.Copies.Select(m => m.DestinationBank).Distinct()
                 .Select(b => PcgBankLabels.Program(b)));
             _crossLastCopy = $"Copied '{sel.Name}' to {CrossDstLabel()} with {plan.Copies.Count()} program(s)"
@@ -3606,13 +3676,13 @@
             return;
         }
 
-        var edited = _crossKind switch
+        var (edited, copyLabel) = _crossKind switch
         {
-            CrossKind.Programs => PcgEditor.CopyProgramAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex),
-            CrossKind.Combis => PcgEditor.CopyCombiAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex),
-            _ => PcgEditor.CopySetListSlotAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex),
+            CrossKind.Programs => (PcgEditor.CopyProgramAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex), "Copy program in"),
+            CrossKind.Combis => (PcgEditor.CopyCombiAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex), "Copy combi in"),
+            _ => (PcgEditor.CopySetListSlotAcross(_srcPcg, sel.Bank, sel.Index, _pcg, _crossDstBank, _crossDstIndex), "Copy song slot in"),
         };
-        ApplyEdit(edited);
+        ApplyEdit(edited, copyLabel);
         _crossLastCopy = $"Copied '{sel.Name}' to {CrossDstLabel()} — pick another destination to copy again, or download the edited .PCG.";
     }
 
@@ -3803,7 +3873,7 @@
             return;
         try
         {
-            ApplyEdit(PcgEditor.CopyCombiDeepAcross(_srcPcg, _pcg, _addDstBank, _addDstIndex, plan));
+            ApplyEdit(PcgEditor.CopyCombiDeepAcross(_srcPcg, _pcg, _addDstBank, _addDstIndex, plan), "Add song + sounds");
             _addLastResult = $"'{sel.Name}' is now at {PcgBankLabels.Combi(_addDstBank)} #{_addDstIndex:D3}"
                 + (plan.Copies.Any() ? $", with {plan.Copies.Count()} sound(s) copied into your file" : "")
                 + (plan.Reused.Any() ? $" ({plan.Reused.Count()} shared with sounds already there)" : "")
@@ -4026,14 +4096,14 @@
     {
         if (_pcg is null) return;
         if (PcgOrganizer.SortProgramBankByName(_pcg, _selectedProgramBank) is { } edited)
-            ApplyEdit(edited);
+            ApplyEdit(edited, $"Sort {PcgBankLabels.Program(_selectedProgramBank)} A–Z");
     }
 
     void CompactProgramBank()
     {
         if (_pcg is null) return;
         if (PcgOrganizer.CompactProgramBank(_pcg, _selectedProgramBank) is { } edited)
-            ApplyEdit(edited);
+            ApplyEdit(edited, $"Compact {PcgBankLabels.Program(_selectedProgramBank)}");
     }
 
     static int CountNonEmpty(IReadOnlyList<string> names)

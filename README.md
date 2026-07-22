@@ -28,8 +28,9 @@ you save the result as a brand-new `.PCG` file.
 1. **Back up your instrument first.** Always keep your original `.PCG` safe.
 2. Open PCGUtil and **upload a `.PCG`** file. It is read into memory and is not saved to disk
    by the app.
-3. Browse the tabs. Turn on **Edit mode** where available to make changes; edits accumulate in
-   memory and are shown as unsaved until you save.
+3. Browse the tabs. Flip the **Browse | Edit** switch to make changes — every edit can be
+   undone (Ctrl+Z / the ↶ button) and redone, and edits accumulate in memory as unsaved
+   until you save.
 4. Click **Download edited .PCG** to save a new file. Your uploaded file is left untouched.
 5. Load the new `.PCG` onto your instrument and **double-check it sounds right** before a gig.
 
