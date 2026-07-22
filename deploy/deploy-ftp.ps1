@@ -66,7 +66,10 @@ function Invoke-FtpUpload([string]$LocalFile, [string]$RemoteRelative) {
 
 function Invoke-FtpDelete([string]$RemoteRelative) {
     # DELE needs the path relative to the FTP root; -Q runs it after connecting.
-    & curl.exe -sS --ssl-reqd --ssl-no-revoke -u $curlAuth "ftp://$($secrets.host)/" -Q "DELE /$remotePath/$RemoteRelative" 2>$null
+    # curl runs fully silent (-s, no -S): under $ErrorActionPreference=Stop, PS 5.1 turns
+    # any native stderr line into a *terminating* NativeCommandError, so a 550 on an
+    # already-missing file would abort the whole deploy (bit us 2026-07-21).
+    & curl.exe -s --ssl-reqd --ssl-no-revoke -u $curlAuth "ftp://$($secrets.host)/" -Q "DELE /$remotePath/$RemoteRelative"
     # non-fatal: file may not exist on a first deploy
 }
 
@@ -77,7 +80,11 @@ Write-Host 'Taking the app offline ...'
 Invoke-FtpUpload $appOffline 'app_offline.htm'
 Start-Sleep -Seconds 5  # give ANCM a moment to shut down and release file locks
 
-$files = Get-ChildItem $outDir -Recurse -File
+# clrgc.dll is the opt-in standalone GC — never loaded unless System.GC.Name selects it,
+# which we don't configure — and the host's scanner started rejecting it persistently
+# (550 after complete transfer, 2026-07-21). Skip it and clear any stale remote copy.
+Invoke-FtpDelete 'clrgc.dll'
+$files = Get-ChildItem $outDir -Recurse -File | Where-Object Name -ne 'clrgc.dll'
 $total = $files.Count
 Write-Host "Uploading $total files ($([math]::Round(($files | Measure-Object Length -Sum).Sum / 1MB)) MB) ..."
 $i = 0
