@@ -448,6 +448,15 @@ tr.pcg-drop-below > td {
     }
 }
 
+/* ---- Merge drag (source row → target slot; classes toggled by download.js) ---- */
+tr.pcg-merge-row {
+    cursor: grab;
+}
+
+tr.pcg-merge-over > td {
+    box-shadow: inset 0 0 0 2px var(--bs-primary);
+}
+
 /* ---- Comfortable targets on touch and small screens (music-stand mode) ----
    The width clause mirrors pointer:coarse so tablets always qualify and the
    behavior is testable by resizing. Taller table rows are the intended trade. */

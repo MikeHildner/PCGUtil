@@ -30,7 +30,8 @@ you save the result as a brand-new `.PCG` file.
    by the app.
 3. Browse the tabs. Flip the **Browse | Edit** switch to make changes — every edit can be
    undone (Ctrl+Z / the ↶ button) and redone, and edits accumulate in memory as unsaved
-   until you save.
+   until you save. The **Merge** view (under More) pulls sounds from up to two other
+   backups at once — drag them across, and combis bring the programs they need.
 4. Click **Download edited .PCG** to save a new file. Your uploaded file is left untouched.
 5. Load the new `.PCG` onto your instrument and **double-check it sounds right** before a gig.
 

@@ -1377,7 +1377,7 @@
                                 <span class="text-body-secondary small">Source — read-only</span>
                                 <span class="d-flex gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="DownloadSourceCopy">Download a copy</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearSource">Clear</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => ClearSource(0)">Clear</button>
                                 </span>
                             </div>
                             <div class="fw-semibold text-truncate" title="@_srcFileName">@_srcFileName</div>
@@ -1691,6 +1691,147 @@
                     </table>
                 }
             }
+            break;
+        }
+
+        case View.Merge:
+        {
+            <h2 class="h5">Merge backups</h2>
+            <p class="text-body-secondary small" style="max-width:52rem">
+                Pull sounds from up to two other backups into <strong>@_fileName</strong>. Drag a program,
+                combi, or song from a side pane onto a slot in the middle — or tap <strong>Select</strong>
+                and then a slot. Combis bring the programs they need (ones the target already has are
+                reused); <span class="badge text-bg-light">in target</span> marks sounds this file
+                already contains, even under another name. Starting fresh? Save an init-heavy backup on
+                your instrument and open it as the target — that's your clean canvas.
+            </p>
+            <div class="row g-3 mb-3">
+                @MergeSourcePane(0)
+                <div class="col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex align-items-baseline gap-2 flex-wrap mb-2">
+                            <strong class="text-truncate" style="max-width:14rem" title="@_fileName">@_fileName</strong>
+                            <span class="small text-body-secondary">target</span>
+                            @if (_dirty)
+                            {
+                                <span class="badge text-bg-warning">unsaved edits</span>
+                            }
+                        </div>
+                        @if (_mergeStageError is not null)
+                        {
+                            <div class="alert alert-warning py-2 small">@_mergeStageError</div>
+                        }
+                        @if (_mergeLastResult is not null && _mergeStage is null)
+                        {
+                            <div class="alert @(_mergeLastIsError ? "alert-danger" : "alert-success") py-2 small">@_mergeLastResult</div>
+                        }
+                        @if (_mergeStage is { } stage)
+                        {
+                            <div class="border rounded p-2 mb-2">
+                                <div class="small mb-2">
+                                    Place <strong>@stage.Name</strong> at
+                                    <strong>@(stage.Kind == CrossKind.Programs ? PcgBankLabels.Program(stage.DstBank) : PcgBankLabels.Combi(stage.DstBank)) #@stage.DstIndex.ToString("D3")</strong>@(TargetSlotName(stage) is { Length: > 0 } occ ? $" (overwrites '{occ}')" : "")
+                                </div>
+                                @if (stage.Kind == CrossKind.Combis)
+                                {
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="mergeCombiOnly" checked="@_mergeCombiOnly"
+                                               @onchange="@(e => { _mergeCombiOnly = e.Value is true; })" />
+                                        <label class="form-check-label small" for="mergeCombiOnly">Combi only (don't bring its programs)</label>
+                                    </div>
+                                    @if (!_mergeCombiOnly && CurrentMergePlan() is { } plan)
+                                    {
+                                        <div class="small mb-2">
+                                            @if (plan.Error is not null)
+                                            {
+                                                <div class="alert alert-warning py-1 px-2 small mb-1">@plan.Error</div>
+                                            }
+                                            <div>@plan.Copies.Count() program(s) copied · @plan.Reused.Count() reused · @plan.Skips.Count skipped</div>
+                                            @foreach (var m in plan.Copies.Take(8))
+                                            {
+                                                <div class="text-body-secondary">+ @m.Name → @PcgBankLabels.Program(m.DestinationBank) #@(m.DestinationIndex >= 0 ? m.DestinationIndex.ToString("D3") : "—")</div>
+                                            }
+                                            @if (plan.UsesUserKarmaGes)
+                                            {
+                                                <div class="text-warning-emphasis mt-1">Uses user KARMA GEs — load this source's .KGE on the instrument too.</div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                <button type="button" class="btn btn-sm btn-primary"
+                                        disabled="@(stage.Kind == CrossKind.Combis && !_mergeCombiOnly && CurrentMergePlan() is not { CanApply: true })"
+                                        @onclick="ApplyMergeStage">Merge</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelMergeStage">Cancel</button>
+                            </div>
+                        }
+                        <div class="d-flex align-items-end gap-2 flex-wrap mb-2">
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm @(_mergeTargetKind == CrossKind.Combis ? "btn-secondary" : "btn-outline-secondary")"
+                                        @onclick="@(() => { _mergeTargetKind = CrossKind.Combis; _mergeTargetBank = MergeTargetDefaultBank(); })">Combis</button>
+                                <button type="button" class="btn btn-sm @(_mergeTargetKind == CrossKind.Programs ? "btn-secondary" : "btn-outline-secondary")"
+                                        @onclick="@(() => { _mergeTargetKind = CrossKind.Programs; _mergeTargetBank = MergeTargetDefaultBank(); })">Programs</button>
+                            </div>
+                            <div>
+                                <label class="form-label small mb-1">Bank</label>
+                                <select class="form-select form-select-sm" @onchange="@(e => { if (int.TryParse(e.Value?.ToString(), out var b)) _mergeTargetBank = b; })">
+                                    @if (_catalog is not null)
+                                    {
+                                        @foreach (var i in PresentBanks(_mergeTargetKind == CrossKind.Programs ? _catalog.ProgramBanks : _catalog.CombiBanks))
+                                        {
+                                            <option value="@i" selected="@(i == _mergeTargetBank)">@(_mergeTargetKind == CrossKind.Programs ? $"{PcgBankLabels.Program(i)} ({ProgramTypeTag(_catalog, i)}{CountNonEmpty(_catalog.ProgramBanks[i])})" : $"{PcgBankLabels.Combi(i)} ({CountNonEmpty(_catalog.CombiBanks[i])})")</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        @if (_mergeStage is null && _mergeSelection is { } selInfo)
+                        {
+                            <div class="alert alert-info py-2 small mb-2">
+                                Placing <strong>@selInfo.Name</strong> — tap a slot below.
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => _mergeSelection = null">Cancel</button>
+                            </div>
+                        }
+                        <div class="table-scroll" style="max-height:28rem; overflow-y:auto">
+                            <table class="table table-sm align-middle mb-1">
+                                <tbody>
+                                    @if (_catalog is not null)
+                                    {
+                                        var names = _mergeTargetKind == CrossKind.Programs
+                                            ? _catalog.ProgramBanks.ElementAtOrDefault(_mergeTargetBank)
+                                            : _catalog.CombiBanks.ElementAtOrDefault(_mergeTargetBank);
+                                        @if (names is not null)
+                                        {
+                                            @for (var i = 0; i < names.Count; i++)
+                                            {
+                                                var idx = i;
+                                                var occupantName = names[idx];
+                                                var free = _mergeTargetKind == CrossKind.Programs
+                                                    ? PcgOrganizer.IsProgramPlaceholder(occupantName)
+                                                    : Combi.IsEmptyOrInitName(occupantName);
+                                                <tr @key="idx" id="merge-target-@idx" data-merge-target="true"
+                                                    data-merge-bank="@_mergeTargetBank" data-merge-index="@idx"
+                                                    data-merge-accepts="@(_mergeTargetKind == CrossKind.Programs ? "programs" : "combis,songs")"
+                                                    class="@(free ? "text-body-secondary" : null)">
+                                                    <td style="width:3.5rem">@idx.ToString("D3")</td>
+                                                    <td>@(free ? "— free —" : occupantName)</td>
+                                                    <td style="width:4.5rem" class="text-end">
+                                                        @if (_mergeSelection is { } sel2 && MergeAccepts(sel2.Kind))
+                                                        {
+                                                            <button type="button" class="btn btn-sm btn-outline-primary px-2"
+                                                                    @onclick="() => StageMerge(sel2.Slot, sel2.Kind, sel2.Bank, sel2.Index, sel2.Name, _mergeTargetBank, idx)">here</button>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                @MergeSourcePane(1)
+            </div>
             break;
         }
 
@@ -2192,7 +2333,7 @@
 }
 
 @code {
-    enum View { Home, SetLists, Combis, Programs, Copy, Differences, Usage, Duplicates, Search, AddSounds, Overview, Strings, Tree }
+    enum View { Home, SetLists, Combis, Programs, Merge, Copy, Differences, Usage, Duplicates, Search, AddSounds, Overview, Strings, Tree }
     enum UsageSort { BankNumber, Name, MostUsed }
     enum CrossKind { Programs, Combis, SetListSlots }
 
@@ -2270,13 +2411,63 @@
     int _usageBankFilter = -1;                 // -1 = all banks
     UsageSort _usageSort = UsageSort.BankNumber;
 
-    // Cross-file copy state (the main file is the destination; the source is read-only)
-    PcgFile? _srcPcg;
-    string? _srcFileName;
-    string? _srcError;
-    bool _srcLoading;
-    PcgCatalog? _srcCatalog;
-    List<SetList> _srcSetLists = new();
+    // A read-only source backup: parsed once, derived data cached, never edited and never
+    // reparsed by ApplyEdit/LoadDerived. The workspace holds two of these — the Merge
+    // view's left and right wings — and the Copy tab / Differences / Add-sounds wizard
+    // all bind to slot A (the first).
+    sealed class SourceFile
+    {
+        public PcgFile? Pcg;
+        public string? FileName;
+        public string? Error;
+        public bool Loading;
+        public PcgCatalog? Catalog;
+        public List<SetList> SetLists = new();
+        IReadOnlyList<Combi>? _combis;
+        Dictionary<(int Bank, int Index), string>? _prgKeys;
+        Dictionary<(int Bank, int Index), string>? _cmbKeys;
+
+        public IReadOnlyList<Combi> Combis =>
+            _combis ??= Pcg is null ? Array.Empty<Combi>() : CombiReader.Read(Pcg);
+
+        // A record's sound key, for the Merge view's "already in target" badges.
+        public string? KeyOf(string sectionId, int bank, int index)
+        {
+            if (Pcg is null) return null;
+            var map = sectionId == "PRG1"
+                ? _prgKeys ??= BuildKeys("PRG1")
+                : _cmbKeys ??= BuildKeys("CMB1");
+            return map.GetValueOrDefault((bank, index));
+        }
+
+        Dictionary<(int, int), string> BuildKeys(string sectionId) =>
+            PcgSoundKey.Keys(Pcg!, sectionId).ToDictionary(k => (k.Bank, k.Index), k => k.Key);
+
+        public void Reset()
+        {
+            Pcg = null;
+            FileName = null;
+            Error = null;
+            Loading = false;
+            Catalog = null;
+            SetLists = new();
+            _combis = null;
+            _prgKeys = null;
+            _cmbKeys = null;
+        }
+    }
+
+    readonly SourceFile[] _sources = { new(), new() };
+
+    // Slot A bindings, keeping the historical names for the Copy tab / Differences /
+    // wizard read sites (writes go through LoadSourceAsync/ClearSource, slot-aware).
+    SourceFile SrcA => _sources[0];
+    PcgFile? _srcPcg => SrcA.Pcg;
+    string? _srcFileName => SrcA.FileName;
+    string? _srcError => SrcA.Error;
+    bool _srcLoading => SrcA.Loading;
+    PcgCatalog? _srcCatalog => SrcA.Catalog;
+    List<SetList> _srcSetLists => SrcA.SetLists;
     CrossKind _crossKind = CrossKind.Programs;
     int _crossSrcBank;                          // source bank (or set-list index)
     string _crossFilter = string.Empty;
@@ -2385,6 +2576,9 @@
         _diffReport = null;   // likewise for the Differences tab
         _crossDeepPlan = null; // free slots / records may have changed
         _addPlan = null;       // wizard plan too
+        _mergePlan = null;     // a staged merge re-plans against the edited target
+        _targetPrgKeys = null; // "already in target" badges re-key lazily
+        _targetCmbKeys = null;
         // Combi records may have moved; but keep an open timbre panel alive across edits
         // (timbre quick-edit writes from inside it — closing on every change would fight
         // the user), re-reading its combi from the new image.
@@ -2507,7 +2701,7 @@
     };
 
     // Workspaces a musician doesn't need on day one — folded behind "More".
-    static readonly View[] AdvancedViews = { View.Copy, View.Differences, View.Usage, View.Duplicates, View.Overview, View.Strings, View.Tree };
+    static readonly View[] AdvancedViews = { View.Merge, View.Copy, View.Differences, View.Usage, View.Duplicates, View.Overview, View.Strings, View.Tree };
 
     // Views reachable from Start cards (or in-flow links) only — no tab of their own.
     static readonly View[] HiddenViews = { View.AddSounds };
@@ -2538,6 +2732,10 @@
 
     TaskCardDef[] MoreTaskCards() => new[]
     {
+        new TaskCardDef("Merge backups",
+            "Pull sounds from up to two other backups into this file — drag them across, dependencies follow.",
+            "<path d='M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1'/><path d='M1 8a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H1.5A.5.5 0 0 1 1 8m11 0a.5.5 0 0 1 .5-.5H15a.5.5 0 0 1 0 1h-2.5A.5.5 0 0 1 12 8'/>",
+            () => _view = View.Merge),
         new TaskCardDef("Explore this file",
             "Browse set lists, and see each combi's splits and layers.",
             "<path d='M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2'/><path fill-rule='evenodd' d='M12 3v10h-1V3z'/><path d='M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V4l-5 1z'/><path fill-rule='evenodd' d='M0 11.5a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 7H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 3H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5'/>",
@@ -2797,6 +2995,7 @@
     static string TabLabel(View v) => v switch
     {
         View.Home => "Start",
+        View.Merge => "Merge",
         View.AddSounds => "Add sounds",
         View.Overview => "File info",
         View.SetLists => "Set Lists",
@@ -3865,16 +4064,17 @@
         ApplyEdit(PcgEditor.CopyProgram(_pcg, src.Bank, src.Index, _selectedProgramBank, index), "Paste program");
     }
 
-    // ----- Cross-file copy (Copy tab) -----
+    // ----- Cross-file sources (Copy tab = slot 0; the Merge view uses both slots) -----
 
-    async Task OnSourceFileSelected(InputFileChangeEventArgs e)
+    Task OnSourceFileSelected(InputFileChangeEventArgs e) => LoadSourceAsync(0, e);
+    Task OnSourceFileSelectedB(InputFileChangeEventArgs e) => LoadSourceAsync(1, e);
+
+    async Task LoadSourceAsync(int slot, InputFileChangeEventArgs e)
     {
-        _srcError = null;
-        _srcPcg = null;
-        _srcCatalog = null;
-        _srcSetLists = new();
-        _srcFileName = e.File.Name;
-        _srcLoading = true;
+        var src = _sources[slot];
+        src.Reset();
+        src.FileName = e.File.Name;
+        src.Loading = true;
         try
         {
             using var ms = new MemoryStream();
@@ -3883,39 +4083,41 @@
                 await stream.CopyToAsync(ms);
             }
 
-            _srcPcg = PcgReader.Parse(ms.ToArray());
-            _srcCatalog = PcgCatalog.Build(_srcPcg);
-            _srcSetLists = SetListReader.Read(_srcPcg).ToList();
-            EnsureAvailableCrossKind(); // single-kind packs may lack the current kind entirely
-            _crossSrcBank = CrossSrcDefaultBank();
-            _crossFilter = string.Empty;
-            _diffReport = null;
-            _crossDeepMode = false;
-            _srcCombis = null;      // wizard song list re-reads the new source
-            _addSelection = null;   // a prior selection points into the old file
-            _addPlan = null;
-            ResetCrossTimbres();
-            CancelCrossSelection();
+            src.Pcg = PcgReader.Parse(ms.ToArray());
+            src.Catalog = PcgCatalog.Build(src.Pcg);
+            src.SetLists = SetListReader.Read(src.Pcg).ToList();
+            if (slot == 0)
+            {
+                EnsureAvailableCrossKind(); // single-kind packs may lack the current kind entirely
+                _crossSrcBank = CrossSrcDefaultBank();
+                _crossFilter = string.Empty;
+                _diffReport = null;
+                _crossDeepMode = false;
+                _addSelection = null;   // a prior selection points into the old file
+                _addPlan = null;
+                ResetCrossTimbres();
+                CancelCrossSelection();
+            }
+            ResetMergePane(slot);
         }
         catch (Exception ex)
         {
-            _srcError = $"Could not parse '{_srcFileName}': {ex.Message}";
-            _srcPcg = null;
-            Logger.LogWarning(ex, "Failed to parse source PCG {File}", _srcFileName);
+            src.Error = $"Could not parse '{src.FileName}': {ex.Message}";
+            src.Pcg = null;
+            Logger.LogWarning(ex, "Failed to parse source PCG {File}", src.FileName);
         }
         finally
         {
-            _srcLoading = false;
+            src.Loading = false;
         }
     }
 
-    void ClearSource()
+    void ClearSource(int slot)
     {
-        _srcPcg = null;
-        _srcCatalog = null;
-        _srcSetLists = new();
-        _srcFileName = null;
-        _srcError = null;
+        _sources[slot].Reset();
+        ResetMergePane(slot);
+        if (slot != 0)
+            return;
         _diffReport = null;
         _crossDeepMode = false;
         ResetCrossTimbres();
@@ -4166,11 +4368,8 @@
     string _addFilter = "";
     string? _addLastResult;
     string? _addError;
-    IReadOnlyList<Combi>? _srcCombis;
-
-    // Source-file combis, decoded once per loaded source.
-    IReadOnlyList<Combi> SrcCombis =>
-        _srcCombis ??= _srcPcg is null ? Array.Empty<Combi>() : CombiReader.Read(_srcPcg);
+    // Source-file combis, decoded once per loaded source (cached on the slot).
+    IReadOnlyList<Combi> SrcCombis => SrcA.Combis;
 
     void OpenAddSounds()
     {
@@ -4291,7 +4490,447 @@
         _addFilter = "";
         _addLastResult = null;
         _addError = null;
-        _srcCombis = null;
+    }
+
+    // ----- Merge view: two source wings, one editable target -----
+
+    sealed class MergePane
+    {
+        public CrossKind Kind = CrossKind.Programs;
+        public int Bank;
+        public string Filter = "";
+        public int? TimbreIndex;
+        public Combi? TimbreDetail;
+    }
+
+    readonly MergePane[] _mergePanes = { new(), new() };
+    CrossKind _mergeTargetKind = CrossKind.Combis;   // what the center pane lists
+    int _mergeTargetBank;
+    (int Slot, CrossKind Kind, int Bank, int Index, string Name)? _mergeSelection; // tap flow
+    (int Slot, CrossKind Kind, int SrcBank, int SrcIndex, string Name, int DstBank, int DstIndex)? _mergeStage;
+    string? _mergeStageError;
+    bool _mergeCombiOnly;
+    DeepCopyPlan? _mergePlan;
+    string? _mergeLastResult;
+    bool _mergeLastIsError;
+    HashSet<string>? _targetPrgKeys;
+    HashSet<string>? _targetCmbKeys;
+
+    // The target's sound keys per section, for "already in target" badges. Nulled by
+    // LoadDerived so every edit re-keys lazily.
+    bool TargetHasSound(string sectionId, string? key)
+    {
+        if (key is null || _pcg is null) return false;
+        var set = sectionId == "PRG1"
+            ? _targetPrgKeys ??= PcgSoundKey.Keys(_pcg, "PRG1").Select(k => k.Key).ToHashSet(StringComparer.Ordinal)
+            : _targetCmbKeys ??= PcgSoundKey.Keys(_pcg, "CMB1").Select(k => k.Key).ToHashSet(StringComparer.Ordinal);
+        return set.Contains(key);
+    }
+
+    void ResetMergePane(int slot)
+    {
+        _mergePanes[slot] = new MergePane();
+        if (_sources[slot].Catalog is { } cat)
+        {
+            var pane = _mergePanes[slot];
+            if (!SourceKindAvailable(slot, pane.Kind))
+                pane.Kind = new[] { CrossKind.Programs, CrossKind.Combis, CrossKind.SetListSlots }
+                    .FirstOrDefault(k => SourceKindAvailable(slot, k), pane.Kind);
+            pane.Bank = MergeSourceDefaultBank(slot, pane.Kind);
+            // A fresh source is a strong signal: point the center at what it can receive.
+            _mergeTargetKind = pane.Kind == CrossKind.Programs ? CrossKind.Programs : CrossKind.Combis;
+            _mergeTargetBank = MergeTargetDefaultBank();
+        }
+        if (_mergeSelection is { } sel && sel.Slot == slot) _mergeSelection = null;
+        if (_mergeStage is { } st && st.Slot == slot) CancelMergeStage();
+    }
+
+    bool SourceKindAvailable(int slot, CrossKind kind)
+    {
+        var src = _sources[slot];
+        return kind switch
+        {
+            CrossKind.Programs => src.Catalog is not null && PresentBanks(src.Catalog.ProgramBanks).Any(),
+            CrossKind.Combis => src.Catalog is not null && PresentBanks(src.Catalog.CombiBanks).Any(),
+            _ => src.SetLists.Count > 0,
+        };
+    }
+
+    int MergeSourceDefaultBank(int slot, CrossKind kind) => kind switch
+    {
+        CrossKind.Programs when _sources[slot].Catalog is { } c => SnapToPresent(0, c.ProgramBanks),
+        CrossKind.Combis when _sources[slot].Catalog is { } c => SnapToPresent(0, c.CombiBanks),
+        _ => 0,
+    };
+
+    void SetMergePaneKind(int slot, CrossKind kind)
+    {
+        var pane = _mergePanes[slot];
+        pane.Kind = kind;
+        pane.Bank = MergeSourceDefaultBank(slot, kind);
+        pane.Filter = "";
+        pane.TimbreIndex = null;
+        pane.TimbreDetail = null;
+        // The center lists the kind a drop would land in.
+        _mergeTargetKind = kind == CrossKind.Programs ? CrossKind.Programs : CrossKind.Combis;
+        _mergeTargetBank = MergeTargetDefaultBank();
+    }
+
+    int MergeTargetDefaultBank() => _catalog is null ? 0
+        : _mergeTargetKind == CrossKind.Programs
+            ? SnapToPresent(_mergeTargetBank, _catalog.ProgramBanks)
+            : SnapToPresent(_mergeTargetBank, _catalog.CombiBanks);
+
+    readonly record struct MergeRow(int Index, string Name, bool InTarget, bool IsCombiLike);
+
+    // Rows for one source pane's current kind/bank/filter, with in-target sound badges.
+    List<MergeRow> MergeSourceRows(int slot)
+    {
+        var src = _sources[slot];
+        var pane = _mergePanes[slot];
+        var rows = new List<MergeRow>();
+        if (src.Catalog is null) return rows;
+        var filter = pane.Filter.Trim();
+
+        switch (pane.Kind)
+        {
+            case CrossKind.Programs:
+            {
+                if (pane.Bank < 0 || pane.Bank >= src.Catalog.ProgramBanks.Count) break;
+                var bank = src.Catalog.ProgramBanks[pane.Bank];
+                for (int i = 0; i < bank.Count; i++)
+                {
+                    if (string.IsNullOrEmpty(bank[i]) || PcgOrganizer.IsProgramPlaceholder(bank[i])) continue;
+                    if (!MatchesFilter(bank[i], i, filter)) continue;
+                    rows.Add(new MergeRow(i, bank[i],
+                        TargetHasSound("PRG1", src.KeyOf("PRG1", pane.Bank, i)), false));
+                }
+                break;
+            }
+            case CrossKind.Combis:
+            {
+                if (pane.Bank < 0 || pane.Bank >= src.Catalog.CombiBanks.Count) break;
+                var bank = src.Catalog.CombiBanks[pane.Bank];
+                for (int i = 0; i < bank.Count; i++)
+                {
+                    if (Combi.IsEmptyOrInitName(bank[i])) continue;
+                    if (!MatchesFilter(bank[i], i, filter)) continue;
+                    rows.Add(new MergeRow(i, bank[i],
+                        TargetHasSound("CMB1", src.KeyOf("CMB1", pane.Bank, i)), true));
+                }
+                break;
+            }
+            default: // Songs: named set-list slots that load a combi the source carries
+            {
+                if (pane.Bank < 0 || pane.Bank >= src.SetLists.Count) break;
+                foreach (var slotItem in src.SetLists[pane.Bank].NamedSlots)
+                {
+                    if (slotItem.Reference.Kind != PcgItemKind.Combi) continue;
+                    if (src.Catalog.Resolve(slotItem.Reference) is null) continue;
+                    if (!MatchesFilter(slotItem.Name, slotItem.Index, filter)) continue;
+                    var combiRef = slotItem.Reference;
+                    rows.Add(new MergeRow(slotItem.Index, slotItem.Name,
+                        TargetHasSound("CMB1", src.KeyOf("CMB1", combiRef.Bank, combiRef.Index)), true));
+                }
+                break;
+            }
+        }
+        return rows;
+    }
+
+    // A song row merges as its underlying combi: resolve the set-list slot's reference.
+    (int Bank, int Index)? MergeSongCombi(int slot, int setList, int slotIndex)
+    {
+        var src = _sources[slot];
+        var s = src.SetLists.ElementAtOrDefault(setList)?.Slots.ElementAtOrDefault(slotIndex);
+        return s is { Reference.Kind: PcgItemKind.Combi } ? (s.Reference.Bank, s.Reference.Index) : null;
+    }
+
+    void SelectMergeItem(int slot, int index, string name)
+    {
+        var pane = _mergePanes[slot];
+        _mergeSelection = (slot, pane.Kind, pane.Bank, index, name);
+        _mergeTargetKind = pane.Kind == CrossKind.Programs ? CrossKind.Programs : CrossKind.Combis;
+        _mergeTargetBank = MergeTargetDefaultBank();
+    }
+
+    void ToggleMergeTimbres(int slot, int index)
+    {
+        var pane = _mergePanes[slot];
+        if (pane.TimbreIndex == index)
+        {
+            pane.TimbreIndex = null;
+            pane.TimbreDetail = null;
+            return;
+        }
+        var (bank, idx) = pane.Kind == CrossKind.SetListSlots
+            ? (MergeSongCombi(slot, pane.Bank, index) ?? (-1, -1))
+            : (pane.Bank, index);
+        if (bank < 0) return;
+        pane.TimbreIndex = index;
+        pane.TimbreDetail = _sources[slot].Combis.FirstOrDefault(c => c.Bank == bank && c.Index == idx);
+    }
+
+    // Both flows converge here: drag drops and the tap fallback stage a placement that
+    // the confirm panel in the center pane then applies.
+    void StageMerge(int slot, CrossKind kind, int srcBank, int srcIndex, string name, int dstBank, int dstIndex)
+    {
+        _mergeStageError = null;
+        _mergePlan = null;
+        _mergeCombiOnly = false;
+
+        if (kind == CrossKind.SetListSlots)
+        {
+            if (MergeSongCombi(slot, srcBank, srcIndex) is not { } combi)
+            {
+                _mergeStageError = "That song doesn't load a combi this file carries.";
+                return;
+            }
+            (srcBank, srcIndex) = combi;
+            kind = CrossKind.Combis;
+        }
+        if (kind == CrossKind.Programs && _sources[slot].Catalog is { } srcCat && _catalog is not null)
+        {
+            var srcType = srcCat.ProgramBankTypes.ElementAtOrDefault(srcBank);
+            var dstType = _catalog.ProgramBankTypes.ElementAtOrDefault(dstBank);
+            if (srcType is not null && dstType is not null && srcType != dstType)
+            {
+                _mergeStageError = $"'{name}' is {PcgBankIdentity.TypeLabelWithArticle(srcType.Value)} program — pick {PcgBankIdentity.TypeLabelWithArticle(dstType.Value)} bank on the other side, or a matching target bank.";
+                return;
+            }
+        }
+        _mergeStage = (slot, kind, srcBank, srcIndex, name, dstBank, dstIndex);
+        _mergeSelection = null;
+    }
+
+    void CancelMergeStage()
+    {
+        _mergeStage = null;
+        _mergeStageError = null;
+        _mergePlan = null;
+        _mergeCombiOnly = false;
+    }
+
+    DeepCopyPlan? CurrentMergePlan()
+    {
+        if (_mergeStage is not { Kind: CrossKind.Combis } st || _pcg is null) return null;
+        if (_sources[st.Slot].Pcg is not { } srcPcg) return null;
+        return _mergePlan ??= PcgDeepCopy.Plan(srcPcg, st.SrcBank, st.SrcIndex, _pcg,
+            _crossDeepHd1Bank, _crossDeepExiBank);
+    }
+
+    void ApplyMergeStage()
+    {
+        if (_mergeStage is not { } st || _pcg is null || _sources[st.Slot].Pcg is not { } srcPcg) return;
+        try
+        {
+            if (st.Kind == CrossKind.Programs)
+            {
+                ApplyEdit(PcgEditor.CopyProgramAcross(srcPcg, st.SrcBank, st.SrcIndex, _pcg, st.DstBank, st.DstIndex),
+                    "Merge program in");
+                _mergeLastResult = $"Merged '{st.Name}' to {PcgBankLabels.Program(st.DstBank)} #{st.DstIndex:D3}.";
+                _pendingReveal = $"merge-target-{st.DstIndex}";
+            }
+            else if (_mergeCombiOnly)
+            {
+                ApplyEdit(PcgEditor.CopyCombiAcross(srcPcg, st.SrcBank, st.SrcIndex, _pcg, st.DstBank, st.DstIndex),
+                    "Merge combi in");
+                _mergeLastResult = $"Merged '{st.Name}' (combi only) to {PcgBankLabels.Combi(st.DstBank)} #{st.DstIndex:D3}.";
+                _pendingReveal = $"merge-target-{st.DstIndex}";
+            }
+            else
+            {
+                if (CurrentMergePlan() is not { CanApply: true } plan)
+                {
+                    _mergeLastResult = "The plan can't be applied — see the notes above.";
+                    _mergeLastIsError = true;
+                    return;
+                }
+                ApplyEdit(PcgEditor.CopyCombiDeepAcross(srcPcg, _pcg, st.DstBank, st.DstIndex, plan),
+                    "Merge combi + sounds in");
+                _mergeLastResult = $"Merged '{st.Name}' and {plan.Copies.Count()} program(s) to {PcgBankLabels.Combi(st.DstBank)} #{st.DstIndex:D3} ({plan.Reused.Count()} already there, reused).";
+                _pendingReveal = $"merge-target-{st.DstIndex}";
+            }
+            _mergeLastIsError = false;
+            CancelMergeStage();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mergeLastResult = ex.Message;
+            _mergeLastIsError = true;
+        }
+    }
+
+    // Whether the center pane's current kind can receive a selection of this kind.
+    bool MergeAccepts(CrossKind kind) =>
+        kind == CrossKind.Programs ? _mergeTargetKind == CrossKind.Programs
+                                   : _mergeTargetKind == CrossKind.Combis;
+
+    string? TargetSlotName((int Slot, CrossKind Kind, int SrcBank, int SrcIndex, string Name, int DstBank, int DstIndex) stage)
+    {
+        if (_catalog is null) return null;
+        var names = stage.Kind == CrossKind.Programs
+            ? _catalog.ProgramBanks.ElementAtOrDefault(stage.DstBank)
+            : _catalog.CombiBanks.ElementAtOrDefault(stage.DstBank);
+        var name = names?.ElementAtOrDefault(stage.DstIndex);
+        bool free = name is null || (stage.Kind == CrossKind.Programs
+            ? PcgOrganizer.IsProgramPlaceholder(name)
+            : Combi.IsEmptyOrInitName(name));
+        return free ? null : name;
+    }
+
+    // One merge wing: a read-only source with kind/bank pickers and draggable rows.
+    private RenderFragment MergeSourcePane(int slot) => __builder =>
+    {
+        var src = _sources[slot];
+        var pane = _mergePanes[slot];
+        <div class="col-lg-4">
+            <div class="border rounded p-3 h-100">
+                @if (src.Pcg is null)
+                {
+                    <div class="text-center py-4">
+                        <p class="small text-body-secondary mb-2">@(slot == 0 ? "Left" : "Right") source — read-only, never changed.</p>
+                        <label class="btn btn-sm btn-outline-primary mb-0" @key="@($"merge-src-{slot}-{_fileInputSeq}")">
+                            Open a backup to pull from
+                            <InputFile OnChange="@(slot == 0 ? OnSourceFileSelected : OnSourceFileSelectedB)" accept=".PCG,.pcg" class="d-none" />
+                        </label>
+                        @if (src.Loading)
+                        {
+                            <div class="small text-body-secondary mt-2"><span class="spinner-border spinner-border-sm"></span> Reading @src.FileName …</div>
+                        }
+                        @if (src.Error is not null)
+                        {
+                            <div class="alert alert-danger small mt-2 mb-0">@src.Error</div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    var compat = _pcg is null ? null : PcgCompat.Compare(src.Pcg, _pcg);
+                    <div class="d-flex align-items-baseline gap-2 flex-wrap mb-2">
+                        <strong class="text-truncate" style="max-width:12rem" title="@src.FileName">@src.FileName</strong>
+                        <span class="small text-body-secondary">@Format.Bytes(src.Pcg.Length)</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" @onclick="() => ClearSource(slot)">Clear</button>
+                    </div>
+                    @if (compat is { AllMatch: false })
+                    {
+                        <div class="alert alert-danger small">
+                            <strong>Different instruments</strong> (@compat.MismatchSummary) — sounds can't be merged from this file.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex align-items-end gap-2 flex-wrap mb-2">
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm @(pane.Kind == CrossKind.Programs ? "btn-secondary" : "btn-outline-secondary")"
+                                        disabled="@(!SourceKindAvailable(slot, CrossKind.Programs))"
+                                        @onclick="() => SetMergePaneKind(slot, CrossKind.Programs)">Programs</button>
+                                <button type="button" class="btn btn-sm @(pane.Kind == CrossKind.Combis ? "btn-secondary" : "btn-outline-secondary")"
+                                        disabled="@(!SourceKindAvailable(slot, CrossKind.Combis))"
+                                        @onclick="() => SetMergePaneKind(slot, CrossKind.Combis)">Combis</button>
+                                <button type="button" class="btn btn-sm @(pane.Kind == CrossKind.SetListSlots ? "btn-secondary" : "btn-outline-secondary")"
+                                        disabled="@(!SourceKindAvailable(slot, CrossKind.SetListSlots))"
+                                        @onclick="() => SetMergePaneKind(slot, CrossKind.SetListSlots)">Songs</button>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-end gap-2 flex-wrap mb-2">
+                            <div>
+                                <label class="form-label small mb-1">@(pane.Kind == CrossKind.SetListSlots ? "Set list" : "Bank")</label>
+                                <select class="form-select form-select-sm" @onchange="@(e => { if (int.TryParse(e.Value?.ToString(), out var b)) { pane.Bank = b; pane.TimbreIndex = null; pane.TimbreDetail = null; } })">
+                                    @if (pane.Kind == CrossKind.Programs && src.Catalog is not null)
+                                    {
+                                        @foreach (var i in PresentBanks(src.Catalog.ProgramBanks))
+                                        {
+                                            <option value="@i" selected="@(i == pane.Bank)">@PcgBankLabels.Program(i) (@ProgramTypeTag(src.Catalog, i)@CountNonEmpty(src.Catalog.ProgramBanks[i]))</option>
+                                        }
+                                    }
+                                    else if (pane.Kind == CrossKind.Combis && src.Catalog is not null)
+                                    {
+                                        @foreach (var i in PresentBanks(src.Catalog.CombiBanks))
+                                        {
+                                            <option value="@i" selected="@(i == pane.Bank)">@PcgBankLabels.Combi(i) (@CountNonEmpty(src.Catalog.CombiBanks[i]))</option>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @for (var i = 0; i < src.SetLists.Count; i++)
+                                        {
+                                            <option value="@i" selected="@(i == pane.Bank)">@i.ToString("D3") — @src.SetLists[i].DisplayName (@src.SetLists[i].NamedSlots.Count())</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="flex-grow-1">
+                                <label class="form-label small mb-1">Find</label>
+                                <input type="text" class="form-control form-control-sm" placeholder="name or #…"
+                                       @bind="pane.Filter" @bind:event="oninput" />
+                            </div>
+                        </div>
+                        <div class="table-scroll" style="max-height:28rem; overflow-y:auto">
+                            <table class="table table-sm table-hover align-middle mb-1">
+                                <tbody>
+                                    @foreach (var row in MergeSourceRows(slot).Take(MaxRows))
+                                    {
+                                        <tr @key="row.Index" draggable="true" class="pcg-merge-row"
+                                            data-merge-kind="@MergeKindTag(pane.Kind)" data-merge-slot="@slot"
+                                            data-merge-bank="@pane.Bank" data-merge-src-index="@row.Index"
+                                            title="Drag onto a target slot, or tap Select">
+                                            <td style="width:3.5rem">@row.Index.ToString("D3")</td>
+                                            <td>
+                                                @row.Name
+                                                @if (row.InTarget)
+                                                {
+                                                    <span class="badge text-bg-light fw-normal" title="The target already has this sound (possibly under another name)">in target</span>
+                                                }
+                                            </td>
+                                            <td class="text-nowrap text-end" style="width:7.5rem">
+                                                @if (row.IsCombiLike)
+                                                {
+                                                    <button type="button" class="btn btn-sm @(pane.TimbreIndex == row.Index ? "btn-secondary" : "btn-outline-secondary") px-2"
+                                                            @onclick="() => ToggleMergeTimbres(slot, row.Index)">T</button>
+                                                }
+                                                <button type="button" class="btn btn-sm btn-outline-primary px-2"
+                                                        @onclick="() => SelectMergeItem(slot, row.Index, row.Name)">Select</button>
+                                            </td>
+                                        </tr>
+                                        @if (pane.TimbreIndex == row.Index && pane.TimbreDetail is not null)
+                                        {
+                                            <tr @key="@($"merge-t-{slot}-{row.Index}")">
+                                                <td colspan="3">@TimbreTable(pane.TimbreDetail, src.Catalog)</td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    };
+
+    static string MergeKindTag(CrossKind kind) => kind switch
+    {
+        CrossKind.Programs => "programs",
+        CrossKind.Combis => "combis",
+        _ => "songs",
+    };
+
+    [JSInvokable]
+    public async Task OnMergeDrop(string kind, int srcSlot, int srcBank, int srcIndex, int dstBank, int dstIndex)
+    {
+        if (_pcg is null || srcSlot is < 0 or > 1 || _sources[srcSlot].Catalog is null) return;
+        var parsed = kind switch
+        {
+            "programs" => CrossKind.Programs,
+            "combis" => CrossKind.Combis,
+            "songs" => CrossKind.SetListSlots,
+            _ => (CrossKind?)null,
+        };
+        if (parsed is not { } k) return;
+        var name = MergeSourceRows(srcSlot).FirstOrDefault(r => r.Index == srcIndex).Name ?? "";
+        StageMerge(srcSlot, k, srcBank, srcIndex, name, dstBank, dstIndex);
+        await InvokeAsync(StateHasChanged); // JSInvokable path — no automatic render
     }
 
     void OnCrossSrcBankChanged(ChangeEventArgs e)

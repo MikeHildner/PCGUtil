@@ -190,6 +190,64 @@ document.addEventListener("dragend", () => { // fires after drop AND on Esc / ou
         .forEach(r => r.classList.remove("pcg-drag-source"));
 });
 
+// ---- Merge drag (Merge view): source-pane row → target-pane slot ----
+// A second gesture namespace; the reorder gesture above stays same-table only. The
+// same DotNetObjectReference serves both — .NET hears one OnMergeDrop per gesture.
+let pcgMerge = null;     // { kind, slot, bank, index } while a merge drag is live
+let pcgMergeRow = null;  // target row currently highlighted
+
+const pcgMergeTargetOf = (el) =>
+    el instanceof Element ? el.closest("tr[data-merge-target]") : null;
+const pcgClearMergeMark = () => {
+    if (pcgMergeRow) pcgMergeRow.classList.remove("pcg-merge-over");
+    pcgMergeRow = null;
+};
+
+document.addEventListener("dragstart", (e) => {
+    const row = e.target instanceof Element ? e.target.closest("tr.pcg-merge-row") : null;
+    if (!row) return;
+    pcgMerge = {
+        kind: row.dataset.mergeKind, slot: +row.dataset.mergeSlot,
+        bank: +row.dataset.mergeBank, index: +row.dataset.mergeSrcIndex,
+    };
+    e.dataTransfer.setData("text/plain", row.dataset.mergeSrcIndex); // Firefox needs data
+    e.dataTransfer.effectAllowed = "copy";
+    row.classList.add("pcg-drag-source");
+});
+
+document.addEventListener("dragover", (e) => {
+    if (!pcgMerge) return;
+    const row = pcgMergeTargetOf(e.target);
+    if (!row || !(row.dataset.mergeAccepts || "").split(",").includes(pcgMerge.kind)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    if (row !== pcgMergeRow) {
+        pcgClearMergeMark();
+        pcgMergeRow = row;
+        row.classList.add("pcg-merge-over");
+    }
+});
+
+document.addEventListener("drop", (e) => {
+    if (!pcgMerge) return;
+    const drag = pcgMerge;
+    pcgMerge = null;
+    pcgClearMergeMark();
+    const row = pcgMergeTargetOf(e.target);
+    if (!row || !(row.dataset.mergeAccepts || "").split(",").includes(drag.kind)) return;
+    e.preventDefault();
+    if (!pcgDragNet) return;
+    pcgDragNet.invokeMethodAsync("OnMergeDrop", drag.kind, drag.slot, drag.bank, drag.index,
+        +row.dataset.mergeBank, +row.dataset.mergeIndex).catch(() => { });
+});
+
+document.addEventListener("dragend", () => {
+    pcgMerge = null;
+    pcgClearMergeMark();
+    document.querySelectorAll("tr.pcg-merge-row.pcg-drag-source")
+        .forEach(r => r.classList.remove("pcg-drag-source"));
+});
+
 // One-shot viewport clamp for the fixed-position row menu: after Blazor renders it at
 // the cursor, nudge it fully on-screen. Stateless, mirrors pcgRevealRow.
 window.pcgClampMenu = (id) => {

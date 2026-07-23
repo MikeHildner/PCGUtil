@@ -13,12 +13,12 @@ builder.Services.AddRazorComponents()
         // 30 minutes instead.
         options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(30);
         // 32-bit app pool (deploy-ftp.ps1 publishes win-x86; ~2 GB usable address space):
-        // each retained circuit can pin a loaded PCG (~47 MB) plus a Copy-tab source file
-        // (~47 MB more) plus up to 64 MB of undo patches (PcgEditHistory's cap; realistic
-        // sessions hold a few MB — ~20 whole-bank sorts to hit the ceiling), so 4 retained
-        // circuits ≈ ≤ 632 MB worst case — leaving headroom for live circuits and the
+        // each retained circuit can pin the editable target PCG (~47 MB) plus TWO read-only
+        // Merge sources (~94 MB) plus up to 64 MB of undo patches (PcgEditHistory's cap;
+        // realistic sessions hold a few MB), so ~205 MB per circuit worst case. Three
+        // retained circuits ≈ ≤ 615 MB — leaving headroom for live circuits and the
         // 150 MB UploadCache.
-        options.DisconnectedCircuitMaxRetained = 4;
+        options.DisconnectedCircuitMaxRetained = 3;
     })
     .AddHubOptions(options =>
     {

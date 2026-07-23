@@ -112,17 +112,7 @@ public static class PcgDuplicates
                 if (record + recordSize > data.Length)
                     break;
                 string name = PcgText.ReadFixedString(data, record, NameLength);
-
-                // The sound key: record bytes with the name zeroed (absorbs NUL- vs
-                // space-padding too) and the favorite bit cleared, prefixed with the bank
-                // chunk id so byte-identical HD-1 (PBK1) and EXi (MBK1) program records —
-                // different sounds on different engines — can never merge.
-                data.AsSpan((int)record, recordSize).CopyTo(masked);
-                masked.AsSpan(0, Math.Min(NameLength, recordSize)).Clear();
-                if (favOffset < recordSize)
-                    masked[favOffset] &= (byte)~favBit;
-                string key = chunk.Id + ":" + Convert.ToHexString(SHA256.HashData(masked));
-
+                string key = PcgSoundKey.KeyOf(data, record, recordSize, chunk.Id, favOffset, favBit, masked);
                 entries.Add(new Entry(b, i, name, record, recordSize, key, isInitName(name)));
             }
         }

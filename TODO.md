@@ -13,7 +13,7 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T5] Multi-file workspace — tabs for several open PCGs → a three-pane merge view (two source wings + a center target, e.g. an empty Kronos-2/3 default) with drag-to-merge, dependency pulling, and duplicate scan; supersedes the single read-only Copy source *(Dan feedback; the big one)* | 2026-07-18 | — |
+| [T3] N-file workspace tabs — promote every open file to a first-class tab (per-file state bundles, per-file undo, workspace cache/restore); deliberately deferred from the T5 merge scope — revisit only if the Merge view proves insufficient | 2026-07-23 | — |
 | [T2] Bend range & portamento per timbre — surface the two known-offset depths in the combi timbre table | 2026-07-18 | — |
 | [T2] Keyboard track — the last undecoded set-list slot field (Song slots); needs a written-set-list hardware probe | 2026-07-18 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
@@ -32,6 +32,7 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 
 | Task | Created | Completed |
 |------|---------|-----------|
+| [T5] Three-pane Merge view — source A \| editable target \| source B; drag-to-merge (or Select→tap) with per-drop confirm, deep dependency pulling via the §9-verified planner (cross-drop reuse proven: a program merged from one wing is reused when a combi from the other needs it), "in target" sound-key badges, two shared source slots superseding the single Copy source; N-file tabs deferred by scope decision *(Dan feedback; the big one)* | 2026-07-18 | 2026-07-23 |
 | [T4] Timbre quick-edit — key/velocity zones, volume, and transpose editable inline in the combi zone view (first-ever writes to timbre bytes +37/38/40/41/5/7; zone ends drag their partner instead of erroring; panel survives edits; per-timbre undo labels); hardware §15 confirmed 2026-07-22 *(Dan feedback)* | 2026-07-18 | 2026-07-22 |
 | [T1] Printed set-list cheat sheet gains Xpose and Hold columns (color swatch was already there) | 2026-07-18 | 2026-07-22 |
 | [T3] Row actions — right-click context menu on every browse row (move/copy/paste/notes/settings/load/clear, per kind) and drag-to-position reorder via a ⠿ grip (insert-shift semantics through the reference-retargeting reorder machinery; new ReorderSetListSlots/ClearSetListSlot writers; clear-to-init = copy from an existing init record, engine-type aware); touch keeps ▲▼, filters block drag with a tooltip *(Dan feedback)* | 2026-07-18 | 2026-07-22 |
