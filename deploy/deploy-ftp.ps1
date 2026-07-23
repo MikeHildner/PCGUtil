@@ -128,10 +128,27 @@ if ($stragglers.Count -gt 0) {
     foreach ($s in $stragglers) {
         Start-Sleep -Seconds 20
         Write-Host "  sweep: $($s[1])"
-        if (-not (Invoke-FtpUpload $s[0] $s[1] -DirectTries 4)) { $stillFailing += $s[1] }
+        if (-not (Invoke-FtpUpload $s[0] $s[1] -DirectTries 4)) { $stillFailing += ,$s }
     }
+    # Patience pass: three deploys running (2026-07-22/23) showed sweep survivors landing
+    # as lone uploads on roughly the third 40-second-spaced try — the scanner just needs
+    # the storm further behind it. Give each survivor up to 8 widely-spaced solo tries
+    # before declaring the deploy dead.
     if ($stillFailing.Count -gt 0) {
-        throw "Upload failed even in the sweep: $($stillFailing -join ', ') - site left offline (app_offline.htm in place)."
+        Write-Host "Patience pass for $($stillFailing.Count) file(s) - spaced solo retries ..."
+        $lost = @()
+        foreach ($s in $stillFailing) {
+            $landed = $false
+            for ($try = 1; $try -le 8; $try++) {
+                Start-Sleep -Seconds 40
+                Write-Host "  patience ${try}/8: $($s[1])"
+                if (Invoke-FtpUpload $s[0] $s[1] -DirectTries 1) { $landed = $true; break }
+            }
+            if (-not $landed) { $lost += $s[1] }
+        }
+        if ($lost.Count -gt 0) {
+            throw "Upload failed even after the patience pass: $($lost -join ', ') - site left offline (app_offline.htm in place)."
+        }
     }
 }
 
