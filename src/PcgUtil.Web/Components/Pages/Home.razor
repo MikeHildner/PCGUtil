@@ -19,9 +19,18 @@
         <p class="text-body-secondary mb-4">
             Open the backup file from your instrument to see and organize what's inside.
         </p>
-        <label class="btn btn-primary btn-lg upload-btn" @key="_fileInputSeq">
-            Open a .PCG file
-            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="visually-hidden" />
+        <label class="btn btn-primary btn-lg upload-btn @(_loading ? "disabled" : null)"
+               aria-disabled="@(_loading ? "true" : null)" @key="_fileInputSeq">
+            @if (_loading)
+            {
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                <text>Opening @_fileName … @_uploadPercent%</text>
+            }
+            else
+            {
+                <text>Open a .PCG file</text>
+            }
+            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg" class="visually-hidden" disabled="@_loading" />
         </label>
         @if (_restoreOffer is { } offer)
         {
@@ -38,9 +47,10 @@
         }
         @if (_loading)
         {
-            <div class="mt-3 text-body-secondary">
-                <span class="spinner-border spinner-border-sm" role="status"></span>
-                Reading and parsing @_fileName …
+            <div class="mt-3 small text-body-secondary">
+                @(_uploadPercent < 100
+                    ? "A full backup is around 45 MB — this takes a few seconds."
+                    : "Reading the banks …")
             </div>
         }
         @if (_error is not null)
@@ -76,7 +86,7 @@
         @if (_loading)
         {
             <span class="small text-body-secondary">
-                <span class="spinner-border spinner-border-sm" role="status"></span> Reading @_fileName …
+                <span class="spinner-border spinner-border-sm" role="status"></span> Reading @_fileName … @_uploadPercent%
             </span>
         }
         @if (_error is not null)
@@ -134,10 +144,11 @@
             }
         </div>
         <span class="ms-auto"></span>
-        <label class="btn btn-sm btn-outline-secondary mb-0" @key="_fileInputSeq"
+        <label class="btn btn-sm btn-outline-secondary mb-0 @(_loading ? "disabled" : null)"
+               aria-disabled="@(_loading ? "true" : null)" @key="_fileInputSeq"
                title="Opens a different backup (replaces this one), or this backup's companion .KGE">
-            Open another file
-            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg,.KGE,.kge" class="d-none" />
+            @(_loading ? "Opening …" : "Open another file")
+            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg,.KGE,.kge" class="d-none" disabled="@_loading" />
         </label>
     </div>
 
@@ -323,7 +334,7 @@
                         @if (_srcLoading)
                         {
                             <div class="mt-2 text-body-secondary small">
-                                <span class="spinner-border spinner-border-sm" role="status"></span> Reading the file …
+                                <span class="spinner-border spinner-border-sm" role="status"></span> Reading the file … @_uploadPercent%
                             </div>
                         }
                         @if (_srcError is not null)
@@ -1372,7 +1383,7 @@
                             {
                                 <div class="mt-2 text-body-secondary small">
                                     <span class="spinner-border spinner-border-sm" role="status"></span>
-                                    Reading and parsing @_srcFileName …
+                                    Reading @_srcFileName … @_uploadPercent%
                                 </div>
                             }
                         }
@@ -1855,14 +1866,15 @@
                     and set-list slot that differs between that file (before) and the file you're
                     editing (after). It's only read, never changed.
                 </p>
-                <label class="btn btn-sm btn-outline-primary mb-0" @key="@($"diff-src-{_fileInputSeq}")">
-                    Open the older backup
-                    <InputFile OnChange="OnSourceFileSelected" accept=".PCG,.pcg" class="d-none" />
+                <label class="btn btn-sm btn-outline-primary mb-0 @(SrcA.Loading ? "disabled" : null)"
+                       aria-disabled="@(SrcA.Loading ? "true" : null)" @key="@($"diff-src-{_fileInputSeq}")">
+                    @(SrcA.Loading ? "Opening …" : "Open the older backup")
+                    <InputFile OnChange="OnSourceFileSelected" accept=".PCG,.pcg" class="d-none" disabled="@SrcA.Loading" />
                 </label>
                 @if (SrcA.Loading)
                 {
                     <div class="small text-body-secondary mt-2">
-                        <span class="spinner-border spinner-border-sm" role="status"></span> Reading @SrcA.FileName …
+                        <span class="spinner-border spinner-border-sm" role="status"></span> Reading @SrcA.FileName … @_uploadPercent%
                     </div>
                 }
                 @if (SrcA.Error is not null)
@@ -2508,6 +2520,41 @@
     // Built on first view of the Usage tab and cached until the next edit / file load.
     UsageReport CurrentUsage => _usageReport ??= PcgUsage.BuildUsageReport(_pcg!);
 
+    // How far the upload in flight has streamed in (0–100). A backup is ~47 MB over the
+    // SignalR circuit, which is real seconds of waiting: a moving number is the difference
+    // between "it's working" and "did my click do anything?".
+    int _uploadPercent;
+
+    // Streams a picked file into memory, repainting every 5% so the button can show progress.
+    // Allocating the exact size up front also halves the peak (no MemoryStream + ToArray copy).
+    async Task<byte[]> ReadUploadAsync(IBrowserFile file)
+    {
+        if (file.Size > MaxFileSize)
+            throw new IOException($"That file is {Format.Bytes(file.Size)} — larger than the {Format.Bytes(MaxFileSize)} limit.");
+
+        _uploadPercent = 0;
+        var bytes = new byte[file.Size];
+        await using var stream = file.OpenReadStream(MaxFileSize);
+        int offset = 0, lastShown = 0;
+        while (offset < bytes.Length)
+        {
+            int read = await stream.ReadAsync(bytes.AsMemory(offset));
+            if (read == 0)
+                break; // short read: the picked file shrank mid-upload; parse what arrived
+            offset += read;
+            int percent = (int)((long)offset * 100 / bytes.Length);
+            if (percent >= lastShown + 5)
+            {
+                lastShown = percent;
+                _uploadPercent = percent;
+                StateHasChanged();
+                await Task.Yield(); // let the repaint reach the browser before reading on
+            }
+        }
+        _uploadPercent = 100;
+        return bytes;
+    }
+
     async Task OnFileSelected(InputFileChangeEventArgs e)
     {
         if (e.File.Name.EndsWith(".KGE", StringComparison.OrdinalIgnoreCase))
@@ -2541,13 +2588,7 @@
         _loading = true;
         try
         {
-            using var ms = new MemoryStream();
-            await using (var stream = e.File.OpenReadStream(MaxFileSize))
-            {
-                await stream.CopyToAsync(ms);
-            }
-
-            _pcg = PcgReader.Parse(ms.ToArray());
+            _pcg = PcgReader.Parse(await ReadUploadAsync(e.File));
             _dirty = false;
             ResetHistory(baselineDirty: false);
             ResetForNewPcg();
@@ -4102,13 +4143,7 @@
         src.Loading = true;
         try
         {
-            using var ms = new MemoryStream();
-            await using (var stream = e.File.OpenReadStream(MaxFileSize))
-            {
-                await stream.CopyToAsync(ms);
-            }
-
-            src.Pcg = PcgReader.Parse(ms.ToArray());
+            src.Pcg = PcgReader.Parse(await ReadUploadAsync(e.File));
             src.Catalog = PcgCatalog.Build(src.Pcg);
             src.SetLists = SetListReader.Read(src.Pcg).ToList();
             if (slot == 0)
@@ -4815,9 +4850,10 @@
                 {
                     <div class="text-center py-4">
                         <p class="small text-body-secondary mb-2">@(slot == 0 ? "Left" : "Right") source — read-only, never changed.</p>
-                        <label class="btn btn-sm btn-outline-primary mb-0" @key="@($"merge-src-{slot}-{_fileInputSeq}")">
-                            Open a backup to pull from
-                            <InputFile OnChange="@(slot == 0 ? OnSourceFileSelected : OnSourceFileSelectedB)" accept=".PCG,.pcg" class="d-none" />
+                        <label class="btn btn-sm btn-outline-primary mb-0 @(src.Loading ? "disabled" : null)"
+                               aria-disabled="@(src.Loading ? "true" : null)" @key="@($"merge-src-{slot}-{_fileInputSeq}")">
+                            @(src.Loading ? "Opening …" : "Open a backup to pull from")
+                            <InputFile OnChange="@(slot == 0 ? OnSourceFileSelected : OnSourceFileSelectedB)" accept=".PCG,.pcg" class="d-none" disabled="@src.Loading" />
                         </label>
                         @if (src.Loading)
                         {
