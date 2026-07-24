@@ -156,7 +156,7 @@
         @{ var advancedOpen = _showAdvanced || AdvancedViews.Contains(_view); }
         <li class="nav-item">
             <button type="button" class="nav-link text-body-secondary"
-                    title="Copying between files, differences, usage, duplicates — plus file internals"
+                    title="Differences, usage, duplicates, slot-level copies — plus file internals"
                     @onclick="() => _showAdvanced = !advancedOpen">
                 @(advancedOpen ? "More ▾" : "More ▸")
             </button>
@@ -528,6 +528,7 @@
                         <div class="d-flex gap-2 flex-wrap mb-3">
                             <button type="button" class="btn btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
                             <button type="button" class="btn btn-outline-primary" @onclick="AddAnotherSong">Add another song</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => _view = View.Merge">Merge more sounds</button>
                             <button type="button" class="btn btn-outline-secondary" @onclick="() => _view = View.SetLists">Put it in a set list</button>
                             <button type="button" class="btn btn-outline-secondary" @onclick="() => _view = View.Home">Back to Start</button>
                         </div>
@@ -1340,6 +1341,10 @@
         {
             <h2 class="h5">Copy between files</h2>
             <p class="text-body-secondary small">
+                For most jobs the
+                <button type="button" class="btn btn-sm btn-outline-secondary align-baseline"
+                        @onclick="() => _view = View.Merge">Merge</button>
+                view is faster — this tab stays for precise slot-level copies, including set-list slots.
                 Open a second <code>.PCG</code> as a read-only <strong>source</strong>, then copy programs,
                 combis, or set-list slots into the file you're editing. A copy <strong>overwrites</strong> the
                 destination slot you choose; edits accumulate in memory until you download the edited .PCG.
@@ -1705,6 +1710,11 @@
                 already contains, even under another name. Starting fresh? Save an init-heavy backup on
                 your instrument and open it as the target — that's your clean canvas.
             </p>
+            <p class="text-body-secondary small" style="max-width:52rem">
+                Prefer one song at a time?
+                <button type="button" class="btn btn-sm btn-outline-secondary align-baseline"
+                        @onclick="OpenAddSounds">Use the guided flow</button>
+            </p>
             <div class="row g-3 mb-3">
                 @MergeSourcePane(0)
                 <div class="col-lg-4">
@@ -1841,12 +1851,24 @@
             @if (_srcPcg is null || _srcCatalog is null)
             {
                 <p class="text-body-secondary">
-                    Open a second <code>.PCG</code> as the read-only source on the
-                    <button type="button" class="btn btn-sm btn-outline-secondary align-baseline"
-                            @onclick="() => _view = View.Copy">Copy</button>
-                    tab, then come back — this view lists every program, combi, and set-list slot that
-                    differs between that file (before) and the file you're editing (after).
+                    Open the older backup to compare against — this view then lists every program, combi,
+                    and set-list slot that differs between that file (before) and the file you're
+                    editing (after). It's only read, never changed.
                 </p>
+                <label class="btn btn-sm btn-outline-primary mb-0" @key="@($"diff-src-{_fileInputSeq}")">
+                    Open the older backup
+                    <InputFile OnChange="OnSourceFileSelected" accept=".PCG,.pcg" class="d-none" />
+                </label>
+                @if (SrcA.Loading)
+                {
+                    <div class="small text-body-secondary mt-2">
+                        <span class="spinner-border spinner-border-sm" role="status"></span> Reading @SrcA.FileName …
+                    </div>
+                }
+                @if (SrcA.Error is not null)
+                {
+                    <div class="alert alert-danger small mt-2 mb-0">@SrcA.Error</div>
+                }
             }
             else
             {
@@ -2701,7 +2723,10 @@
     };
 
     // Workspaces a musician doesn't need on day one — folded behind "More".
-    static readonly View[] AdvancedViews = { View.Merge, View.Copy, View.Differences, View.Usage, View.Duplicates, View.Overview, View.Strings, View.Tree };
+    // Merge is deliberately NOT here: pulling sounds between backups is a headline job,
+    // so it earns a primary tab. Copy sits after the reports as the niche slot-level tool
+    // Merge superseded for everyday work.
+    static readonly View[] AdvancedViews = { View.Differences, View.Usage, View.Duplicates, View.Copy, View.Overview, View.Strings, View.Tree };
 
     // Views reachable from Start cards (or in-flow links) only — no tab of their own.
     static readonly View[] HiddenViews = { View.AddSounds };
@@ -2724,18 +2749,18 @@
             "Search every name in this file and jump straight to it — the song's set-list slot, the combi, the program.",
             "<path d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0'/>",
             OpenSearch),
-        new TaskCardDef("Add sounds from another file",
-            "Bring a song you bought — or built on another backup — into this file, with everything it needs to sound right.",
-            "<path fill-rule='evenodd' d='M3.5 6a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1 0-1h2A1.5 1.5 0 0 1 14 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-8A1.5 1.5 0 0 1 3.5 5h2a.5.5 0 0 1 0 1z'/><path fill-rule='evenodd' d='M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z'/>",
-            OpenAddSounds),
+        new TaskCardDef("Add sounds from other backups",
+            "Merge songs and sounds from other files — drag them across, and combis bring the programs they need to sound right.",
+            "<path d='M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1'/><path d='M1 8a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H1.5A.5.5 0 0 1 1 8m11 0a.5.5 0 0 1 .5-.5H15a.5.5 0 0 1 0 1h-2.5A.5.5 0 0 1 12 8'/>",
+            () => _view = View.Merge),
     };
 
     TaskCardDef[] MoreTaskCards() => new[]
     {
-        new TaskCardDef("Merge backups",
-            "Pull sounds from up to two other backups into this file — drag them across, dependencies follow.",
-            "<path d='M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1'/><path d='M1 8a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H1.5A.5.5 0 0 1 1 8m11 0a.5.5 0 0 1 .5-.5H15a.5.5 0 0 1 0 1h-2.5A.5.5 0 0 1 12 8'/>",
-            () => _view = View.Merge),
+        new TaskCardDef("Add one song, step by step",
+            "A guided walkthrough that copies a single song and its sounds — the careful path.",
+            "<path fill-rule='evenodd' d='M3.5 6a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1 0-1h2A1.5 1.5 0 0 1 14 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-8A1.5 1.5 0 0 1 3.5 5h2a.5.5 0 0 1 0 1z'/><path fill-rule='evenodd' d='M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z'/>",
+            OpenAddSounds),
         new TaskCardDef("Explore this file",
             "Browse set lists, and see each combi's splits and layers.",
             "<path d='M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2'/><path fill-rule='evenodd' d='M12 3v10h-1V3z'/><path d='M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V4l-5 1z'/><path fill-rule='evenodd' d='M0 11.5a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 7H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5m0-4A.5.5 0 0 1 .5 3H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5'/>",

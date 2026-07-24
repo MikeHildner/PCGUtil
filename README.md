@@ -9,19 +9,32 @@ you save the result as a brand-new `.PCG` file.
 
 ## What you can do
 
-- **Overview** — a quick summary of the file and the sections it contains.
+Main tabs:
+
 - **Set Lists** — see every set list and the program or combi each slot loads. In **Edit
   mode** you can rename, reorder, and copy slots; a moved slot keeps pointing at the same sound.
 - **Combis** — browse a bank and reorganize: reorder, copy, or rename combis. Reordering
   automatically updates the set-list slots that use them, so your songs keep their sound.
+  Each combi's key and velocity zones are editable right in its zone map.
 - **Programs** — the same for programs: reorder, copy, or rename. Every combi timbre and
   set-list slot that referenced a program is updated to follow it to its new spot.
+- **Merge** — your file in the middle, up to two other backups on the wings. Drag a program,
+  combi, or song across and combis bring the programs they need; anything the target already
+  has is reused instead of duplicated.
+- **Search** — find any program, combi, or set-list slot by name across the whole file.
+
+Behind **More**:
+
+- **Differences** — every program, combi, and slot that changed between an older backup and
+  the file you're editing.
 - **Usage** — which programs are actually used and by what, plus a list of programs and combis
   that nothing references (cleanup candidates).
-- **Duplicates** — programs or combis that share a name, flagged when they are byte-for-byte
-  identical (a true redundant copy, versus the same name reused for a different sound).
-- **Search** — find any program, combi, or set-list slot by name across the whole file.
-- Export lists to **CSV**, and download your edited **`.PCG`**.
+- **Duplicates** — programs and combis grouped by their sound data, so renamed copies still
+  group together; names shared by different sounds are listed separately.
+- **Copy** — precise slot-level copies between two files, including set-list slots.
+- **File info**, **Strings**, **Chunk tree** — file structure and raw data.
+
+Export lists to **CSV**, and download your edited **`.PCG`**.
 
 ## How to use it
 
@@ -30,8 +43,8 @@ you save the result as a brand-new `.PCG` file.
    by the app.
 3. Browse the tabs. Flip the **Browse | Edit** switch to make changes — every edit can be
    undone (Ctrl+Z / the ↶ button) and redone, and edits accumulate in memory as unsaved
-   until you save. The **Merge** view (under More) pulls sounds from up to two other
-   backups at once — drag them across, and combis bring the programs they need.
+   until you save. To pull sounds in from other backups, use the **Merge** tab — or the
+   guided "Add one song, step by step" flow if you'd rather take it one song at a time.
 4. Click **Download edited .PCG** to save a new file. Your uploaded file is left untouched.
 5. Load the new `.PCG` onto your instrument and **double-check it sounds right** before a gig.
 
