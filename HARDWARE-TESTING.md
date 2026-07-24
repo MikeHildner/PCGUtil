@@ -115,9 +115,11 @@ USER-A 096 "JUMP" also confirmed the combi favorite bit at 4791 bit 0 by the sam
       exactly that program (GET LUCKY VOCODER — confirmed in the UI after the fix).
 
 ## 13. Content-hash init detection (read-only decode)
-Status: **pending** — software-verified 2026-07-21 (sound-hash grouping + renamed-init
-detection, 191-test suite); the hardware side is one recall.
-- [ ] Recall USER-A #026 "Band On The Run" (or "Lust Girl" USER-A #064, "WHAT I LIKE ABOUT
+Status: **confirmed** on hardware (2026-07-24 — USER-A #026 "Band On The Run" recalled a
+bare init combi on the instrument, exactly as the Duplicates tab claimed. Content-based
+init detection is proven end to end: name-based matching would never have found it, and
+the sound hash caught it in a real gig backup).
+- [x] Recall USER-A #026 "Band On The Run" (or "Lust Girl" USER-A #064, "WHAT I LIKE ABOUT
       YOU" USER-C #020): despite the song name, it plays a bare init combi — exactly what
       the Duplicates tab's "init placeholders with a real name" list claims.
 
