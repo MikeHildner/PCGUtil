@@ -50,11 +50,12 @@ public sealed class SetListSlot
     /// <summary>The hardware's hold-time label for this slot, e.g. "5 sec".</summary>
     public string HoldTimeLabel => SetListHoldTimes.Label(HoldTimeIndex);
 
-    /// <summary>The comment's font setting (0–31, 0 = untouched), stored in the low bits of
-    /// the transpose byte. Probe-located 2026-07-25 — setting a slot's Font moved this and
-    /// nothing else — but the value's meaning (8 on the factory demo slot, 16 on the probe)
-    /// isn't mapped to the instrument's font list yet, so it is preserved, not interpreted.</summary>
+    /// <summary>The comment's font size, stored in the low 5 bits of the transpose byte
+    /// (probe-located 2026-07-25). See <see cref="SetListCommentFonts"/> for the labels.</summary>
     public required int CommentFont { get; init; }
+
+    /// <summary>The instrument's label for this slot's comment font ("XS".."XL").</summary>
+    public string CommentFontLabel => SetListCommentFonts.Label(CommentFont);
 
     public bool IsEmpty => Name.Length == 0;
 }
@@ -78,6 +79,42 @@ public static class SetListHoldTimes
 
     public static string Label(int index) =>
         index >= 0 && index < Labels.Length ? Labels[index] : $"hold {index}";
+}
+
+/// <summary>
+/// The five comment font sizes the instrument's "Comment Font" dialog offers, by stored
+/// value. Located 2026-07-25 in the low 5 bits of a slot's transpose byte; <c>XL</c> is
+/// hardware-confirmed at 16 (a probe slot set to XL) and the factory demo slot's 8 lands
+/// on <c>M</c>, so the five choices are stored four apart. XS/S/L rest on that spacing
+/// rather than on their own probe — a wrong label here is cosmetic, never a file risk.
+/// </summary>
+public static class SetListCommentFonts
+{
+    private static readonly string[] Labels = { "XS", "S", "M", "L", "XL" };
+
+    /// <summary>Stored values step by four: XS 0, S 4, M 8, L 12, XL 16.</summary>
+    public const int Step = 4;
+
+    public static int Count => Labels.Length;
+
+    /// <summary>The stored value for a size index (0 = XS … 4 = XL).</summary>
+    public static int Value(int index) => index * Step;
+
+    public static string Label(int value) =>
+        value >= 0 && value % Step == 0 && value / Step < Labels.Length
+            ? Labels[value / Step]
+            : $"font {value}";
+
+    /// <summary>Relative size for rendering a comment at this font, 1.0 = the M middle.</summary>
+    public static double RelativeSize(int value) => Label(value) switch
+    {
+        "XS" => 0.75,
+        "S" => 0.875,
+        "M" => 1.0,
+        "L" => 1.25,
+        "XL" => 1.6,
+        _ => 1.0,
+    };
 }
 
 /// <summary>

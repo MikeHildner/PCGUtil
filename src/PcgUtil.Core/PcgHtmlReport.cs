@@ -107,7 +107,8 @@ public static class PcgHtmlReport
                 .Append(Esc(slot.Name)).Append("</td><td>")
                 .Append(Esc(SlotLoads(slot, catalog))).Append("</td><td class=\"num\">")
                 .Append(slot.Transpose == 0 ? "" : slot.Transpose.ToString("+0;-0")).Append("</td><td class=\"num\">")
-                .Append(Esc(slot.HoldTimeLabel)).Append("</td><td class=\"notes\">")
+                .Append(Esc(slot.HoldTimeLabel)).Append("</td><td class=\"notes ")
+                .Append(NoteFontClass(slot.CommentFont)).Append("\">")
                 .Append(Esc(slot.Description)).Append("</td></tr>");
         }
         body.Append("</tbody></table>");
@@ -130,6 +131,18 @@ public static class PcgHtmlReport
     // diagnosed 2026-07-18) — splitting the literal keeps the emitted HTML identical.
     private static readonly string SwatchStyleAttr = string.Concat("sty", "le=\"background:");
 
+    // A slot's notes print at the size the player chose on the instrument, so an XL
+    // reminder reads as loudly on paper as it does on the panel. Classes, not inline
+    // styles — this file keeps its style attributes to a minimum (see SwatchStyleAttr).
+    private static string NoteFontClass(int commentFont) => commentFont switch
+    {
+        0 => "n-xs",
+        4 => "n-s",
+        12 => "n-l",
+        16 => "n-xl",
+        _ => "n-m",
+    };
+
     private static string Esc(string? s) => WebUtility.HtmlEncode(s ?? string.Empty);
 
     private static string Page(string title, string body)
@@ -145,6 +158,9 @@ public static class PcgHtmlReport
         sb.Append("th{background:#f3f3f3;}");
         sb.Append(".notes{white-space:pre-line;font-size:.85rem;color:#333;}");
         sb.Append(".num{white-space:nowrap;text-align:right;}");
+        // Comment font sizes as set on the instrument (XS..XL), relative to .notes.
+        sb.Append(".n-xs{font-size:.75em;}.n-s{font-size:.875em;}.n-m{font-size:1em;}");
+        sb.Append(".n-l{font-size:1.25em;}.n-xl{font-size:1.6em;line-height:1.25;}");
         sb.Append(".swatch{display:inline-block;width:.7rem;height:.7rem;border-radius:3px;border:1px solid #bbb;margin-right:.35rem;vertical-align:-1px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}");
         sb.Append("h2.combi{font-size:1.05rem;margin:.9rem 0 .3rem;}");
         sb.Append("@media print{body{margin:0;}.page-break{page-break-before:always;}}");

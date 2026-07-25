@@ -871,6 +871,10 @@
                                             {
                                                 <span class="small text-body-secondary">· hold @slot.HoldTimeLabel</span>
                                             }
+                                            @if (!string.IsNullOrEmpty(slot.Description) && slot.CommentFont != 0)
+                                            {
+                                                <span class="small text-body-secondary" title="The comment font size set on the instrument">· note @slot.CommentFontLabel</span>
+                                            }
                                             <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
                                                     @onclick="() => OpenCombi(slot.Reference.Bank, slot.Reference.Index)">Open in Combis ›</button>
                                         </div>

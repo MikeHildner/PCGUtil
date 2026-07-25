@@ -173,11 +173,13 @@ public class SetListReaderTests
         var lists = SetListReader.Read(probe);
         var edited = lists[16].Slots[5];
         Assert.Equal(16, edited.CommentFont);
+        Assert.Equal("XL", edited.CommentFontLabel); // the size chosen in the probe
         Assert.Equal(0, edited.Transpose);           // the low bits are NOT transpose
         Assert.StartsWith("djuk", edited.Description);
 
-        // The factory demo slot has carried its own value all along.
+        // The factory demo slot has carried its own value all along — the middle size.
         Assert.Equal(8, lists[15].Slots[31].CommentFont);
+        Assert.Equal("M", lists[15].Slots[31].CommentFontLabel);
         Assert.Equal(0, lists[15].Slots[31].Transpose);
 
         // Untouched slots read zero.

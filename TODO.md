@@ -20,7 +20,6 @@ a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T1] Map the comment font values — byte +29's low 5 bits are the slot comment's font (probe-located; 8 on the factory demo slot, 16 on the probe). Needs one note from Mike: which Font entry he picked to produce 16. Then label it and it can join the slot panel / cheat sheet | 2026-07-25 | — |
 | [T2] Set-list record trailing region — 16 bytes after the 128 slots; byte +10 reads 5 on every set list written on the instrument and 0 elsewhere. Not the font (that probe left it untouched); the Edit page's "16/8/4 Slots" display mode is the next guess | 2026-07-25 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
@@ -38,6 +37,7 @@ a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 | Task | Created | Completed |
 |------|---------|-----------|
+| [T2] Slot comment font decoded — the low 5 bits of the transpose byte hold the instrument's XS/S/M/L/XL choice (XL=16 hardware-confirmed, four apart). Fixed two latent bugs it had been hiding: negative transpose truncated when font bits were set, and transpose writes wiped the font. Shown as a "note XL" chip, and the printed cheat sheet now renders each note at the size chosen on the panel | 2026-07-25 | 2026-07-25 |
 | [T2] Bend range & portamento per timbre — decoded from +6/+36 and shown as Bend/Porta columns in the timbre table; both carry a "follow the program" sentinel (bend −25, portamento 0xFF) found by scanning ~13k live timbres, rendered as "PRG". Read-only; hardware §16 pending (display-only, no file risk) | 2026-07-18 | 2026-07-25 |
 | [T5] Three-pane Merge view — source A \| editable target \| source B; drag-to-merge (or Select→tap) with per-drop confirm, deep dependency pulling via the §9-verified planner (cross-drop reuse proven: a program merged from one wing is reused when a combi from the other needs it), "in target" sound-key badges, two shared source slots superseding the single Copy source; N-file tabs deferred by scope decision *(Dan feedback; the big one)* | 2026-07-18 | 2026-07-23 |
 | [T4] Timbre quick-edit — key/velocity zones, volume, and transpose editable inline in the combi zone view (first-ever writes to timbre bytes +37/38/40/41/5/7; zone ends drag their partner instead of erroring; panel survives edits; per-timbre undo labels); hardware §15 confirmed 2026-07-22 *(Dan feedback)* | 2026-07-18 | 2026-07-22 |

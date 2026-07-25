@@ -31,6 +31,9 @@ public class PcgHtmlReportTests
 
         Assert.Contains("<th class=\"num\">Xpose</th>", html);
         Assert.Contains("<th class=\"num\">Hold</th>", html);
+        // Notes print at the size chosen on the instrument.
+        Assert.Contains("n-xl{font-size:1.6em", html);
+        Assert.Contains("class=\"notes n-", html);
         // The gig list plays most songs at −1: the sheet must show it.
         Assert.Contains(">-1</td>", html);
         // Hold time renders as the hardware's label, not a raw index.
