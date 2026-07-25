@@ -9,11 +9,13 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 (parameters, bulk edit, sysex); **T5** is the strategic long-pole (multi-model coverage).
 *(parity)* marks gaps versus PCG Tools, the current benchmark.
 
+**Declined:** N-file workspace tabs (2026-07-25) — the three-pane Merge view covers the
+multi-file need; per-file state bundles and per-file undo aren't worth the refactor.
+
 ## Open
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T3] N-file workspace tabs — promote every open file to a first-class tab (per-file state bundles, per-file undo, workspace cache/restore); deliberately deferred from the T5 merge scope — revisit only if the Merge view proves insufficient | 2026-07-23 | — |
 | [T2] Bend range & portamento per timbre — surface the two known-offset depths in the combi timbre table | 2026-07-18 | — |
 | [T2] Keyboard track — the last undecoded set-list slot field (Song slots); needs a written-set-list hardware probe | 2026-07-18 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
