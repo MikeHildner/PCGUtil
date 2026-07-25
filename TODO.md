@@ -11,12 +11,16 @@ architectural concept (multi-file model, rule engine); **T4** opens a new editin
 
 **Declined:** N-file workspace tabs (2026-07-25) — the three-pane Merge view covers the
 multi-file need; per-file state bundles and per-file undo aren't worth the refactor.
+**Withdrawn:** "keyboard track" per-slot field (2026-07-25) — the premise was wrong. The
+Set List Edit dropdown beside the slot number is the category/program picker, and a probe
+confirmed choosing programs moves only the already-decoded reference bytes. Every byte of
+a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 ## Open
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T2] Keyboard track — the last undecoded set-list slot field (Song slots); needs a written-set-list hardware probe | 2026-07-18 | — |
+| [T2] Set-list record trailing region — 16 bytes after the 128 slots; byte +10 reads 5 on every set list written on the instrument and 0 elsewhere. The Edit page's **Font** button is the leading suspect (per-set-list comment font size at its default). One-tap probe: change the font on a set list, write it, save — if byte +10 moves, decode and show it | 2026-07-25 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |

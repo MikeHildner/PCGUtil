@@ -78,6 +78,18 @@ public static class SetListReader
         return setLists;
     }
 
+    // Each record is 24 (name) + 128 x 542 (slots) = 69400 bytes, but the record size is
+    // 69416 — a 16-byte trailing region follows the slots. Only its byte +10 is ever
+    // non-zero on real files, holding 5 on exactly the set lists that have been written on
+    // the instrument and 0 on the rest (probe 2026-07-25: editing set list 000 flipped its
+    // byte from 0 to 5, nothing else in the region moved). The Edit page's **Font** button
+    // is the leading suspect — a per-set-list comment font size sitting at its default —
+    // but that is untested, so nothing here decodes or writes the region.
+    //
+    // NOT here: any per-slot "keyboard track". The Edit page's dropdown beside the slot
+    // number is the category/program picker for what the slot loads (verified by probe:
+    // choosing new programs for two slots moved only their reference bytes).
+
     // Reference bytes B0 B1 B2:
     //   Type  = B0 & 0x03        (Combi=0, Program=1, Song=2)
     //   Color = (B0 >> 2) & 0x0F (probe-verified: 16 slots colored in picker order → 4j+kind)
