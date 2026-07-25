@@ -187,7 +187,10 @@ public static class PcgEditor
         int value = semitones * 32;
         if (value < 0)
             value += 2048; // 11-bit two's-complement space
-        data[refOffset + 5] = (byte)(value & 0xFF);
+        // The low 5 bits of this byte are the comment font, not transpose — writing the
+        // whole byte used to wipe a slot's font setting (found by the 2026-07-25 probe).
+        data[refOffset + 5] = (byte)((data[refOffset + 5] & SetListReader.CommentFontMask)
+                                     | (value & ~SetListReader.CommentFontMask & 0xFF));
         data[refOffset + 1] = (byte)((data[refOffset + 1] & 0x1F) | (((value >> 8) & 0x07) << 5));
         return Finalized(pcg, data);
     }

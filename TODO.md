@@ -20,7 +20,8 @@ a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T2] Set-list record trailing region — 16 bytes after the 128 slots; byte +10 reads 5 on every set list written on the instrument and 0 elsewhere. The Edit page's **Font** button is the leading suspect (per-set-list comment font size at its default). One-tap probe: change the font on a set list, write it, save — if byte +10 moves, decode and show it | 2026-07-25 | — |
+| [T1] Map the comment font values — byte +29's low 5 bits are the slot comment's font (probe-located; 8 on the factory demo slot, 16 on the probe). Needs one note from Mike: which Font entry he picked to produce 16. Then label it and it can join the slot panel / cheat sheet | 2026-07-25 | — |
+| [T2] Set-list record trailing region — 16 bytes after the 128 slots; byte +10 reads 5 on every set list written on the instrument and 0 elsewhere. Not the font (that probe left it untouched); the Edit page's "16/8/4 Slots" display mode is the next guess | 2026-07-25 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |

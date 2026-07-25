@@ -69,6 +69,7 @@ public static class SetListReader
                     HoldTimeIndex = raw.Length > 3 ? raw[3] : SetListHoldTimes.DefaultIndex,
                     Volume = raw.Length > 4 ? raw[4] : 127,
                     Transpose = raw.Length > 5 ? DecodeTranspose(raw[1], raw[5]) : 0,
+                    CommentFont = raw.Length > 5 ? raw[5] & CommentFontMask : 0,
                 });
             }
 
@@ -81,10 +82,9 @@ public static class SetListReader
     // Each record is 24 (name) + 128 x 542 (slots) = 69400 bytes, but the record size is
     // 69416 — a 16-byte trailing region follows the slots. Only its byte +10 is ever
     // non-zero on real files, holding 5 on exactly the set lists that have been written on
-    // the instrument and 0 on the rest (probe 2026-07-25: editing set list 000 flipped its
-    // byte from 0 to 5, nothing else in the region moved). The Edit page's **Font** button
-    // is the leading suspect — a per-set-list comment font size sitting at its default —
-    // but that is untested, so nothing here decodes or writes the region.
+    // the instrument and 0 on the rest. Changing a slot's comment font did NOT move it
+    // (probe 2026-07-25), so it is some other per-set-list setting — the Edit page's
+    // "16/8/4 Slots" display mode is the next guess. Undecoded; nothing writes it.
     //
     // NOT here: any per-slot "keyboard track". The Edit page's dropdown beside the slot
     // number is the category/program picker for what the slot loads (verified by probe:
@@ -96,18 +96,29 @@ public static class SetListReader
     //   Bank  = B1 & 0x1F        (top 3 bits = transpose high bits — always mask)
     //   Index = B2 & 0x7F
     // Bytes 3–5: hold-time index 0–22 (default 6 = 5 s — NOT a font size; probe-verified
-    // 30 s→18, 50 s→21), volume 0–127, transpose low byte. Transpose = semitones ×32 in an
-    // 11-bit signed field across byte 5 and B1's top bits (probe: +2→0x40, −1→0xE0/0xE0,
-    // +8→B1 0x20 with byte 5 zero).
+    // 30 s→18, 50 s→21), volume 0–127, then a byte shared by two fields. Transpose =
+    // semitones ×32 in a signed field across byte 5's TOP 3 BITS and B1's top bits (probe:
+    // +2→0x40, −1→0xE0/0xE0, +8→B1 0x20 with byte 5 zero); because the value is always a
+    // multiple of 32, byte 5's low 5 bits are free — and that is where the comment FONT
+    // lives (probe 2026-07-25: changing a slot's Font moved those bits alone, leaving its
+    // transpose at 0; the factory demo slot has carried 8 there all along). The font
+    // values aren't mapped to the instrument's list yet, so they are preserved verbatim.
 
-    // 11-bit signed (B1 bits 5–7 high, byte 5 low), ÷32 → semitones −12..+12.
+    // 11-bit signed (B1 bits 5–7 high, byte 5 low), ÷32 → semitones −12..+12. Byte 5's low
+    // 5 bits belong to the comment font (see CommentFontOffsetMask) and must be masked off
+    // first: leaving them in makes a negative transpose truncate toward zero (−1 with font
+    // 16 would read as 0), which is exactly the bug the font probe exposed 2026-07-25.
     private static int DecodeTranspose(byte b1, byte low)
     {
-        int value = ((b1 >> 5) << 8) | low;
+        int value = ((b1 >> 5) << 8) | (low & ~CommentFontMask & 0xFF);
         if (value >= 1024)
             value -= 2048;
         return value / 32;
     }
+
+    /// <summary>Byte 5 of a slot reference carries the comment font in its low 5 bits;
+    /// transpose (semitones ×32) never uses them.</summary>
+    public const int CommentFontMask = 0x1F;
     private static SetListReference DecodeReference(byte[] raw)
     {
         byte b0 = raw.Length > 0 ? raw[0] : (byte)0;

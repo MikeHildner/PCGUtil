@@ -161,6 +161,68 @@ public class SetListReaderTests
         Assert.Equal(2, sl16.Slots[1].Transpose);       // carried over from the earlier probe
     }
 
+    // The font probe (a comment typed on set list 016 slot 5 with its Font changed) proved
+    // the transpose byte's low 5 bits are a separate field: they moved on their own, on a
+    // slot whose transpose stayed at 0. The factory demo slot carries 8 in the same bits.
+    [Fact]
+    public void Font_probe_pins_the_comment_font_bits()
+    {
+        if (ProbeFile("font-probe.PCG") is not { } probe)
+            return;
+
+        var lists = SetListReader.Read(probe);
+        var edited = lists[16].Slots[5];
+        Assert.Equal(16, edited.CommentFont);
+        Assert.Equal(0, edited.Transpose);           // the low bits are NOT transpose
+        Assert.StartsWith("djuk", edited.Description);
+
+        // The factory demo slot has carried its own value all along.
+        Assert.Equal(8, lists[15].Slots[31].CommentFont);
+        Assert.Equal(0, lists[15].Slots[31].Transpose);
+
+        // Untouched slots read zero.
+        Assert.Equal(0, lists[16].Slots[4].CommentFont);
+    }
+
+    // Regression: writing transpose used to blow away the font bits sharing its byte, and
+    // decoding a negative transpose with font bits set truncated toward zero.
+    [Fact]
+    public void Transpose_writes_preserve_the_font_bits_and_negative_values_survive_them()
+    {
+        if (ProbeFile("font-probe.PCG") is not { } probe)
+            return;
+
+        var edited = PcgReader.Parse(PcgEditor.SetSetListSlotTranspose(probe, 16, 5, -1));
+        var slot = SetListReader.Read(edited)[16].Slots[5];
+        Assert.Equal(-1, slot.Transpose);      // negative decodes correctly past the font bits
+        Assert.Equal(16, slot.CommentFont);    // and the font setting survived the write
+
+        // Every other transpose value round-trips with the font intact too.
+        foreach (var semitones in new[] { -12, -5, 0, 7, 12 })
+        {
+            var s = SetListReader.Read(PcgReader.Parse(
+                PcgEditor.SetSetListSlotTranspose(probe, 16, 5, semitones)))[16].Slots[5];
+            Assert.Equal(semitones, s.Transpose);
+            Assert.Equal(16, s.CommentFont);
+        }
+    }
+
+    static PcgFile? ProbeFile(string name)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var filesDir = Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+            {
+                var path = Directory.EnumerateFiles(filesDir, name).FirstOrDefault();
+                return path is null ? null : PcgReader.Parse(File.ReadAllBytes(path));
+            }
+            dir = dir.Parent;
+        }
+        return null;
+    }
+
     [Fact]
     public void Hold_time_labels_cover_the_hardware_list()
     {

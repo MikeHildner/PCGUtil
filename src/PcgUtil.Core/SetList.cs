@@ -50,6 +50,12 @@ public sealed class SetListSlot
     /// <summary>The hardware's hold-time label for this slot, e.g. "5 sec".</summary>
     public string HoldTimeLabel => SetListHoldTimes.Label(HoldTimeIndex);
 
+    /// <summary>The comment's font setting (0–31, 0 = untouched), stored in the low bits of
+    /// the transpose byte. Probe-located 2026-07-25 — setting a slot's Font moved this and
+    /// nothing else — but the value's meaning (8 on the factory demo slot, 16 on the probe)
+    /// isn't mapped to the instrument's font list yet, so it is preserved, not interpreted.</summary>
+    public required int CommentFont { get; init; }
+
     public bool IsEmpty => Name.Length == 0;
 }
 
