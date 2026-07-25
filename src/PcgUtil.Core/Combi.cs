@@ -145,6 +145,24 @@ public sealed class CombiTimbre
     public required int BottomVelocity { get; init; }
     public required int TopVelocity { get; init; }
 
+    /// <summary>Pitch-bend range in semitones (−24…+24), or null when the timbre follows
+    /// its program's own setting ("PRG" on the instrument).</summary>
+    public required int? BendRange { get; init; }
+
+    /// <summary>Portamento time (1–127), 0 for off, or null when the timbre follows its
+    /// program's own setting ("PRG").</summary>
+    public required int? Portamento { get; init; }
+
+    /// <summary>Display label for <see cref="BendRange"/>: "PRG" or a signed semitone count.</summary>
+    public string BendRangeLabel => BendRange is { } b ? b.ToString("+0;-0;0") : "PRG";
+
+    /// <summary>Display label for <see cref="Portamento"/>: "PRG", "Off", or the time.</summary>
+    public string PortamentoLabel => Portamento is { } p ? (p == 0 ? "Off" : p.ToString()) : "PRG";
+
+    /// <summary>True when this timbre overrides its program's bend/portamento settings.</summary>
+    public bool OverridesBend => BendRange is not null;
+    public bool OverridesPortamento => Portamento is not null;
+
     /// <summary>True when the timbre actually plays an internal program (Int or Both).</summary>
     public bool UsesInternalProgram => Status is TimbreStatus.Int or TimbreStatus.Both;
 

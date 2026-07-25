@@ -71,8 +71,56 @@ public class CombiReaderTests
                 Assert.InRange(t.MidiChannel, 0, 16); // 16 = Gch
                 Assert.InRange(t.Transpose, -60, 60);
                 Assert.InRange(t.Detune, -1200, 1200);
+                if (t.BendRange is { } bend)
+                    Assert.InRange(bend, -24, 24);      // else null = follows the program
+                if (t.Portamento is { } porta)
+                    Assert.InRange(porta, 0, 127);      // 0 = off; null = follows the program
             }
         }
+    }
+
+    // Bend and portamento each defer to the timbre's program via a sentinel outside their
+    // range, so most timbres read null. The sample carries both real overrides and the
+    // sentinel; a wrong offset would break the tight ranges asserted above on 11k+ timbres.
+    [Fact]
+    public void Bend_and_portamento_decode_their_follow_the_program_sentinels()
+    {
+        var live = CombiReader.Read(Sample.Parse())
+            .Where(c => !c.IsEmptyOrInit)
+            .SelectMany(c => c.Timbres.Where(t => t.UsesInternalProgram))
+            .ToList();
+
+        // The sentinel dominates: most timbres just inherit the program's own settings.
+        Assert.True(live.Count(t => t.BendRange is null) > live.Count / 2);
+        Assert.True(live.Count(t => t.Portamento is null) > live.Count / 2);
+        Assert.Equal("PRG", live.First(t => t.BendRange is null).BendRangeLabel);
+        Assert.Equal("PRG", live.First(t => t.Portamento is null).PortamentoLabel);
+
+        // And real overrides decode as musical values: the sample holds bends of 0, 2, 12
+        // and 24 semitones among others, and an explicit portamento-off.
+        var bends = live.Where(t => t.BendRange is not null).Select(t => t.BendRange!.Value).Distinct().ToList();
+        Assert.Contains(0, bends);
+        Assert.Contains(12, bends);
+        Assert.All(bends, b => Assert.InRange(b, -24, 24));
+        Assert.Equal("Off", live.First(t => t.Portamento == 0).PortamentoLabel);
+        Assert.All(live.Where(t => t.Portamento > 0), t => Assert.InRange(t.Portamento!.Value, 1, 127));
+    }
+
+    [Fact]
+    public void Vendor_pack_timbres_all_follow_their_programs_for_bend_and_portamento()
+    {
+        if (VendorPack.Parse() is not { } pack)
+            return;
+
+        // Every live timbre in the pack reads the sentinel — a pack that never overrides
+        // per timbre, and a clean cross-file check that the sentinel isn't sample-specific.
+        var live = CombiReader.Read(pack)
+            .Where(c => !c.IsEmptyOrInit)
+            .SelectMany(c => c.Timbres.Where(t => t.UsesInternalProgram))
+            .ToList();
+        Assert.NotEmpty(live);
+        Assert.All(live, t => Assert.Null(t.BendRange));
+        Assert.All(live, t => Assert.Null(t.Portamento));
     }
 
     // The vendor pack's set-list notes describe zones in prose, giving independent ground

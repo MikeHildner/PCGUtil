@@ -16,7 +16,6 @@ multi-file need; per-file state bundles and per-file undo aren't worth the refac
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T2] Bend range & portamento per timbre — surface the two known-offset depths in the combi timbre table | 2026-07-18 | — |
 | [T2] Keyboard track — the last undecoded set-list slot field (Song slots); needs a written-set-list hardware probe | 2026-07-18 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
@@ -34,6 +33,7 @@ multi-file need; per-file state bundles and per-file undo aren't worth the refac
 
 | Task | Created | Completed |
 |------|---------|-----------|
+| [T2] Bend range & portamento per timbre — decoded from +6/+36 and shown as Bend/Porta columns in the timbre table; both carry a "follow the program" sentinel (bend −25, portamento 0xFF) found by scanning ~13k live timbres, rendered as "PRG". Read-only; hardware §16 pending (display-only, no file risk) | 2026-07-18 | 2026-07-25 |
 | [T5] Three-pane Merge view — source A \| editable target \| source B; drag-to-merge (or Select→tap) with per-drop confirm, deep dependency pulling via the §9-verified planner (cross-drop reuse proven: a program merged from one wing is reused when a combi from the other needs it), "in target" sound-key badges, two shared source slots superseding the single Copy source; N-file tabs deferred by scope decision *(Dan feedback; the big one)* | 2026-07-18 | 2026-07-23 |
 | [T4] Timbre quick-edit — key/velocity zones, volume, and transpose editable inline in the combi zone view (first-ever writes to timbre bytes +37/38/40/41/5/7; zone ends drag their partner instead of erroring; panel survives edits; per-timbre undo labels); hardware §15 confirmed 2026-07-22 *(Dan feedback)* | 2026-07-18 | 2026-07-22 |
 | [T1] Printed set-list cheat sheet gains Xpose and Hold columns (color swatch was already there) | 2026-07-18 | 2026-07-22 |

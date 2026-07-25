@@ -10,8 +10,15 @@ namespace PcgUtil.Core;
 /// category/sub-category @ 4790 (bits 0–4 / 5–7), favorite @ 4791 bit 0, and the 16 timbres as
 /// a 188-byte-strided array starting at 4802 (16 × 188 fills the record exactly).
 /// Per timbre: program number @ +0, bank PcgId @ +1, MIDI channel / status @ +2 (bits 0–4 /
-/// 5–7), volume @ +5, transpose @ +7 (signed), detune @ +8 (LE16, cents), mute @ +34 bit 7,
-/// key zone top/bottom @ +37/+38, velocity zone top/bottom @ +40/+41.
+/// 5–7), volume @ +5, bend range @ +6 (signed semitones), transpose @ +7 (signed), detune
+/// @ +8 (LE16, cents), portamento @ +36, mute @ +34 bit 7, key zone top/bottom @ +37/+38,
+/// velocity zone top/bottom @ +40/+41.
+/// Bend range and portamento each carry a "follow the program" sentinel one step outside
+/// their range (bend −25, portamento 0xFF) — read off the value distribution over ~13k live
+/// timbres: bend holds only musical semitone counts (0/2/4/6/12/24) beside a sentinel that
+/// covers 84% of the sample and every timbre of a vendor pack; portamento likewise pairs
+/// times 0–64 with a dominant 0xFF. Prior-art offsets plus those statistics — unlike the
+/// zones (§15) these two have no hardware round-trip behind them, and nothing writes them.
 /// The four KARMA modules' GE selects are LE16 at record offsets 1814/2558/3302/4046
 /// (flat id: 0–2047 preset, 2048+ user — see <see cref="Combi.KarmaGeLabel"/>); verified by
 /// matching a vendor pack's MIDI-converted GEs to the combis that play them. Each select
@@ -36,6 +43,13 @@ public static class CombiReader
     private const int CategoryOffset = 4790;
     public const int FavoriteOffset = 4791; // = CategoryOffset + 1 (hardware-verified 2026-07-18)
     public const int FavoriteBit = 0x01;
+
+    // Per-timbre bend range and portamento, both of which can defer to the timbre's program
+    // ("PRG" on the instrument) via a sentinel one step outside their value range.
+    private const int BendRangeOffset = 6;
+    private const int BendFollowsProgram = -25;      // -24..+24 are real semitone values
+    private const int PortamentoOffset = 36;
+    private const int PortamentoFollowsProgram = 0xFF; // 0 = off, 1-127 = time
     private static readonly int[] KarmaGeSelectOffsets = { 1814, 2558, 3302, 4046 };
 
     private const int IfxBase = 88;
@@ -135,6 +149,10 @@ public static class CombiReader
                 BottomKey = data[tOff + 38],
                 TopVelocity = data[tOff + 40],
                 BottomVelocity = data[tOff + 41],
+                BendRange = (sbyte)data[tOff + BendRangeOffset] is var bend && bend == BendFollowsProgram
+                    ? null : bend,
+                Portamento = data[tOff + PortamentoOffset] is var porta && porta == PortamentoFollowsProgram
+                    ? null : porta,
             });
         }
         return timbres;

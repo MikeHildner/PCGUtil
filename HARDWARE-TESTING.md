@@ -164,6 +164,16 @@ which until then rested on vendor-prose decode evidence only).
       the written values.
 - [x] The combi's other timbres — programs, zones, status — are untouched.
 
+## 16. Bend range & portamento readout (read-only decode)
+Status: **pending** — software-derived only. Offsets +6/+36 come from the prior-art model
+plus a value scan over ~13k live timbres (bend holds musical semitone counts beside a −25
+"follow the program" sentinel covering 84%; portamento pairs times 0–64 with a dominant
+0xFF). Nothing writes these bytes, so a mismatch would be a display bug, not a file risk.
+- [ ] Open a combi whose Timbres panel shows a real bend override (the sample's "Let's Go
+      Crazy" USER-A #057 reads Bend 0 on its drum-kit timbres T6/T7 and PRG elsewhere), and
+      compare against the instrument's Timbre Parameters → Pitch page: the app's Bend and
+      Porta columns match, and "PRG" corresponds to the instrument showing PRG.
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.
