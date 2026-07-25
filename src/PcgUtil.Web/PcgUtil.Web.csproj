@@ -8,6 +8,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The human version shown in the UI ("v1.0"). Bump on milestones; the deploy script
+         reads it and appends the build stamp and git hash as InformationalVersion
+         "<AppVersion>+<yyyy.MM.dd.HHmm>+<short-sha>". Dev builds carry "+dev". -->
+    <AppVersion>1.0</AppVersion>
+    <InformationalVersion>$(AppVersion)+dev</InformationalVersion>
+    <!-- Keep InformationalVersion exactly what we set: the SDK would otherwise append its
+         own +<commit> suffix and break the three-part parse. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <!-- VS Browser Link / browser-refresh inject scripts into text/html responses; injecting
          into a pre-compressed static asset corrupts the stream (ERR_HTTP2_PROTOCOL_ERROR on

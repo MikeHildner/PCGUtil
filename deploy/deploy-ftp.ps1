@@ -39,7 +39,15 @@ if (-not $SkipPublish) {
     # (2026-07-21: PcgUtil.Core.dll rejected under ANY name), the next stamp shifts every RVA
     # and the match evaporates.
     $stamp = Get-Date -Format 'yyyy.MM.dd.HHmm'
-    dotnet publish (Join-Path $repoRoot 'src/PcgUtil.Web') -c Release -r win-x86 --self-contained true -p:PublishReadyToRun=true -p:Version=$stamp -o $outDir --nologo
+    # The UI's "v1.0 - Build date - hash" line: AppVersion comes from the csproj (bump it
+    # there on milestones), the short git hash pins the exact source. Plus-separated so
+    # the runtime parse is unambiguous and no CLI quoting is needed.
+    $csproj = Get-Content (Join-Path $repoRoot 'src/PcgUtil.Web/PcgUtil.Web.csproj') -Raw
+    $appVer = [regex]::Match($csproj, '<AppVersion>(.+?)</AppVersion>').Groups[1].Value
+    if (-not $appVer) { $appVer = '0.0' }
+    $sha = (& git -C $repoRoot rev-parse --short HEAD)
+    if ($LASTEXITCODE -ne 0 -or -not $sha) { $sha = 'nogit' }
+    dotnet publish (Join-Path $repoRoot 'src/PcgUtil.Web') -c Release -r win-x86 --self-contained true -p:PublishReadyToRun=true -p:Version=$stamp "-p:InformationalVersion=$appVer+$stamp+$sha" -o $outDir --nologo
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)." }
 }
 if (-not (Test-Path (Join-Path $outDir 'web.config'))) { throw "No web.config in $outDir - publish output looks wrong." }
