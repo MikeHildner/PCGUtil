@@ -800,43 +800,73 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>
+    /// A run of fixed-size records that each carry a 16-timbre set at
+    /// <see cref="CombiReader.TimbresOffset"/>. Combi banks are the only source inside a
+    /// .PCG, but the vendor SysEx dump documents a song as the same 7810-byte timbre set
+    /// followed by its control block, so a companion .SNG's songs can be handed to the same
+    /// retargeting walk over that file's own bytes.
+    /// </summary>
+    internal readonly record struct TimbreSetRegion(long RecordsStart, int RecordSize, int Count);
+
+    /// <summary>Every combi bank in the file, as timbre-set regions.</summary>
+    internal static IEnumerable<TimbreSetRegion> CombiTimbreRegions(PcgFile pcg, byte[] data)
+    {
+        var cmb = pcg.FindFirst("CMB1");
+        if (cmb is null)
+            yield break;
+
+        foreach (var bankChunk in cmb.Children)
+        {
+            long baseOffset = bankChunk.DataOffset;
+            if (baseOffset + BankSubHeaderSize > data.Length)
+                continue;
+            yield return new TimbreSetRegion(
+                baseOffset + BankSubHeaderSize,
+                (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset + 4, 4)),
+                (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset, 4)));
+        }
+    }
+
+    /// <summary>
+    /// Visits the program reference of every timbre in the given regions. The callback gets
+    /// the offset of the timbre's program-number byte; the bank PcgId is the byte after it.
+    /// </summary>
+    internal static void ForEachTimbreProgramRef(byte[] data, IEnumerable<TimbreSetRegion> regions,
+                                                 Action<long> visit)
+    {
+        foreach (var region in regions)
+        {
+            for (int i = 0; i < region.Count; i++)
+            {
+                long record = region.RecordsStart + (long)i * region.RecordSize;
+                if (record + region.RecordSize > data.Length)
+                    break;
+                for (int t = 0; t < CombiReader.TimbresPerCombi; t++)
+                {
+                    long tOff = record + CombiReader.TimbresOffset + (long)t * CombiReader.TimbreStride;
+                    if (tOff + 1 >= data.Length)
+                        break;
+                    visit(tOff);
+                }
+            }
+        }
+    }
+
     // Retargets both program reference graphs after a whole-bank permutation. newIndexOfOld maps
     // each record's old index to its new one; references into other banks are untouched, and the
     // bank byte never changes because the permutation stays within one bank.
     private static void RetargetProgramReferences(PcgFile pcg, byte[] data, int bank, int[] newIndexOfOld)
     {
-        // Combi timbres (every CMB1 record). Each timbre: number @ +0, bank PcgId @ +1.
-        var cmb = pcg.FindFirst("CMB1");
-        if (cmb is not null)
+        // Combi timbres. Each timbre: number @ +0, bank PcgId @ +1.
+        ForEachTimbreProgramRef(data, CombiTimbreRegions(pcg, data), tOff =>
         {
-            foreach (var bankChunk in cmb.Children)
-            {
-                long baseOffset = bankChunk.DataOffset;
-                if (baseOffset + BankSubHeaderSize > data.Length)
-                    continue;
-                int count = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset, 4));
-                int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset + 4, 4));
-                long recordsStart = baseOffset + BankSubHeaderSize;
-
-                for (int i = 0; i < count; i++)
-                {
-                    long record = recordsStart + (long)i * recordSize;
-                    if (record + recordSize > data.Length)
-                        break;
-                    for (int t = 0; t < CombiReader.TimbresPerCombi; t++)
-                    {
-                        long tOff = record + CombiReader.TimbresOffset + (long)t * CombiReader.TimbreStride;
-                        if (tOff + 1 >= data.Length)
-                            break;
-                        if (PcgCatalog.ProgramBankIndexForPcgId(data[tOff + 1]) != bank)
-                            continue;
-                        int number = data[tOff];
-                        if (number < newIndexOfOld.Length && newIndexOfOld[number] != number)
-                            data[tOff] = (byte)newIndexOfOld[number];
-                    }
-                }
-            }
-        }
+            if (PcgCatalog.ProgramBankIndexForPcgId(data[tOff + 1]) != bank)
+                return;
+            int number = data[tOff];
+            if (number < newIndexOfOld.Length && newIndexOfOld[number] != number)
+                data[tOff] = (byte)newIndexOfOld[number];
+        });
 
         // Program-type Set List slots (SBK1): bank PcgId in low 5 bits of +25, number in low 7 of +26.
         if (pcg.FindFirst("SBK1") is not null)
@@ -880,45 +910,22 @@ public static class PcgEditor
         int pcgIdA = PcgCatalog.ProgramBankPcgIdForIndex(bankA);
         int pcgIdB = PcgCatalog.ProgramBankPcgIdForIndex(bankB);
 
-        // Combi timbres (every CMB1 record). Each timbre: number @ +0, bank PcgId @ +1.
-        var cmb = pcg.FindFirst("CMB1");
-        if (cmb is not null)
+        // Combi timbres. Each timbre: number @ +0, bank PcgId @ +1.
+        ForEachTimbreProgramRef(data, CombiTimbreRegions(pcg, data), tOff =>
         {
-            foreach (var bankChunk in cmb.Children)
+            int mapped = PcgCatalog.ProgramBankIndexForPcgId(data[tOff + 1]);
+            int number = data[tOff];
+            if (mapped == bankA && number == indexA)
             {
-                long baseOffset = bankChunk.DataOffset;
-                if (baseOffset + BankSubHeaderSize > data.Length)
-                    continue;
-                int count = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset, 4));
-                int recordSize = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)baseOffset + 4, 4));
-                long recordsStart = baseOffset + BankSubHeaderSize;
-
-                for (int i = 0; i < count; i++)
-                {
-                    long record = recordsStart + (long)i * recordSize;
-                    if (record + recordSize > data.Length)
-                        break;
-                    for (int t = 0; t < CombiReader.TimbresPerCombi; t++)
-                    {
-                        long tOff = record + CombiReader.TimbresOffset + (long)t * CombiReader.TimbreStride;
-                        if (tOff + 1 >= data.Length)
-                            break;
-                        int mapped = PcgCatalog.ProgramBankIndexForPcgId(data[tOff + 1]);
-                        int number = data[tOff];
-                        if (mapped == bankA && number == indexA)
-                        {
-                            data[tOff] = (byte)indexB;
-                            data[tOff + 1] = (byte)pcgIdB;
-                        }
-                        else if (mapped == bankB && number == indexB)
-                        {
-                            data[tOff] = (byte)indexA;
-                            data[tOff + 1] = (byte)pcgIdA;
-                        }
-                    }
-                }
+                data[tOff] = (byte)indexB;
+                data[tOff + 1] = (byte)pcgIdB;
             }
-        }
+            else if (mapped == bankB && number == indexB)
+            {
+                data[tOff] = (byte)indexA;
+                data[tOff + 1] = (byte)pcgIdA;
+            }
+        });
 
         // Program-type Set List slots (SBK1): bank PcgId in low 5 bits of +25, number in low 7 of +26.
         if (pcg.FindFirst("SBK1") is not null)

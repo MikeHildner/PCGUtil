@@ -20,7 +20,7 @@ a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
+| Song-timbre retargeting — needs **companion .SNG support**, not PCG work: a chunk-tree scan of a full backup confirms a .PCG carries no sequencer data at all (set lists, programs, combis, drum kits, wave seqs, global only), so songs live in the separate .SNG. The object layout is already known — the vendor dump makes a song a 7810-byte timbre set identical to a combi's, timbres at 4802, plus a control block — so the remaining unknown is only the .SNG *container*. Retarget walk is already container-agnostic (`ForEachTimbreProgramRef`); blocked on a sample .SNG to decode against | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
 | [T4] Parameter editing beyond names — program/combi synth params, and an *edit* path for global master tune/transpose (both now decoded & displayed 2026-07-18; only the write remains) | 2026-06-04 | — |
