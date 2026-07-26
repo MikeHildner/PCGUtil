@@ -20,7 +20,7 @@ a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| Add a hex viewer for a selected chunk | 2026-06-02 | — |
+| **Bump the version on every publish.** `<AppVersion>` in PcgUtil.Web.csproj is already the single source of truth (the deploy script reads it and appends the date stamp and short SHA), but it has read 1.0 since the first deploy, so published builds are only tellable apart by date/hash. Proposal: bump AppVersion in the same commit as the work being shipped — minor per feature publish, patch for a fix-only redeploy — and have deploy-ftp.ps1 tag the commit `v<AppVersion>` on success and **refuse to start when that tag already exists**, so a forgotten bump fails loudly instead of shipping a duplicate version. Tags also give a way to check out exactly what is live | 2026-07-26 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
 | [T4] Parameter editing beyond names — program/combi synth params, and an *edit* path for global master tune/transpose (both now decoded & displayed 2026-07-18; only the write remains) | 2026-06-04 | — |
 | [T4] Deeper format decode — effect parameters, the combi "tone adjust" region (bytes 1306–1813), KARMA scene/RTP internals, full HD-1/EXi program synth params, drum-kit/wave-seq interiors | 2026-07-18 | — |
