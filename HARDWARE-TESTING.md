@@ -169,10 +169,24 @@ Status: **pending** — software-derived only. Offsets +6/+36 come from the prio
 plus a value scan over ~13k live timbres (bend holds musical semitone counts beside a −25
 "follow the program" sentinel covering 84%; portamento pairs times 0–64 with a dominant
 0xFF). Nothing writes these bytes, so a mismatch would be a display bug, not a file risk.
-- [ ] Open a combi whose Timbres panel shows a real bend override (the sample's "Let's Go
-      Crazy" USER-A #057 reads Bend 0 on its drum-kit timbres T6/T7 and PRG elsewhere), and
-      compare against the instrument's Timbre Parameters → Pitch page: the app's Bend and
-      Porta columns match, and "PRG" corresponds to the instrument showing PRG.
+**Where these live on the instrument** (Parameter Guide pp.470–471) — they are on two
+*different* tabs, which is the easy thing to get wrong:
+- **Bend Range** → COMBI → **P2: Timbre Parameters** → **2–3: Pitch**  `[PRG, −24…+24]`
+- **Portamento** → COMBI → **P2: Timbre Parameters** → **2–2: OSC**  `[PRG, Off, 001…127]`
+
+- [ ] **Bend:** open a combi with several different bend overrides and compare the app's Bend
+      column against 2–3: Pitch, timbre by timbre. In the current backup, INT-A #000
+      "K-Lab: Katja's House" is ideal — it should read Bend **0** on T1/T4, **+2** on
+      T5–T11 and T13, and **+12** on T12.
+- [ ] **Porta:** same idea against 2–2: OSC. INT-A #117 "Chance Encounter" should read
+      Porta **34** on T2 and T4; INT-A #073 "Orange Ninja Split" **25** on T1; INT-A #040
+      "Krunky Clav SW1" **Off** on T1/T2/T5/T7.
+- [ ] "PRG" in either column corresponds to the instrument showing PRG (the timbre following
+      its program's own setting) — the overwhelmingly common case, so check a few.
+
+Note: the Parameter Guide records that CX-3, PolysixEX, SGX-2 and EP-1 ignore portamento
+entirely. A timbre on one of those still *displays* the stored value on both the panel and
+in the app, so it is still a valid readout comparison — it just won't be audible.
 
 ## 17. Combi layer editing (timbre program & status)
 Status: **confirmed** on hardware (2026-07-26 — program replacement, cross-bank repointing,
