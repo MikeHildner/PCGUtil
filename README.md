@@ -19,6 +19,9 @@ Main tabs:
   which program a layer plays — picked by name — or switch a layer off entirely.
 - **Programs** — the same for programs: reorder, copy, or rename. Every combi timbre and
   set-list slot that referenced a program is updated to follow it to its new spot.
+- **Songs** — open the `.SNG` saved beside your backup and see what each sequencer track
+  loads. Move programs around and the tracks follow their sounds automatically; download the
+  edited `.SNG` alongside the edited `.PCG`.
 - **Merge** — your file in the middle, up to two other backups on the wings. Drag a program,
   combi, or song across and combis bring the programs they need; anything the target already
   has is reused instead of duplicated.
@@ -52,14 +55,13 @@ Export lists to **CSV**, and download your edited **`.PCG`**.
 ## Good to know
 
 - **Reorganizing is reference-safe.** When you reorder a combi or program, PCGUtil rewrites
-  the things that point at it — set-list slots and combi timbres — so nothing ends up loading
-  the wrong sound.
+  the things that point at it — set-list slots, combi timbres, and song tracks — so nothing
+  ends up loading the wrong sound.
 - **Test edits on your hardware before relying on them**, especially after reorganizing
   programs: load the edited file and confirm a few set-list songs and combis recall the right
   sounds.
-- **Sequencer songs aren't fully covered yet.** If a song references a program you move, that
-  reference isn't updated automatically (set-list and combi references are).
-- Works with `.PCG` backup files from supported workstations.
+- Works with `.PCG` backup files from supported workstations, plus the companion `.SNG` and
+  `.KGE` files saved beside them.
 
 ## Running it
 

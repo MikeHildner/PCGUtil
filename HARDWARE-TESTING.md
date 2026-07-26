@@ -192,9 +192,31 @@ the same layout: MIDI channel in bits 4–0, status in bits 7–5 with values Of
 - [x] On the instrument's Timbre Parameters → MIDI page, the **MIDI channel** of every
       timbre you touched is exactly what it was before (the masking check).
 
+## 18. Song retargeting (companion .SNG)
+Status: **pending** — the write is new, though its shape is not. A .PCG carries no sequencer
+data at all (chunk-tree scan), so songs live in the .SNG that Save All writes beside it.
+Inside, `BMT1` holds one 7810-byte record per song — a combi-sized timbre set — so the track
+timbres decode with the same reader and the *same* program-reference bytes (+0 number,
++1 bank PcgId) that §4 already rewrites in bulk. What is new is writing a second file, and
+the mapping: programs are followed by sound content, not by the operation that moved them.
+**This section needs both files loaded on the instrument** — the edited .PCG *and* the
+edited .SNG. Loading only one is the classic way to see a false failure.
+- [ ] Save All on the instrument, open the .PCG and then its .SNG in PCGUtil: the **Songs**
+      tab lists your songs, and each track shows the program it loads, resolved to a name.
+      Compare against the instrument's Sequencer P0 track list — they should agree.
+- [ ] Move one program that a song track uses (Programs → Edit → ▲/▼), download **both**
+      files, load both: the song still plays the same sound on that track.
+- [ ] **Sort A–Z** a program bank several song tracks use — the harder case, since most of
+      the bank moves at once — download both, load both: every track still plays what it did.
+- [ ] The set lists and combis that used the same bank also still recall correctly (the
+      other two reference graphs, unaffected by the song work).
+- [ ] Undo a program move before downloading: the Songs tab's "tracks followed" banner
+      disappears and the .SNG download offer goes away, because the file is unchanged again.
+
 ## Known limitation
-- Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
-  references are). If you use songs, spot-check a song's tracks after a program reorg.
+- A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
+  that slot and will play whatever now lives there. That is deliberate — the sound it used is
+  gone from the file — and the Songs tab says so.
 
 ## Pass criteria
 The edited `.PCG` loads cleanly, and **every patch and reference recalls the same sound as

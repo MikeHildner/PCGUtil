@@ -26,6 +26,30 @@ public class SongEditorTests
         return null;
     }
 
+    // The backup a .SNG was saved beside, when Save All wrote them as a pair — its programs
+    // are the ones the songs actually reference. Falls back to the general sample.
+    private static PcgFile FindPcgFor(string sngStem)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var filesDir = Path.Combine(dir.FullName, "files");
+            if (Directory.Exists(filesDir))
+            {
+                var match = Directory.EnumerateFiles(filesDir, "*.PCG", SearchOption.AllDirectories)
+                    .FirstOrDefault(p => string.Equals(Path.GetFileNameWithoutExtension(p), sngStem,
+                                                       StringComparison.OrdinalIgnoreCase));
+                if (match is not null)
+                    return PcgReader.Parse(File.ReadAllBytes(match));
+                break;
+            }
+            dir = dir.Parent;
+        }
+        return Sample.Parse();
+    }
+
+    private static PcgFile PairedPcg() => FindPcgFor("save-all");
+
     // Any track that actually points somewhere, so the assertions have a real reference.
     private static (int Song, int Timbre, int Bank, int Number) FirstReference(IReadOnlyList<Song> songs)
     {
@@ -125,6 +149,139 @@ public class SongEditorTests
         Assert.Equal(expectedBank, SongEditor.CountReferences(sng, bank));
         Assert.Equal(expectedOne, SongEditor.CountReferences(sng, bank, number));
         Assert.True(expectedOne > 0);
+    }
+
+    // ----- The general driver: follow programs by sound between two states of the backup -----
+
+    [Fact]
+    public void Following_by_sound_agrees_with_the_operation_that_moved_them()
+    {
+        if (FindSng() is not { } sng)
+            return;
+        var pcg = Sample.Parse();
+        var (_, _, bank, number) = FirstReference(SongReader.Read(sng));
+        int other = number == 0 ? 1 : 0;
+
+        // Same move, described two ways: by the operation, and by comparing before/after.
+        var byOperation = SongEditor.RetargetProgramSwap(sng, bank, number, bank, other);
+        var moved = PcgReader.Parse(PcgEditor.SwapPrograms(pcg, bank, number, bank, other));
+        var bySound = SongEditor.RetargetToPcg(sng, pcg, moved);
+
+        Assert.True(bySound.Changed);
+        Assert.Equal(byOperation, bySound.Data);
+    }
+
+    [Fact]
+    public void Reversing_the_two_states_undoes_the_retarget()
+    {
+        if (FindSng() is not { } sng)
+            return;
+        var pcg = Sample.Parse();
+        var (_, _, bank, number) = FirstReference(SongReader.Read(sng));
+
+        var moved = PcgReader.Parse(PcgEditor.SwapPrograms(pcg, bank, number, bank, number == 0 ? 1 : 0));
+        var forward = SongEditor.RetargetToPcg(sng, pcg, moved);
+        Assert.True(forward.Changed);
+
+        // This is exactly what an undo does — no separate history required.
+        var back = SongEditor.RetargetToPcg(PcgReader.Parse(forward.Data), moved, pcg);
+        Assert.Equal(sng.Data, back.Data);
+    }
+
+    [Fact]
+    public void A_whole_bank_sort_carries_the_songs_with_it()
+    {
+        if (FindSng() is not { } sng)
+            return;
+        var pcg = PairedPcg();
+
+        // Sort whichever bank the songs actually use, so the assertion has real work to do.
+        var (_, _, bank, _) = FirstReference(SongReader.Read(sng));
+        if (PcgOrganizer.SortProgramBankByName(pcg, bank) is not { } sortedBytes)
+            return; // already alphabetical
+        var sorted = PcgReader.Parse(sortedBytes);
+
+        var result = SongEditor.RetargetToPcg(sng, pcg, sorted);
+
+        // Not vacuous: a sort that reordered the bank the songs use must move something.
+        // (This is the case that caught a real bug — see the duplicate-sound test below.)
+        Assert.True(result.Moved > 0,
+            $"sorting {PcgBankLabels.Program(bank)} reordered it, so song tracks should have followed");
+
+        // And every track still resolves to the program name it resolved to before the sort.
+        var beforeCatalog = PcgCatalog.Build(pcg);
+        var afterCatalog = PcgCatalog.Build(sorted);
+        var before = SongReader.Read(sng);
+        var after = SongReader.Read(PcgReader.Parse(result.Data));
+
+        for (int s = 0; s < before.Count; s++)
+            for (int t = 0; t < before[s].Timbres.Count; t++)
+            {
+                var b = before[s].Timbres[t];
+                var a = after[s].Timbres[t];
+                Assert.Equal(beforeCatalog.ResolveProgram(b.ProgramBankPcgId, b.ProgramNumber),
+                             afterCatalog.ResolveProgram(a.ProgramBankPcgId, a.ProgramNumber));
+            }
+    }
+
+    [Fact]
+    public void A_sound_that_also_exists_elsewhere_still_follows_the_copy_that_moved()
+    {
+        if (FindSng() is not { } sng)
+            return;
+        var pcg = PairedPcg();
+        var (songIndex, timbreIndex, bank, number) = FirstReference(SongReader.Read(sng));
+
+        // Plant a second copy of the referenced program in a slot that will NOT move, then
+        // move the original. Asking "has this sound moved?" globally would see the stationary
+        // twin and strand the track on its old slot; the question has to be asked per slot.
+        int twin = Enumerable.Range(0, 128).First(i => i != number && i != (number == 0 ? 1 : 0));
+        var withTwin = PcgReader.Parse(PcgEditor.CopyProgram(pcg, bank, number, bank, twin));
+
+        int destination = number == 0 ? 1 : 0;
+        var moved = PcgReader.Parse(
+            PcgEditor.SwapPrograms(withTwin, bank, number, bank, destination));
+
+        var result = SongEditor.RetargetToPcg(sng, withTwin, moved);
+
+        Assert.True(result.Changed);
+        var after = SongReader.Read(PcgReader.Parse(result.Data))[songIndex].Timbres[timbreIndex];
+        Assert.Equal(destination, after.ProgramNumber);
+    }
+
+    [Fact]
+    public void An_edit_that_moves_no_program_leaves_the_songs_alone()
+    {
+        if (FindSng() is not { } sng)
+            return;
+        var pcg = Sample.Parse();
+
+        // Renaming changes program bytes but not sounds, so nothing should follow.
+        var renamed = PcgReader.Parse(PcgEditor.RenameProgram(pcg, 0, 0, "SONG RETARGET PROBE"));
+        var result = SongEditor.RetargetToPcg(sng, pcg, renamed);
+
+        Assert.False(result.Changed);
+        Assert.Equal(sng.Data, result.Data);
+    }
+
+    [Fact]
+    public void Overwriting_a_program_leaves_its_references_pointing_at_the_slot()
+    {
+        if (FindSng() is not { } sng)
+            return;
+        var pcg = Sample.Parse();
+        var (songIndex, timbreIndex, bank, number) = FirstReference(SongReader.Read(sng));
+
+        // Overwrite the very program a track uses with a different one: the sound that was
+        // there is gone, so the track keeps its slot and now plays whatever landed on it —
+        // the same thing the instrument would do, and what the musician asked for.
+        int source = number == 0 ? 1 : 0;
+        var pasted = PcgReader.Parse(PcgEditor.CopyProgram(pcg, bank, source, bank, number));
+        var result = SongEditor.RetargetToPcg(sng, pcg, pasted);
+
+        var after = SongReader.Read(PcgReader.Parse(result.Data))[songIndex].Timbres[timbreIndex];
+        Assert.Equal(number, after.ProgramNumber);
+        Assert.Equal(PcgCatalog.ProgramBankPcgIdForIndex(bank), after.ProgramBankPcgId);
     }
 
     [Fact]

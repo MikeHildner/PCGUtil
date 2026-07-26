@@ -203,10 +203,24 @@
     </ul>
   </section>
 
+  <section>
+    <h2>15. Songs <span class="hint">needs the .SNG saved beside your backup</span></h2>
+    <p class="hint">Your songs aren't in the <code>.PCG</code> at all — they're in the <code>.SNG</code> that
+    Save All writes next to it. Open both in PCGUtil, and load <strong>both</strong> back onto your
+    instrument afterwards; loading only one is the usual reason this looks broken when it isn't.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Do a <strong>Save All</strong>, open the <code>.PCG</code> and then the <code>.SNG</code>: a <strong>Songs</strong> tab appears listing your songs, and each track names the program it loads. Compare against your instrument's sequencer track list — they should agree.</span></label></li>
+      <li><label><input type="checkbox"><span>Move one program a song track uses, download <strong>both</strong> files, and load both: the song still plays the same sound on that track.</span></label></li>
+      <li><label><input type="checkbox"><span><strong>Sort A–Z</strong> a program bank your songs use — the harder case, since most of the bank moves at once — then download and load both: every track still plays what it did.</span></label></li>
+      <li><label><input type="checkbox"><span>Your set lists and combis using that same bank still recall correctly too.</span></label></li>
+      <li><label><input type="checkbox"><span>Undo a program move before downloading: the "tracks followed" note disappears and the <code>.SNG</code> download offer goes away, because the file is back to how it started.</span></label></li>
+    </ul>
+  </section>
+
   <div class="note warn">
-    <strong>Known limitation.</strong> Sequencer <em>songs</em> that reference a moved program are
-    <em>not</em> retargeted (set-list and combi references are). If you use songs, spot-check a
-    song's tracks after a program reorg.
+    <strong>Known limitation.</strong> If you <em>overwrite</em> a program a song track uses (paste or
+    clear, rather than move it), the track keeps its slot and will play whatever now lives there —
+    the sound it used is gone from the file. The Songs tab tells you when this happens.
   </div>
 
   <div class="note pass">

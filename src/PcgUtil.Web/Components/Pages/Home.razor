@@ -75,6 +75,13 @@
             <span class="badge text-bg-warning" title="Edits are held in memory until you download the new file">unsaved edits</span>
             <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedPcg">Download edited .PCG</button>
         }
+        @if (_sngDirty)
+        {
+            <button type="button" class="btn btn-sm btn-success" @onclick="DownloadEditedSng"
+                    title="Your songs were retargeted to follow the programs you moved — load this alongside the edited backup">
+                Download edited .SNG
+            </button>
+        }
         <div class="btn-group" role="group" aria-label="Undo and redo">
             <button type="button" id="pcg-undo-btn" class="btn btn-sm btn-outline-secondary px-2"
                     disabled="@(!_history.CanUndo)" aria-label="Undo" aria-keyshortcuts="Control+Z"
@@ -148,9 +155,9 @@
         <span class="ms-auto"></span>
         <label class="btn btn-sm btn-outline-secondary mb-0 @(_loading ? "disabled" : null)"
                aria-disabled="@(_loading ? "true" : null)" @key="_fileInputSeq"
-               title="Opens a different backup (replaces this one), or this backup's companion .KGE">
+               title="Opens a different backup (replaces this one), or this backup's companion .SNG songs or .KGE">
             @(_loading ? "Opening …" : "Open another file")
-            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg,.KGE,.kge" class="d-none" disabled="@_loading" />
+            <InputFile OnChange="OnFileSelected" accept=".PCG,.pcg,.SNG,.sng,.KGE,.kge" class="d-none" disabled="@_loading" />
         </label>
     </div>
 
@@ -1355,6 +1362,108 @@
             break;
         }
 
+        case View.Songs:
+        {
+            <h2 class="h5">Songs <span class="text-body-secondary fw-normal">— @_sngFileName</span></h2>
+            <p class="text-body-secondary small">
+                Sequencer songs live in the <code>.SNG</code> file beside your backup, not in the
+                <code>.PCG</code> itself. Each track loads a program, exactly like a combi layer does — so
+                when you move programs around, these have to move with them. They now do: reorder, sort or
+                compact a program bank and every track here follows its sound automatically.
+                Download the edited <code>.SNG</code> below and load it alongside the edited backup.
+            </p>
+
+            @if (_songs.Count == 0)
+            {
+                <p class="text-body-secondary">This song file doesn't contain any songs.</p>
+            }
+            else
+            {
+                @if (_sngDirty)
+                {
+                    <div class="alert alert-success d-flex flex-wrap align-items-center gap-2 py-2">
+                        <div>
+                            <strong>@_sngRetargetedRefs track@(_sngRetargetedRefs == 1 ? "" : "s")</strong>
+                            followed a program to its new spot.
+                            @if (_sngUnresolvedRefs > 0)
+                            {
+                                <span class="text-body-secondary">
+                                    @_sngUnresolvedRefs track@(_sngUnresolvedRefs == 1 ? "" : "s")
+                                    point at a slot whose sound was replaced, so @(_sngUnresolvedRefs == 1 ? "it stays" : "they stay")
+                                    where @(_sngUnresolvedRefs == 1 ? "it is" : "they are").
+                                </span>
+                            }
+                        </div>
+                        <button type="button" class="btn btn-sm btn-success ms-auto" @onclick="DownloadEditedSng">
+                            Download edited .SNG
+                        </button>
+                    </div>
+                }
+
+                @foreach (var song in _songs)
+                {
+                    var tracks = song.Timbres.Where(t => t.Status != TimbreStatus.Off).ToList();
+                    <div class="pcg-surface p-3 mb-3">
+                        <div class="d-flex flex-wrap align-items-baseline gap-2 mb-2">
+                            <h3 class="h6 mb-0">@song.Index.ToString("000") — @song.DisplayName</h3>
+                            <span class="text-body-secondary small">
+                                @tracks.Count of @song.Timbres.Count track@(song.Timbres.Count == 1 ? "" : "s") active
+                            </span>
+                            @if (song.IsEmptyOrInit)
+                            {
+                                <span class="badge text-bg-secondary">untouched</span>
+                            }
+                        </div>
+                        <div class="table-scroll">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Track</th><th>Status</th><th>Ch</th>
+                                        <th>Program</th><th>Vol</th><th>Xpose</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var t in song.Timbres)
+                                    {
+                                        var pBank = PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId);
+                                        var pName = _catalog?.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber);
+                                        <tr class="@(t.Mute || t.Status == TimbreStatus.Off ? "opacity-50" : null)">
+                                            <td>T@(t.Index + 1)</td>
+                                            <td>@t.Status</td>
+                                            <td>@(t.MidiChannel + 1)</td>
+                                            <td>
+                                                @if (pBank >= 0)
+                                                {
+                                                    <span class="text-body-secondary small">@PcgBankLabels.Program(pBank)</span>
+                                                    <span> #@t.ProgramNumber.ToString("000")</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-body-secondary small">bank @t.ProgramBankPcgId</span>
+                                                    <span> #@t.ProgramNumber.ToString("000")</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(pName))
+                                                {
+                                                    <span> — @pName</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-body-secondary"> — not in this backup</span>
+                                                }
+                                            </td>
+                                            <td>@t.Volume</td>
+                                            <td>@(t.Transpose == 0 ? "—" : t.Transpose.ToString("+0;-0"))</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            }
+            break;
+        }
+
         case View.Copy:
         {
             <h2 class="h5">Copy between files</h2>
@@ -2374,7 +2483,7 @@
 }
 
 @code {
-    enum View { Home, SetLists, Combis, Programs, Merge, Copy, Differences, Usage, Duplicates, Search, AddSounds, Overview, Strings, Tree }
+    enum View { Home, SetLists, Combis, Programs, Songs, Merge, Copy, Differences, Usage, Duplicates, Search, AddSounds, Overview, Strings, Tree }
     enum UsageSort { BankNumber, Name, MostUsed }
     enum CrossKind { Programs, Combis, SetListSlots }
 
@@ -2586,6 +2695,12 @@
             _fileInputSeq++; // recreate the <input> so re-picking the same file fires again
             return;
         }
+        if (e.File.Name.EndsWith(".SNG", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadSng(e);
+            _fileInputSeq++;
+            return;
+        }
         if (_dirty && _pcg is not null)
         {
             bool ok;
@@ -2705,7 +2820,9 @@
     {
         if (_pcg is null) return;
         var before = _pcg.Data;            // capture before Parse replaces _pcg
+        var beforeFile = _pcg;
         _pcg = PcgReader.Parse(newData);
+        SyncSongs(beforeFile, _pcg);       // companion .SNG follows any program that moved
         if (_history.Push(before, newData, label))
             RecomputeDirty();              // byte-identical writes stay a visual no-op
         LoadDerived(preserveSelection: true);
@@ -2725,7 +2842,9 @@
     void Undo()
     {
         if (_pcg is null || !_history.CanUndo) return;
+        var beforeFile = _pcg;
         _pcg = PcgReader.Parse(_history.Undo(_pcg.Data));
+        SyncSongs(beforeFile, _pcg); // same call, states in undo order: the songs walk back
         RecomputeDirty();
         LoadDerived(preserveSelection: true);
         PushToCache(); // restore always offers the latest state
@@ -2734,7 +2853,9 @@
     void Redo()
     {
         if (_pcg is null || !_history.CanRedo) return;
+        var beforeFile = _pcg;
         _pcg = PcgReader.Parse(_history.Redo(_pcg.Data));
+        SyncSongs(beforeFile, _pcg);
         RecomputeDirty();
         LoadDerived(preserveSelection: true);
         PushToCache();
@@ -2793,7 +2914,13 @@
     static readonly View[] AdvancedViews = { View.Differences, View.Usage, View.Duplicates, View.Copy, View.Overview, View.Strings, View.Tree };
 
     // Views reachable from Start cards (or in-flow links) only — no tab of their own.
-    static readonly View[] HiddenViews = { View.AddSounds };
+    // Songs is conditional rather than fixed: a .PCG holds no sequencer data at all, so the
+    // tab appears only once the companion .SNG is open (see HiddenViews below).
+    static readonly View[] AlwaysHiddenViews = { View.AddSounds };
+
+    View[] HiddenViews => _sng is null
+        ? AlwaysHiddenViews.Append(View.Songs).ToArray()
+        : AlwaysHiddenViews;
     bool _showAdvanced;
     bool _showMoreCards;
 
@@ -3084,6 +3211,7 @@
     static string TabLabel(View v) => v switch
     {
         View.Home => "Start",
+        View.Songs => "Songs",
         View.Merge => "Merge",
         View.AddSounds => "Add sounds",
         View.Overview => "File info",
@@ -3481,6 +3609,115 @@
             if (!PcgOrganizer.IsProgramPlaceholder(names[i]))
                 return i;
         return 0;
+    }
+
+    // ----- Companion .SNG: the sequencer songs, which a .PCG does not carry -----
+    //
+    // A backup holds set lists, programs, combis, drum kits, wave sequences and global, and
+    // no sequencer data whatsoever — songs live in the .SNG written beside it by Save All.
+    // Their tracks reference programs exactly as combi timbres do, so moving a program in the
+    // backup silently breaks them unless the .SNG moves too. Loading it here closes the last
+    // hole in reference safety.
+    PcgFile? _sng;
+    string? _sngFileName;
+    IReadOnlyList<Song> _songs = Array.Empty<Song>();
+
+    // The songs as loaded. Everything reported to the musician is a delta against these, not
+    // a running tally, so undoing back to the start correctly says "nothing to save" instead
+    // of offering a download of a file that never changed.
+    IReadOnlyList<Song> _songsAsLoaded = Array.Empty<Song>();
+
+    bool _sngDirty;                 // the .SNG differs from the file that was opened
+    int _sngRetargetedRefs;         // tracks currently pointing somewhere new
+    int _sngUnresolvedRefs;         // pointed at a sound that no longer exists (an overwrite)
+
+    async Task LoadSng(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        try
+        {
+            var parsed = PcgReader.Parse(await ReadUploadAsync(e.File));
+            if (!SongReader.IsSongFile(parsed))
+            {
+                _error = $"'{e.File.Name}' doesn't look like a song (.SNG) file.";
+                return;
+            }
+            _sng = parsed;
+            _sngFileName = e.File.Name;
+            _sngDirty = false;
+            _sngRetargetedRefs = 0;
+            _sngUnresolvedRefs = 0;
+            _songs = SongReader.Read(parsed);
+            _songsAsLoaded = _songs;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not read '{e.File.Name}': {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Keeps the companion .SNG in step across a transition of the backup. Identifying
+    /// programs by sound means one call covers every way a program can move — and running it
+    /// with the two states swapped is exactly what undo needs, so there is no second history.
+    /// </summary>
+    void SyncSongs(PcgFile before, PcgFile after)
+    {
+        if (_sng is null) return;
+
+        // Cheap gate: only a change inside the program section can move a program, and most
+        // edits (slot colors, names, combi timbres) never touch it.
+        if (!ProgramSectionChanged(before, after)) return;
+
+        var result = SongEditor.RetargetToPcg(_sng, before, after);
+        _sngUnresolvedRefs = result.Unresolved;
+        if (!result.Changed) return;
+
+        _sng = PcgReader.Parse(result.Data);
+        _songs = SongReader.Read(_sng);
+
+        // Report against the file as opened, so an undo that lands back at the start clears
+        // the offer rather than claiming ever more tracks moved.
+        _sngRetargetedRefs = CountMovedSinceLoad();
+        _sngDirty = _sngRetargetedRefs > 0;
+    }
+
+    // Track references that now point somewhere other than where the opened .SNG had them.
+    int CountMovedSinceLoad()
+    {
+        int moved = 0;
+        for (int s = 0; s < _songs.Count && s < _songsAsLoaded.Count; s++)
+        {
+            var now = _songs[s].Timbres;
+            var was = _songsAsLoaded[s].Timbres;
+            for (int t = 0; t < now.Count && t < was.Count; t++)
+                if (now[t].ProgramNumber != was[t].ProgramNumber
+                    || now[t].ProgramBankPcgId != was[t].ProgramBankPcgId)
+                    moved++;
+        }
+        return moved;
+    }
+
+    // True when any byte of the program section differs, which is the only way a program can
+    // have moved. Comparing the spans is a memcmp — far cheaper than hashing every record.
+    static bool ProgramSectionChanged(PcgFile before, PcgFile after)
+    {
+        var a = before.FindFirst("PRG1");
+        var b = after.FindFirst("PRG1");
+        if (a is null || b is null) return false;
+        if (a.DataOffset != b.DataOffset || a.Size != b.Size) return true;
+        if (a.DataEnd > before.Data.Length || b.DataEnd > after.Data.Length) return true;
+        return !before.Data.AsSpan((int)a.DataOffset, (int)a.Size)
+            .SequenceEqual(after.Data.AsSpan((int)b.DataOffset, (int)b.Size));
+    }
+
+    async Task DownloadEditedSng()
+    {
+        if (_sng is null) return;
+        var stem = string.IsNullOrEmpty(_sngFileName)
+            ? "songs"
+            : System.IO.Path.GetFileNameWithoutExtension(_sngFileName);
+        await SaveBytes($"{stem}-edited-{DateTime.Now:HHmm}.SNG", _sng.Data);
     }
 
     // Companion .KGE: user KARMA GE names (USER-A..L), attached from the file header.
