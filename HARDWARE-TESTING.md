@@ -165,10 +165,12 @@ which until then rested on vendor-prose decode evidence only).
 - [x] The combi's other timbres — programs, zones, status — are untouched.
 
 ## 16. Bend range & portamento readout (read-only decode)
-Status: **pending** — software-derived only. Offsets +6/+36 come from the prior-art model
-plus a value scan over ~13k live timbres (bend holds musical semitone counts beside a −25
-"follow the program" sentinel covering 84%; portamento pairs times 0–64 with a dominant
-0xFF). Nothing writes these bytes, so a mismatch would be a display bug, not a file risk.
+Status: **confirmed** on hardware (2026-07-26 — the Bend and Porta columns match the
+instrument's own pages, including both "follow the program" sentinels). Offsets +6/+36 were
+originally derived from the prior-art model plus a value scan over ~13k live timbres (bend
+holds musical semitone counts beside a −25 sentinel covering 84%; portamento pairs times
+0–64 with a dominant 0xFF); the vendor SysEx dump then named both, and the instrument
+agreed. Nothing writes these bytes, so this was always a display check, not a file risk.
 **Where these live on the instrument** (Parameter Guide pp.470–471) — they are on two
 *different* tabs, which is the easy thing to get wrong:
 - **Bend Range** → COMBI → **P2: Timbre Parameters** → **2–3: Pitch**  `[PRG, −24…+24]`
