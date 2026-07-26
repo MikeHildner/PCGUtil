@@ -21,11 +21,13 @@ public class KgeReaderTests
         return null;
     }
 
-    // The vendor pack's .KGE carries its MIDI-converted GEs in USER-A; its combi
-    // "MONEY4FREE OPEN" selects flat GE id 2048+96, which the pack's own content
-    // listing names — the byte-level PCG↔KGE link, now with the name attached.
+    // A .KGE carries the user GE names that combi KARMA modules select by flat id. The
+    // assertions stay sample-robust on purpose: whichever .KGE the files/ directory happens
+    // to hold first is fine, so adding a backup can't turn this red (it did once, when a
+    // save-all .KGE sorted ahead of the vendor pack it had been pinned to). What matters is
+    // the structure and the id→name round trip, not one pack's first patch name.
     [Fact]
-    public void Reads_vendor_pack_ge_names()
+    public void Reads_user_ge_names()
     {
         if (FindKge() is not { } bytes)
             return;
@@ -34,12 +36,18 @@ public class KgeReaderTests
         Assert.NotNull(banks);
         Assert.Equal(KgeReader.UserBankCount, banks!.Count);
         Assert.Equal(128, banks[0].Count); // USER-A
-        Assert.Equal("DayDream Piano", banks[0][0]);
-        Assert.NotEqual(string.Empty, banks[0][96]);
 
+        // Real names, not garbage: printable and plausibly sized.
+        string first = banks[0][0];
+        Assert.NotEqual(string.Empty, first);
+        Assert.InRange(first.Length, 1, 24);
+        Assert.All(first, c => Assert.InRange(c, ' ', '~'));
+
+        // The link the app actually relies on: a flat user GE id resolves to that slot.
         Assert.Equal(banks[0][96], KgeReader.UserGeName(banks, Combi.KarmaUserGeBase + 96));
-        Assert.Null(KgeReader.UserGeName(banks, 100));                          // preset id
-        Assert.Null(KgeReader.UserGeName(banks, Combi.KarmaUserGeBase + 3 * 128)); // bank not carried
+        Assert.Null(KgeReader.UserGeName(banks, 100));  // preset id, below the user range
+        // Past the last bank this file carries — how many that is varies by pack.
+        Assert.Null(KgeReader.UserGeName(banks, Combi.KarmaUserGeBase + banks.Count * 128));
     }
 
     [Fact]

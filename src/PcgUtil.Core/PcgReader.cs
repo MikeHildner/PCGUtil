@@ -6,7 +6,12 @@ namespace PcgUtil.Core;
 /// <summary>Parses the chunk structure of a PCG file.</summary>
 public static class PcgReader
 {
-    /// <summary>Bytes before the first chunk: a 4-byte signature plus a 12-byte file header.</summary>
+    /// <summary>
+    /// Bytes before the first chunk in a .PCG: a 4-byte signature plus a 12-byte file header.
+    /// Other KORG files in the same family use the same chunk format behind a longer header
+    /// (a .KGE has 32 bytes, a .SNG 88), so this is only the starting guess — see
+    /// <see cref="FindFirstChunkOffset"/>.
+    /// </summary>
     public const int FileHeaderSize = 16;
 
     /// <summary>Per-chunk header: id(4) + big-endian size(4) + field(4).</summary>
@@ -29,7 +34,7 @@ public static class PcgReader
                 $"This does not look like a PCG file (signature '{SafeAscii(data, 0, 4)}').");
 
         var topLevel = new List<PcgChunk>();
-        ParseChunks(data, FileHeaderSize, data.Length, depth: 0, into: topLevel);
+        ParseChunks(data, FindFirstChunkOffset(data), data.Length, depth: 0, into: topLevel);
 
         return new PcgFile
         {
@@ -38,6 +43,30 @@ public static class PcgReader
             TopLevel = topLevel,
         };
     }
+
+    /// <summary>
+    /// Finds where the chunk tree begins. Every KORG file in this family opens with a
+    /// variable-length header and then a single top-level chunk that spans exactly to the end
+    /// of the file — a .PCG's PCG1 at 16, a .SNG's SNG1 at 88. Rather than keep a table of
+    /// header sizes, look for the first offset whose chunk ends precisely at EOF; that
+    /// coincidence is specific enough to identify the real one. Falls back to a .PCG's
+    /// header size when nothing spans exactly (a padded or truncated file).
+    /// </summary>
+    public static long FindFirstChunkOffset(byte[] data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        for (long offset = 4; offset < MaxHeaderScan && offset + ChunkHeaderSize <= data.Length; offset++)
+        {
+            if (!IsChunkId(data, offset))
+                continue;
+            uint size = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)offset + 4, 4));
+            if (offset + ChunkHeaderSize + size == data.Length)
+                return offset;
+        }
+        return FileHeaderSize;
+    }
+
+    private const int MaxHeaderScan = 512;
 
     private static void ParseChunks(byte[] data, long start, long end, int depth, List<PcgChunk> into)
     {

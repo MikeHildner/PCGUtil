@@ -565,7 +565,9 @@ public static class PcgEditor
 
     // Validates that newOrder is a permutation of 0..count-1 and returns its inverse
     // (old record index → new record index).
-    private static int[] InverseOf(IReadOnlyList<int> newOrder, int count)
+    // Internal so SongEditor can derive the identical mapping when applying a program
+    // reorder to a companion .SNG (mirrors LocateBank's internal precedent).
+    internal static int[] InverseOf(IReadOnlyList<int> newOrder, int count)
     {
         ArgumentNullException.ThrowIfNull(newOrder);
         if (newOrder.Count != count)

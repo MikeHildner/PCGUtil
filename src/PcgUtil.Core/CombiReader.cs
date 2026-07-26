@@ -124,7 +124,13 @@ public static class CombiReader
         return effects;
     }
 
-    private static IReadOnlyList<CombiTimbre> ReadTimbres(byte[] data, long record, int recordSize)
+    /// <summary>
+    /// Decodes the sixteen timbres of a record that carries a timbre set at
+    /// <see cref="TimbresOffset"/>. Internal because a song stores its track timbres in the
+    /// identical layout, so <see cref="SongReader"/> shares this decoder rather than
+    /// repeating the offsets.
+    /// </summary>
+    internal static IReadOnlyList<CombiTimbre> ReadTimbres(byte[] data, long record, int recordSize)
     {
         var timbres = new List<CombiTimbre>(TimbresPerCombi);
         for (int t = 0; t < TimbresPerCombi; t++)
