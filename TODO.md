@@ -20,7 +20,6 @@ a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 | Task | Created | Completed |
 |------|---------|-----------|
-| [T2] Set-list record trailing region — 16 bytes after the 128 slots; byte +10 reads 5 on every set list written on the instrument and 0 elsewhere. Not the font (that probe left it untouched); the Edit page's "16/8/4 Slots" display mode is the next guess | 2026-07-25 | — |
 | Decode song timbres so program/combi reorg retargets song references too (set-list Song slots already decoded) | 2026-06-02 | — |
 | Add a hex viewer for a selected chunk | 2026-06-02 | — |
 | [T4] Timbre reordering within a combi (rides on the combi-timbre decode) | 2026-06-04 | — |
@@ -37,6 +36,7 @@ a 542-byte slot is now accounted for bar three bits (B0 bits 6–7, B2 bit 7).
 
 | Task | Created | Completed |
 |------|---------|-----------|
+| [T2] Set-list trailing region identified — the 16 bytes after the 128 slots are the set-list EQ (bypass + nine band levels), then Control Surface Mode and its "assign from" flag, then reserved. Answers the parked byte +10 question (a control-surface view, not a slot-display mode). Named from the vendor SysEx dump; consistent with every real file scanned. Still read-only | 2026-07-25 | 2026-07-26 |
 | [T4] Combi layer editing — a timbre's program is now chosen *by name* (bank + program dropdowns, placeholders hidden) and its status is switchable across Off/Int/Both/Ext/Ex2, so a layer can be swapped, silenced, or built from an unused timbre. Edit mode shows all 16 timbres, not just the active ones. New `SetTimbreProgram`/`SetTimbreStatus` writers; the status byte is masked so the MIDI channel sharing bits 0–4 survives. Hardware §17 pending (program bytes are §4/§9-proven; the status byte is the new ground) | 2026-07-26 | 2026-07-26 |
 | [T2] Slot comment font decoded — the low 5 bits of the transpose byte hold the instrument's XS/S/M/L/XL choice (XL=16 hardware-confirmed, four apart). Fixed two latent bugs it had been hiding: negative transpose truncated when font bits were set, and transpose writes wiped the font. Shown as a "note XL" chip, and the printed cheat sheet now renders each note at the size chosen on the panel | 2026-07-25 | 2026-07-25 |
 | [T2] Bend range & portamento per timbre — decoded from +6/+36 and shown as Bend/Porta columns in the timbre table; both carry a "follow the program" sentinel (bend −25, portamento 0xFF) found by scanning ~13k live timbres, rendered as "PRG". Read-only; hardware §16 pending (display-only, no file risk) | 2026-07-18 | 2026-07-25 |

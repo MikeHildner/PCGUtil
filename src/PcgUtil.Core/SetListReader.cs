@@ -80,15 +80,23 @@ public static class SetListReader
     }
 
     // Each record is 24 (name) + 128 x 542 (slots) = 69400 bytes, but the record size is
-    // 69416 — a 16-byte trailing region follows the slots. Only its byte +10 is ever
-    // non-zero on real files, holding 5 on exactly the set lists that have been written on
-    // the instrument and 0 on the rest. Changing a slot's comment font did NOT move it
-    // (probe 2026-07-25), so it is some other per-set-list setting — the Edit page's
-    // "16/8/4 Slots" display mode is the next guess. Undecoded; nothing writes it.
+    // 69416 — a 16-byte trailing region follows the slots. The vendor SysEx dump names it
+    // (SetList object, offsets 69400+): +0 EQ bypass, +1..+9 the nine set-list EQ band
+    // levels (signed, -18.0..+18.0 dB), +10 Control Surface Mode (0-8), +11 Control Surface
+    // "assign from" (set list / slot), +12..+15 reserved. That settles the long-standing
+    // question about byte +10: the 5 seen on every set list written on the instrument is a
+    // control-surface view, not a slot-display mode, and the all-zero bytes around it are a
+    // flat, un-bypassed EQ. Still nothing writes this region.
     //
-    // NOT here: any per-slot "keyboard track". The Edit page's dropdown beside the slot
-    // number is the category/program picker for what the slot loads (verified by probe:
-    // choosing new programs for two slots moved only their reference bytes).
+    // The same dump calls slot byte +29 a per-slot "Keyboard Track" (0-15, track 1-16),
+    // which cannot be the whole story here: bits 5-7 carry the transpose high bits and the
+    // comment font occupies bits 2-4 (XS/S/M/L/XL as 0/4/8/12/16, hardware-confirmed),
+    // leaving only bits 0-1. That dump is Object Version 0 and predates the comment font,
+    // so the byte was evidently repacked in a later OS. Harmless either way: every writer
+    // masks CommentFontMask and preserves bits 0-4 verbatim, so whatever the current OS
+    // keeps down there survives our edits untouched. A scan of three real backups found
+    // bits 0-4 zero on all 16384 slots but two — one Song slot carrying 8, and the font
+    // probe's own XL.
 
     // Reference bytes B0 B1 B2:
     //   Type  = B0 & 0x03        (Combi=0, Program=1, Song=2)
