@@ -11,7 +11,8 @@ namespace PcgUtil.Core.Tests;
 /// </summary>
 public class PcgDeepCopyTests
 {
-    // Sample facts: combi bank 10 (USER-D) is all "Init Combi"; program bank 19 (USER-GG)
+    // Sample facts: combi bank 10 (USER-D) is mostly "Init Combi" and is where merges land
+    // (a fresh backup may carry real combis in its first slots); program bank 19 (USER-GG)
     // is HD-1 with 100+ free slots and bank 15 (USER-CC) is EXi with 50+ free; combi
     // (7,57) "Let's Go Crazy" has internal timbres.
     private const int SrcCombiBank = 7;
@@ -210,9 +211,14 @@ public class PcgDeepCopyTests
     public void FreeCombiSlots_finds_init_slots()
     {
         var catalog = PcgCatalog.Build(Sample.Parse());
+        var bank = catalog.CombiBanks[DstCombiBank];
 
-        // USER-D (bank 10) is entirely "Init Combi" in the sample; INT-A is factory-full.
-        Assert.Equal(Enumerable.Range(0, 128), PcgDeepCopy.FreeCombiSlots(catalog.CombiBanks[DstCombiBank]));
+        // Free slots are exactly the init/empty-named ones, ascending — asserted against the
+        // bank's own names rather than a fixed range, so a fresh backup (USER-D is where
+        // merges land) can't stale-date the pin. INT-A stays factory-full either way.
+        Assert.Equal(Enumerable.Range(0, bank.Count).Where(i => Combi.IsEmptyOrInitName(bank[i])),
+                     PcgDeepCopy.FreeCombiSlots(bank));
+        Assert.NotEmpty(PcgDeepCopy.FreeCombiSlots(bank));
         Assert.Empty(PcgDeepCopy.FreeCombiSlots(catalog.CombiBanks[0]));
     }
 

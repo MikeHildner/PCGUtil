@@ -15,7 +15,8 @@ Main tabs:
   mode** you can rename, reorder, and copy slots; a moved slot keeps pointing at the same sound.
 - **Combis** — browse a bank and reorganize: reorder, copy, or rename combis. Reordering
   automatically updates the set-list slots that use them, so your songs keep their sound.
-  Each combi's key and velocity zones are editable right in its zone map.
+  Each combi's key and velocity zones are editable right in its zone map, and you can change
+  which program a layer plays — picked by name — or switch a layer off entirely.
 - **Programs** — the same for programs: reorder, copy, or rename. Every combi timbre and
   set-list slot that referenced a program is updated to follow it to its new spot.
 - **Merge** — your file in the middle, up to two other backups on the wings. Drag a program,

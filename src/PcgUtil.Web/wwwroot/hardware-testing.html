@@ -192,6 +192,17 @@
     </ul>
   </section>
 
+  <section>
+    <h2>14. Combi layers <span class="hint">swap a layer's sound, or switch a layer off</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>In a combi's Timbres view (Combis tab → Edit), pick a different <strong>program</strong> for one layer by name — something obviously different, a pad swapped for an organ — download, and load: that layer plays the new sound and the rest of the combi is unchanged.</span></label></li>
+      <li><label><input type="checkbox"><span>Point a layer at a program in a <em>different bank</em> (say from INT-A to USER-C): the instrument recalls the program you actually picked, not a same-numbered one from the wrong bank.</span></label></li>
+      <li><label><input type="checkbox"><span>Set a playing layer's status to <strong>Off</strong>, download, and load: that layer is silent, everything else still sounds.</span></label></li>
+      <li><label><input type="checkbox"><span>Take an empty (Off) layer, set it to <strong>Int</strong> and give it a program, download, and load: the new layer plays — a layer built from nothing.</span></label></li>
+      <li><label><input type="checkbox"><span>Check Timbre Parameters → MIDI on your instrument: the <strong>MIDI channel</strong> of every layer you touched is exactly what it was before.</span></label></li>
+    </ul>
+  </section>
+
   <div class="note warn">
     <strong>Known limitation.</strong> Sequencer <em>songs</em> that reference a moved program are
     <em>not</em> retargeted (set-list and combi references are). If you use songs, spot-check a

@@ -174,6 +174,26 @@ plus a value scan over ~13k live timbres (bend holds musical semitone counts bes
       compare against the instrument's Timbre Parameters → Pitch page: the app's Bend and
       Porta columns match, and "PRG" corresponds to the instrument showing PRG.
 
+## 17. Combi layer editing (timbre program & status)
+Status: **pending** — half-proven by construction. The program bytes (+0 number, +1 bank
+PcgId) are the same two bytes §4 and §9 already rewrite in bulk when a reorg retargets
+references or a deep copy re-points a combi, so the new surface there is the *picker*, not
+the format. The genuinely new byte is the status field: timbre +2 bits 5–7, sharing its
+byte with the MIDI channel in bits 0–4. That masking is what the last check below exists
+to catch — a whole-byte write would silently move the timbre to another channel.
+- [ ] In a USER combi (Combis tab → Edit → **Timbres**), point one timbre at an obviously
+      different program — a pad row switched to an organ, chosen by name — download, load:
+      that layer plays the new program and the combi's other layers are unchanged.
+- [ ] Repoint a timbre to a program in a *different* bank (e.g. from INT-A to USER-C), so
+      the stored bank id and the on-screen bank differ: the instrument recalls the program
+      you picked, not a same-numbered program from the wrong bank.
+- [ ] Switch a playing timbre's status to **Off**, download, load: that layer is silent and
+      the rest of the combi is untouched.
+- [ ] Take an unused (Off) timbre, set it to **Int** and point it at a program, download,
+      load: the new layer plays — a layer added from nothing.
+- [ ] On the instrument's Timbre Parameters → MIDI page, the **MIDI channel** of every
+      timbre you touched is exactly what it was before (the masking check).
+
 ## Known limitation
 - Sequencer **songs** that reference a moved program are **not** retargeted (set-list and combi
   references are). If you use songs, spot-check a song's tracks after a program reorg.

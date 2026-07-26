@@ -3443,6 +3443,46 @@
             $"T{t.Index + 1} transpose");
     }
 
+    void SetTimbreStatusAt(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || !Enum.TryParse<TimbreStatus>(value, out var status)) return;
+        ApplyEdit(PcgEditor.SetTimbreStatus(_pcg, combi.Bank, combi.Index, t.Index, status),
+            $"T{t.Index + 1} status");
+    }
+
+    // Switching banks keeps the same program number when the new bank has a real program
+    // there, otherwise lands on its first — never on an init placeholder.
+    void SetTimbreProgramBank(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || _catalog is null || !int.TryParse(value, out var bank)) return;
+        if (bank < 0 || bank >= _catalog.ProgramBanks.Count) return;
+        var names = _catalog.ProgramBanks[bank];
+        if (names.Count == 0) return;
+        int number = t.ProgramNumber < names.Count && !PcgOrganizer.IsProgramPlaceholder(names[t.ProgramNumber])
+            ? t.ProgramNumber
+            : FirstRealProgram(names);
+        ApplyEdit(PcgEditor.SetTimbreProgram(_pcg, combi.Bank, combi.Index, t.Index, bank, number),
+            $"T{t.Index + 1} program");
+    }
+
+    void SetTimbreProgramNumber(Combi combi, CombiTimbre t, string? value)
+    {
+        if (_pcg is null || _catalog is null || !int.TryParse(value, out var number)) return;
+        int bank = PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId);
+        if (bank < 0 || bank >= _catalog.ProgramBanks.Count || _catalog.ProgramBanks[bank].Count == 0)
+            return; // the timbre points at a bank this file doesn't carry — pick one first
+        ApplyEdit(PcgEditor.SetTimbreProgram(_pcg, combi.Bank, combi.Index, t.Index, bank, number),
+            $"T{t.Index + 1} program");
+    }
+
+    static int FirstRealProgram(IReadOnlyList<string> names)
+    {
+        for (int i = 0; i < names.Count; i++)
+            if (!PcgOrganizer.IsProgramPlaceholder(names[i]))
+                return i;
+        return 0;
+    }
+
     // Companion .KGE: user KARMA GE names (USER-A..L), attached from the file header.
     IReadOnlyList<IReadOnlyList<string>>? _kgeBanks;
     string? _kgeFileName;
@@ -3786,7 +3826,7 @@
             @(catalog?.CombiCategoryName(combi.Category) ?? CombiCategories.Name(combi.Category))@(combi.Tempo > 0 ? $" · {combi.Tempo:0.##} BPM" : "")@(combi.Favorite ? " · ★ favorite" : "")
             · @activeTimbres.Count of @CombiReader.TimbresPerCombi timbres active
         </div>
-        @if (activeTimbres.Count == 0)
+        @if (activeTimbres.Count == 0 && !editable)
         {
             <span class="text-body-secondary small">No active timbres.</span>
             return;
@@ -3844,19 +3884,74 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var t in activeTimbres)
+                @* Edit mode lists all sixteen so a silent layer can be woken; browse shows
+                   only the ones that play. *@
+                @foreach (var t in (editable ? combi.Timbres : (IReadOnlyList<CombiTimbre>)activeTimbres))
                 {
-                    <tr class="@(t.Mute ? "opacity-50" : null)">
+                    var curBank = PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId);
+                    var bankNames = catalog is not null && curBank >= 0 && curBank < catalog.ProgramBanks.Count
+                        ? catalog.ProgramBanks[curBank] : null;
+                    <tr class="@(t.Mute || t.Status == TimbreStatus.Off ? "opacity-50" : null)">
                         <td>T@(t.Index + 1)</td>
-                        <td>@t.Status@(t.Mute ? " 🔇" : "")</td>
-                        <td>
-                            @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
-                            @{ var timbreProgram = catalog?.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber); }
-                            @if (timbreProgram is not null)
-                            {
-                                <span> — @timbreProgram</span>
-                            }
-                        </td>
+                        @if (editable)
+                        {
+                            <td>
+                                <select class="form-select form-select-sm" style="width:5.4rem" aria-label="Timbre status"
+                                        @onchange="@(e => SetTimbreStatusAt(combi, t, e.Value?.ToString()))">
+                                    @foreach (var s in new[] { TimbreStatus.Off, TimbreStatus.Int, TimbreStatus.Both, TimbreStatus.Ext, TimbreStatus.Ex2 })
+                                    {
+                                        <option value="@s" selected="@(s == t.Status)">@s</option>
+                                    }
+                                </select>@(t.Mute ? " 🔇" : "")
+                            </td>
+                        }
+                        else
+                        {
+                            <td>@t.Status@(t.Mute ? " 🔇" : "")</td>
+                        }
+                        @if (editable && catalog is not null)
+                        {
+                            <td class="text-nowrap">
+                                <select class="form-select form-select-sm d-inline-block" style="width:9.5rem"
+                                        aria-label="Program bank"
+                                        @onchange="@(e => SetTimbreProgramBank(combi, t, e.Value?.ToString()))">
+                                    @if (bankNames is null || bankNames.Count == 0)
+                                    {
+                                        <option value="-1" selected>— bank @t.ProgramBankPcgId —</option>
+                                    }
+                                    @foreach (var b in PresentBanks(catalog.ProgramBanks))
+                                    {
+                                        <option value="@b" selected="@(b == curBank)">@PcgBankLabels.Program(b) (@ProgramTypeTag(catalog, b)@CountNonEmpty(catalog.ProgramBanks[b]))</option>
+                                    }
+                                </select>
+                                <select class="form-select form-select-sm d-inline-block" style="width:14rem"
+                                        aria-label="Program" disabled="@(bankNames is null || bankNames.Count == 0)"
+                                        title="@(bankNames is null || bankNames.Count == 0 ? "This file doesn't carry that bank — pick one on the left" : null)"
+                                        @onchange="@(e => SetTimbreProgramNumber(combi, t, e.Value?.ToString()))">
+                                    @if (bankNames is not null)
+                                    {
+                                        @for (var n = 0; n < bankNames.Count; n++)
+                                        {
+                                            @if (!PcgOrganizer.IsProgramPlaceholder(bankNames[n]) || n == t.ProgramNumber)
+                                            {
+                                                <option value="@n" selected="@(n == t.ProgramNumber)">#@n.ToString("D3") — @(string.IsNullOrEmpty(bankNames[n]) ? "(empty)" : bankNames[n])</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </td>
+                        }
+                        else
+                        {
+                            <td>
+                                @PcgBankLabels.Program(PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId)) #@t.ProgramNumber.ToString("D3")
+                                @{ var timbreProgram = catalog?.ResolveProgram(t.ProgramBankPcgId, t.ProgramNumber); }
+                                @if (timbreProgram is not null)
+                                {
+                                    <span> — @timbreProgram</span>
+                                }
+                            </td>
+                        }
                         @if (editable)
                         {
                             <td class="text-nowrap">

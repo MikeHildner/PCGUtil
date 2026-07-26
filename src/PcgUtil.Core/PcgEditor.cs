@@ -465,6 +465,42 @@ public static class PcgEditor
         return Finalized(pcg, data);
     }
 
+    /// <summary>
+    /// Returns a copy with one timbre pointed at a different program. The timbre stores the
+    /// program's bank as a hardware PcgId, not a list index. Any bank may be referenced —
+    /// the HD-1/EXi rule governs moving program <em>records</em> between banks, not which
+    /// bank a timbre plays from.
+    /// </summary>
+    public static byte[] SetTimbreProgram(PcgFile pcg, int bank, int index, int timbre,
+                                          int programBank, int programNumber)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (_, _, programCount) = LocateBank(pcg, "PRG1", programBank); // throws if absent
+        if (programNumber < 0 || programNumber >= programCount)
+            throw new ArgumentOutOfRangeException(nameof(programNumber), programNumber,
+                $"{PcgBankLabels.Program(programBank)} holds {programCount} programs.");
+
+        var (data, tOff) = CloneWithTimbre(pcg, bank, index, timbre);
+        data[tOff] = (byte)programNumber;
+        data[tOff + 1] = (byte)PcgCatalog.ProgramBankPcgIdForIndex(programBank);
+        return Finalized(pcg, data);
+    }
+
+    /// <summary>
+    /// Returns a copy with one timbre's status rewritten — Off silences the layer, Int plays
+    /// it from an internal program. The status shares its byte with the timbre's MIDI
+    /// channel (bits 0–4), which is preserved.
+    /// </summary>
+    public static byte[] SetTimbreStatus(PcgFile pcg, int bank, int index, int timbre, TimbreStatus status)
+    {
+        if (status is < TimbreStatus.Off or > TimbreStatus.Ex2)
+            throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown timbre status.");
+
+        var (data, tOff) = CloneWithTimbre(pcg, bank, index, timbre);
+        data[tOff + 2] = (byte)((data[tOff + 2] & 0x1F) | ((int)status << 5));
+        return Finalized(pcg, data);
+    }
+
     // Clones the image and returns it with the validated absolute offset of one timbre block.
     private static (byte[] Data, long TimbreOffset) CloneWithTimbre(PcgFile pcg, int bank, int index, int timbre)
     {

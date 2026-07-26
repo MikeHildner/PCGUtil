@@ -89,6 +89,85 @@ public class PcgEditorTimbreTests
     }
 
     [Fact]
+    public void SetTimbreProgram_repoints_the_layer_and_resolves_to_the_new_name()
+    {
+        var pcg = Sample.Parse();
+        var catalog = PcgCatalog.Build(pcg);
+        var before = TimbreBefore(pcg, 0);
+
+        // Point T1 at a named program in a USER bank, where the stored PcgId and the list
+        // index differ — the classic way to get this wrong.
+        const int dstBank = 8; // USER-C
+        int dstIndex = Enumerable.Range(0, catalog.ProgramBanks[dstBank].Count)
+            .First(i => !PcgOrganizer.IsProgramPlaceholder(catalog.ProgramBanks[dstBank][i]));
+        string expected = catalog.ProgramBanks[dstBank][dstIndex];
+
+        var edited = PcgEditor.SetTimbreProgram(pcg, Bank, Index, timbre: 0, dstBank, dstIndex);
+
+        var after = TimbreAfter(edited, 0);
+        Assert.Equal(dstIndex, after.ProgramNumber);
+        Assert.Equal(PcgCatalog.ProgramBankPcgIdForIndex(dstBank), after.ProgramBankPcgId);
+        Assert.NotEqual(dstBank, after.ProgramBankPcgId); // a PcgId, not the list index
+        Assert.Equal(expected, PcgCatalog.Build(PcgReader.Parse(edited))
+            .ResolveProgram(after.ProgramBankPcgId, after.ProgramNumber));
+
+        // The rest of the timbre is untouched.
+        Assert.Equal(before.Status, after.Status);
+        Assert.Equal(before.MidiChannel, after.MidiChannel);
+        Assert.Equal(before.BottomKey, after.BottomKey);
+        Assert.Equal(before.Volume, after.Volume);
+        AssertChecksumsValid(pcg, edited);
+    }
+
+    [Fact]
+    public void SetTimbreStatus_round_trips_every_value_and_keeps_the_midi_channel()
+    {
+        var pcg = Sample.Parse();
+        var before = TimbreBefore(pcg, 0);
+
+        foreach (var status in new[] { TimbreStatus.Off, TimbreStatus.Int, TimbreStatus.Both,
+                                       TimbreStatus.Ext, TimbreStatus.Ex2 })
+        {
+            var edited = PcgEditor.SetTimbreStatus(pcg, Bank, Index, timbre: 0, status);
+            var after = TimbreAfter(edited, 0);
+            Assert.Equal(status, after.Status);
+            // Status shares its byte with the MIDI channel — the whole point of masking.
+            Assert.Equal(before.MidiChannel, after.MidiChannel);
+            Assert.Equal(before.ProgramNumber, after.ProgramNumber);
+            Assert.Equal(before.ProgramBankPcgId, after.ProgramBankPcgId);
+        }
+
+        AssertChecksumsValid(pcg, PcgEditor.SetTimbreStatus(pcg, Bank, Index, 0, TimbreStatus.Off));
+    }
+
+    [Fact]
+    public void Silencing_a_timbre_and_waking_an_unused_one_are_both_expressible()
+    {
+        var pcg = Sample.Parse();
+
+        // Turn a playing layer off.
+        var silenced = PcgReader.Parse(PcgEditor.SetTimbreStatus(pcg, Bank, Index, 0, TimbreStatus.Off));
+        var offTimbre = CombiReader.Read(silenced).Single(c => c.Bank == Bank && c.Index == Index).Timbres[0];
+        Assert.Equal(TimbreStatus.Off, offTimbre.Status);
+        Assert.False(offTimbre.UsesInternalProgram);
+
+        // Find a combi with an Off timbre, wake it and give it a program: "add a layer".
+        var target = CombiReader.Read(pcg)
+            .First(c => !c.IsEmptyOrInit && c.Timbres.Any(t => t.Status == TimbreStatus.Off));
+        int spare = target.Timbres.First(t => t.Status == TimbreStatus.Off).Index;
+
+        var woken = PcgEditor.SetTimbreStatus(pcg, target.Bank, target.Index, spare, TimbreStatus.Int);
+        var pointed = PcgEditor.SetTimbreProgram(PcgReader.Parse(woken), target.Bank, target.Index, spare, 0, 0);
+
+        var added = CombiReader.Read(PcgReader.Parse(pointed))
+            .Single(c => c.Bank == target.Bank && c.Index == target.Index).Timbres[spare];
+        Assert.Equal(TimbreStatus.Int, added.Status);
+        Assert.True(added.UsesInternalProgram);
+        Assert.Equal(0, added.ProgramNumber);
+        AssertChecksumsValid(pcg, pointed);
+    }
+
+    [Fact]
     public void Timbre_writers_reject_out_of_range_values()
     {
         var pcg = Sample.Parse();
@@ -100,6 +179,10 @@ public class PcgEditorTimbreTests
         Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetTimbreVolume(pcg, Bank, Index, 0, 128));
         Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetTimbreTranspose(pcg, Bank, Index, 0, 61));
         Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetTimbreKeyZone(pcg, Bank, Index, 16, 0, 127));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetTimbreProgram(pcg, Bank, Index, 0, 0, 999));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetTimbreProgram(pcg, Bank, Index, 0, 0, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetTimbreProgram(pcg, Bank, Index, 0, 99, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PcgEditor.SetTimbreStatus(pcg, Bank, Index, 0, (TimbreStatus)7));
     }
 
     private static void AssertChecksumsValid(PcgFile pcg, byte[] edited)
