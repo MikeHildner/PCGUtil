@@ -49,6 +49,10 @@
 </style>
 </head>
 <body>
+<!-- Public, file-agnostic twin of HARDWARE-TESTING.md in the repo root. Section NUMBERS AND
+     SUBJECTS must match that file one for one, so "section 16" means the same thing in both;
+     they drifted once when three read-only sections were added only to the markdown. Add new
+     sections to both, or to neither. -->
 <div class="wrap">
   <header>
     <h1>Test PCG Util with your workstation</h1>
@@ -157,7 +161,20 @@
   </section>
 
   <section>
-    <h2>10. Slot colors</h2>
+    <h2>10. Effects &amp; KARMA <span class="hint">read-only — compare, don't change</span></h2>
+    <p class="hint">Nothing is written here. These check that the effect and KARMA names the app reads
+    out of your file match what your instrument shows — if the name table were off by one, every
+    label would be shifted by one.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Open a busy combi's effects list in the app and compare it against the instrument's IFX page for the same combi: the effect in each slot has the same name.</span></label></li>
+      <li><label><input type="checkbox"><span>Check the master slots too — <strong>MFX1, MFX2, TFX1, TFX2</strong> — including any that are empty. An empty master slot in the app should be empty on the instrument.</span></label></li>
+      <li><label><input type="checkbox"><span>Find a combi with an effect loaded but switched <em>off</em>: the app shows it as off too, not just as loaded.</span></label></li>
+      <li><label><input type="checkbox"><span>Compare the KARMA GE names on a combi that uses KARMA. If they show as ids rather than names, load that file's <code>.KGE</code> in the app — user GEs live there, not in the <code>.PCG</code>.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>11. Slot colors</h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Recolor a set-list slot (Set Lists tab → Edit mode → <strong>Settings</strong>), download, and load the file: your instrument's set list shows the chosen color, and the slot still recalls its patch, name, and notes.</span></label></li>
       <li><label><input type="checkbox"><span>Set a slot's volume, transpose, and hold time in the same Settings panel, download, and load: the slot plays at that volume, shows the transpose, and holds for the chosen time.</span></label></li>
@@ -166,18 +183,37 @@
   </section>
 
   <section>
-    <h2>11. Drag, right-click &amp; clear <span class="hint">desktop editing gestures</span></h2>
+    <h2>12. Program categories &amp; engines <span class="hint">read-only — compare, don't change</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Spot-check a few programs' <strong>category</strong> in the app against your instrument's own category for the same program (a piano reading as Keyboard, a drawbar organ as Organ, and so on).</span></label></li>
+      <li><label><input type="checkbox"><span>For EXi programs, the <strong>engine</strong> the app names (AL-1, CX-3, STR-1, MS-20EX, PolysixEX, MOD-7, SGX-2, EP-1) matches what the instrument shows for that program.</span></label></li>
+      <li><label><input type="checkbox"><span>Star (favorite) one program on your instrument, save a fresh <code>.PCG</code>, and open it: the app shows ★ on exactly that program and no others.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>13. Init placeholders <span class="hint">read-only — the sound, not the name</span></h2>
+    <p class="hint">The Duplicates tab can spot patches that carry a real name but are actually empty
+    init patches underneath, by comparing the sound data rather than the name. Worth knowing about
+    before a gig.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>If the Duplicates tab lists any <strong>"init placeholders with a real name"</strong>, recall one on your instrument: despite its song title it plays a bare init patch — nothing was ever saved into it.</span></label></li>
+      <li><label><input type="checkbox"><span>Conversely, patches the app does <em>not</em> flag do recall real sounds.</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>14. Drag, right-click &amp; clear <span class="hint">desktop editing gestures</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Drag a set-list slot by its ⠿ grip to a new position (Edit mode), download, and load: the song sits where you dropped it, the slots between shifted one step, and every song still recalls its sound, name, notes, and color.</span></label></li>
       <li><label><input type="checkbox"><span>Drag a combi or program to a new position the same way: it lands there, and the set lists (and combis) that use the moved patches still recall the same sounds.</span></label></li>
       <li><label><input type="checkbox"><span>Right-click a slot → <strong>Clear slot</strong>, download, and load: the slot shows as empty on the instrument's set list.</span></label></li>
       <li><label><input type="checkbox"><span>Right-click a combi or program → <strong>Clear to init</strong>, download, and load: the slot plays a bare init patch and the file loads with no error.</span></label></li>
-      <li><label><input type="checkbox"><span>If the Duplicates tab lists any "init placeholders with a real name", recall one on your instrument: it should play a bare init patch despite its name.</span></label></li>
     </ul>
   </section>
 
   <section>
-    <h2>12. Timbre editing <span class="hint">zones, volume, transpose</span></h2>
+    <h2>15. Timbre editing <span class="hint">zones, volume, transpose</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>In a combi's Timbres view (Combis tab → Edit), set one timbre's key zone to a distinctive split (say C4 and up), download, and load: your instrument shows exactly that key range and the split point plays where you set it.</span></label></li>
       <li><label><input type="checkbox"><span>Set a velocity window on a timbre (say 89–127), download, and load: soft playing skips the timbre, hard playing triggers it.</span></label></li>
@@ -186,7 +222,7 @@
   </section>
 
   <section>
-    <h2>13. Bend range &amp; portamento <span class="hint">read-only — compare, don't change</span></h2>
+    <h2>16. Bend range &amp; portamento <span class="hint">read-only — compare, don't change</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>Compare the <strong>Bend</strong> column against your instrument's <strong>P2: Timbre Parameters → 2–3: Pitch</strong> page for the same combi, timbre by timbre. Pick a combi with a few different values so it's a real check.</span></label></li>
       <li><label><input type="checkbox"><span>Compare the <strong>Porta</strong> column against <strong>P2: Timbre Parameters → 2–2: OSC</strong> — a different tab from Bend, which is the easy thing to get wrong.</span></label></li>
@@ -195,7 +231,7 @@
   </section>
 
   <section>
-    <h2>14. Combi layers <span class="hint">swap a layer's sound, or switch a layer off</span></h2>
+    <h2>17. Combi layers <span class="hint">swap a layer's sound, or switch a layer off</span></h2>
     <ul class="checks">
       <li><label><input type="checkbox"><span>In a combi's Timbres view (Combis tab → Edit), pick a different <strong>program</strong> for one layer by name — something obviously different, a pad swapped for an organ — download, and load: that layer plays the new sound and the rest of the combi is unchanged.</span></label></li>
       <li><label><input type="checkbox"><span>Point a layer at a program in a <em>different bank</em> (say from INT-A to USER-C): the instrument recalls the program you actually picked, not a same-numbered one from the wrong bank.</span></label></li>
@@ -206,7 +242,7 @@
   </section>
 
   <section>
-    <h2>15. Songs <span class="hint">needs the .SNG saved beside your backup</span></h2>
+    <h2>18. Songs <span class="hint">needs the .SNG saved beside your backup</span></h2>
     <p class="hint">Your songs aren't in the <code>.PCG</code> at all — they're in the <code>.SNG</code> that
     Save All writes next to it. Open both in PCGUtil, and load <strong>both</strong> back onto your
     instrument afterwards; loading only one is the usual reason this looks broken when it isn't.</p>

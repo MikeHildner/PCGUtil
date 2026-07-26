@@ -7,17 +7,22 @@ things on the workstation itself:
 2. its interpretation of the references **matches ours** — every patch still recalls the same
    sound after an edit.
 
-**Status: every section is confirmed on hardware as of 2026-07-25** — every write path this
-app ships has been round-tripped through the instrument, from the first set-list rename to
-timbre zones, drag reordering, and deep merges.
+**Status: every section is confirmed on hardware as of 2026-07-26** — §0–§18 are all green.
+Every write path this app ships has been round-tripped through the instrument, from the first
+set-list rename to timbre zones, drag reordering, deep merges, and song retargeting.
 
 This file is the **internal tracker**: per-section Status lines record what has been verified
 on our own hardware, and items may reference patches from our sample file. The public,
 file-agnostic variant every visitor sees is `src/PcgUtil.Web/wwwroot/hardware-testing.html`
 (linked from the app top bar as "Hardware tests") — same checks in substance, no statuses,
-worded for any instrument, with a GitHub-issues link for reports. **When a write-path feature
-ships, add a section to both.** Tip: use the **Usage** and **Duplicates** tabs to choose which
-patches to test with.
+worded for any instrument, with a GitHub-issues link for reports.
+
+**Keep the two in lockstep.** When a feature ships, add a section to *both* files **with the
+same number and subject**, so "§16" means one thing in conversation. The numbering drifted
+once (2026-07-26) because three read-only sections — Effects & KARMA, program categories, and
+init detection — were only ever added here, leaving the public page three behind from §11 on.
+
+Tip: use the **Usage** and **Duplicates** tabs to choose which patches to test with.
 
 ## 0. Setup & safety (do first)
 - [ ] Back up the workstation's current state to a fresh `.PCG`.
