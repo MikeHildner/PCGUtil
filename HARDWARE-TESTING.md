@@ -7,9 +7,10 @@ things on the workstation itself:
 2. its interpretation of the references **matches ours** — every patch still recalls the same
    sound after an edit.
 
-**Status: every section is confirmed on hardware as of 2026-07-26** — §0–§18 are all green.
+**Status: every section is confirmed on hardware as of 2026-07-27** — §0–§19 are all green.
 Every write path this app ships has been round-tripped through the instrument, from the first
-set-list rename to timbre zones, drag reordering, deep merges, and song retargeting.
+set-list rename to timbre zones, drag reordering, deep merges, song retargeting, and
+program-effect copies.
 
 This file is the **internal tracker**: per-section Status lines record what has been verified
 on our own hardware, and items may reference patches from our sample file. The public,
@@ -236,27 +237,28 @@ same pair §4 rewrites in bulk.
       disappears and the .SNG download offer goes away, because the file is unchanged again.
 
 ## 19. Program effects into a combi (Copy From Program, offline)
-Status: **pending** — the byte mechanics are strong (the effect region is byte-identical
-between program and combi records per the vendor dump, verified over ~24k program slots, and
-each copied slot travels as a verbatim 74-byte block), but three things only hardware can
-prove: the chain renumbering *sounds* right, the timbre bus/send re-point matches what the
-instrument's own Copy From Program produces, and whether TFX2's deep parameters travel (its
-parameter block is not contiguously mapped in the dump — the one soft spot).
-- [ ] Pick a combi with free IFX slots and a spare timbre. Point the timbre at a program with
+Status: **confirmed** on hardware (2026-07-27 — all six checks passed: packed effects landed
+in the predicted slots and the layer sounds as it did in Program mode, existing effects and
+the other timbres untouched, chains run in order at their renumbered slots, the MFX/TFX
+opt-ins replace the shared masters as warned, and the guarded clear behaved). This
+write-verifies the whole effect region — the first writes ever made to it — including the
+chain renumbering, the timbre bus/send re-point, and the TFX region: the dump's unmapped
+TFX2 parameter block was the one soft spot, and the instrument accepted the region copy.
+- [x] Pick a combi with free IFX slots and a spare timbre. Point the timbre at a program with
       distinctive effects (the FX button beside the program picker shows the plan: how many
       slots it needs and exactly where they land). Apply, download, load: the layer sounds
       like the program did in Program mode — effects included.
-- [ ] On the instrument's IFX page for that combi: the copied effects sit in exactly the
+- [x] On the instrument's IFX page for that combi: the copied effects sit in exactly the
       slots the plan predicted, switched on/off as the program had them, and every effect
       that was already in the combi is byte-for-byte where it was.
-- [ ] The combi's **other timbres sound completely unchanged** (the additive guarantee).
-- [ ] If the source program chains effects (e.g. compressor → EQ), the chain still runs in
+- [x] The combi's **other timbres sound completely unchanged** (the additive guarantee).
+- [x] If the source program chains effects (e.g. compressor → EQ), the chain still runs in
       order at its new slot numbers.
-- [ ] Copy with the **MFX** box ticked from a program whose master effects differ from the
+- [x] Copy with the **MFX** box ticked from a program whose master effects differ from the
       combi's: the combi's MFX1/2 now match the program's — and, as warned, every layer
       sounds different through them. Same check for **TFX**, listening specifically for
       whether TFX2's parameters came across (the dump's soft spot).
-- [ ] Clear an unused insert effect (✕ on the effects list), download, load: the slot is
+- [x] Clear an unused insert effect (✕ on the effects list), download, load: the slot is
       empty on the instrument and nothing else changed. The app refuses to clear a slot
       anything plays through — confirm the refusal names the timbre correctly.
 
