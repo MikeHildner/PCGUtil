@@ -16,7 +16,10 @@ Main tabs:
 - **Combis** — browse a bank and reorganize: reorder, copy, or rename combis. Reordering
   automatically updates the set-list slots that use them, so your songs keep their sound.
   Each combi's key and velocity zones are editable right in its zone map, and you can change
-  which program a layer plays — picked by name — or switch a layer off entirely.
+  which program a layer plays — picked by name — or switch a layer off entirely. A layer's
+  program can bring its **effects** along too: they pack into the combi's free effect slots,
+  leaving everything already there untouched, so the layer sounds like the program did on
+  its own.
 - **Programs** — the same for programs: reorder, copy, or rename. Every combi timbre and
   set-list slot that referenced a program is updated to follow it to its new spot.
 - **Songs** — open the `.SNG` saved beside your backup and see what each sequencer track

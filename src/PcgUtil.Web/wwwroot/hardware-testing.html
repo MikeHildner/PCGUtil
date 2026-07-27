@@ -255,6 +255,21 @@
     </ul>
   </section>
 
+  <section>
+    <h2>19. Program effects into a combi <span class="hint">the offline Copy From Program</span></h2>
+    <p class="hint">When you point a combi layer at a program, the program's insert effects can come
+    along — packed into the combi's <em>free</em> effect slots, so everything already there stays
+    untouched. The FX button beside the layer's program picker shows the plan before anything happens.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Point a spare layer at a program with distinctive effects, press <strong>FX</strong>, check the plan (how many slots, where they land), apply, download, and load: the layer sounds like the program did in Program mode — effects included.</span></label></li>
+      <li><label><input type="checkbox"><span>On your instrument's IFX page: the copied effects sit in exactly the predicted slots, and every effect the combi already had is untouched.</span></label></li>
+      <li><label><input type="checkbox"><span>The combi's <strong>other layers sound completely unchanged</strong>.</span></label></li>
+      <li><label><input type="checkbox"><span>If the program chains effects (say compressor → EQ), the chain still runs in order at its new slot numbers.</span></label></li>
+      <li><label><input type="checkbox"><span>Ticking <strong>MFX</strong> or <strong>TFX</strong> replaces the combi's shared master/total effects, as the warning says — listen especially for whether TFX2's settings came across.</span></label></li>
+      <li><label><input type="checkbox"><span>Clearing an unused effect (✕ on the effects list), downloading and loading leaves that slot empty and everything else as it was — and the app refuses to clear a slot anything plays through, naming the layer.</span></label></li>
+    </ul>
+  </section>
+
   <div class="note warn">
     <strong>Known limitation.</strong> If you <em>overwrite</em> a program a song track uses (paste or
     clear, rather than move it), the track keeps its slot and will play whatever now lives there —

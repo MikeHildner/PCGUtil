@@ -61,6 +61,8 @@ public static class ProgramReader
                     SubCategory = recordSize > CategoryOffset ? (data[record + CategoryOffset] >> 5) & 0x07 : 0,
                     Favorite = recordSize > FavoriteOffset && (data[record + FavoriteOffset] & FavoriteBit) != 0,
                     ExiEngine = isExi && recordSize > ExiEngineOffset ? data[record + ExiEngineOffset] : null,
+                    // Same region, same offsets as a combi — the decode is shared outright.
+                    Effects = CombiReader.ReadEffects(data, record, recordSize),
                 });
             }
         }

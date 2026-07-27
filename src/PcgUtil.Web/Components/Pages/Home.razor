@@ -1316,6 +1316,12 @@
                                         {
                                             <span class="badge text-bg-light fw-normal ms-1">@ExiEngines.Name(engine)</span>
                                         }
+                                        var fxCount = info.ActiveEffects.Count();
+                                        @if (fxCount > 0)
+                                        {
+                                            <span class="badge text-bg-light fw-normal ms-1"
+                                                  title="@string.Join("\n", info.ActiveEffects.Select(e => $"{e.Label}: {e.TypeName}{(e.IsOn ? "" : " (off)")}"))">@fxCount FX</span>
+                                        }
                                         @if (info.Favorite)
                                         {
                                             <span class="ms-1" title="Favorite">★</span>
@@ -3611,6 +3617,57 @@
         return 0;
     }
 
+    // ----- "Bring the program's effects along" — the offline Copy From Program (IFX-All used) -----
+    //
+    // The panel targets one timbre of the open combi; its plan is recomputed from the live
+    // bytes on every render, so it stays honest across edits and undo. The flow is: pick the
+    // program with the dropdowns first, then bring its effects.
+    int? _fxCopyTimbre;
+    bool _fxCopyMfx, _fxCopyTfx;
+    string? _fxNotice; // why a clear was refused — structural guards speak in full sentences
+
+    void ToggleFxCopy(int timbre)
+    {
+        _fxCopyTimbre = _fxCopyTimbre == timbre ? null : timbre;
+        _fxCopyMfx = _fxCopyTfx = false;
+        _fxNotice = null;
+    }
+
+    void ApplyFxCopy(Combi combi, int timbre)
+    {
+        if (_pcg is null || timbre >= combi.Timbres.Count) return;
+        var t = combi.Timbres[timbre];
+        int bank = PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId);
+        if (bank < 0) return;
+        try
+        {
+            ApplyEdit(ProgramFxCopy.Apply(_pcg, bank, t.ProgramNumber, combi.Bank, combi.Index,
+                                          timbre, _fxCopyMfx, _fxCopyTfx),
+                $"T{timbre + 1} program effects");
+            _fxCopyTimbre = null;
+            _fxNotice = null;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _fxNotice = ex.Message; // the plan said it fits, but the file may have changed underneath
+        }
+    }
+
+    void ClearIfx(Combi combi, int slot)
+    {
+        if (_pcg is null) return;
+        try
+        {
+            ApplyEdit(ProgramFxCopy.ClearInsertEffect(_pcg, combi.Bank, combi.Index, slot),
+                $"Clear IFX{slot + 1}");
+            _fxNotice = null;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _fxNotice = ex.Message;
+        }
+    }
+
     // ----- Companion .SNG: the sequencer songs, which a .PCG does not carry -----
     //
     // A backup holds set lists, programs, combis, drum kits, wave sequences and global, and
@@ -4176,6 +4233,9 @@
                                         }
                                     }
                                 </select>
+                                <button type="button" class="btn btn-sm @(_fxCopyTimbre == t.Index ? "btn-secondary" : "btn-outline-secondary") px-2 ms-1"
+                                        title="Bring this program's effects into the combi — like the instrument's Copy From Program"
+                                        disabled="@(curBank < 0)" @onclick="() => ToggleFxCopy(t.Index)">FX</button>
                             </td>
                         }
                         else
@@ -4250,6 +4310,81 @@
         </table>
         </div>
 
+        @if (editable && _fxCopyTimbre is { } fxTimbre && fxTimbre < combi.Timbres.Count)
+        {
+            var ft = combi.Timbres[fxTimbre];
+            var fxBank = PcgCatalog.ProgramBankIndexForPcgId(ft.ProgramBankPcgId);
+            var fxProgram = fxBank >= 0 ? ProgramInfoAt(fxBank, ft.ProgramNumber) : null;
+            var fxPlan = _pcg is not null && fxBank >= 0
+                ? ProgramFxCopy.Plan(_pcg, fxBank, ft.ProgramNumber, combi.Bank, combi.Index) : null;
+            <div class="pcg-surface p-3 mb-2" style="max-width:52rem">
+                <div class="d-flex align-items-baseline gap-2 mb-1">
+                    <strong class="small">Bring T@(fxTimbre + 1)'s program effects into this combi</strong>
+                    <span class="small text-body-secondary text-truncate">@(fxProgram?.Name ?? "")</span>
+                    <button type="button" class="btn-close ms-auto" aria-label="Close" @onclick="() => _fxCopyTimbre = null"></button>
+                </div>
+                @if (fxPlan is null)
+                {
+                    <div class="small text-body-secondary">Pick a program this file carries first.</div>
+                }
+                else if (fxPlan.NeededIfx == 0)
+                {
+                    <div class="small text-body-secondary">This program uses no insert effects — there's nothing to bring
+                        @(fxProgram?.Effects.Skip(12).Any(e => e.HasEffect) == true ? " besides its master effects below." : ".")</div>
+                }
+                else if (fxPlan.Fits)
+                {
+                    <div class="small mb-1">
+                        Needs <strong>@fxPlan.NeededIfx</strong> insert slot@(fxPlan.NeededIfx == 1 ? "" : "s"); this combi has
+                        <strong>@fxPlan.FreeIfx.Count</strong> free. The combi's existing effects are untouched.
+                    </div>
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                        @foreach (var p in fxPlan.Placements)
+                        {
+                            var srcFx = fxProgram?.Effects[p.SourceIfx];
+                            <span class="badge text-bg-light fw-normal">
+                                IFX@(p.SourceIfx + 1) → IFX@(p.DestinationIfx + 1)@(srcFx is { HasEffect: true } ? $" · {srcFx.TypeName}" : " · (chain spacer)")
+                            </span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="small text-warning-emphasis mb-2">
+                        Needs <strong>@fxPlan.NeededIfx</strong> insert slot@(fxPlan.NeededIfx == 1 ? "" : "s") but only
+                        <strong>@fxPlan.FreeIfx.Count</strong> @(fxPlan.FreeIfx.Count == 1 ? "is" : "are") free — it won't fit.
+                        Clear an unused effect below (✕), or keep the program without its effects.
+                    </div>
+                }
+                @if (fxPlan is not null && (fxPlan.NeededIfx > 0 || fxProgram?.Effects.Skip(12).Any(e => e.HasEffect) == true))
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <label class="small d-flex align-items-center gap-1 mb-0" title="Replaces the combi's MFX1/MFX2 — every layer runs through those">
+                            <input type="checkbox" class="form-check-input mt-0" @bind="_fxCopyMfx" /> Master effects (MFX)
+                        </label>
+                        <label class="small d-flex align-items-center gap-1 mb-0" title="Replaces the combi's TFX1/TFX2 — every layer runs through those">
+                            <input type="checkbox" class="form-check-input mt-0" @bind="_fxCopyTfx" /> Total effects (TFX)
+                        </label>
+                        @if (_fxCopyMfx || _fxCopyTfx)
+                        {
+                            <span class="small text-warning-emphasis">shared by the whole combi — this changes how other layers sound</span>
+                        }
+                        <button type="button" class="btn btn-sm btn-primary ms-auto"
+                                disabled="@(!fxPlan.Fits && fxPlan.NeededIfx > 0)"
+                                @onclick="() => ApplyFxCopy(combi, fxTimbre)">Copy effects</button>
+                    </div>
+                }
+                @if (fxPlan is { UsesDrumKitRouting: true })
+                {
+                    <div class="small text-body-secondary mt-1">Drum program: its kit's own routing rides along, re-pointed at the copied slots.</div>
+                }
+            </div>
+        }
+        @if (_fxNotice is not null)
+        {
+            <div class="alert alert-warning py-1 px-2 small mb-2" style="max-width:52rem">@_fxNotice</div>
+        }
+
         var effects = combi.ActiveEffects.ToList();
         var karmaOn = combi.KarmaModules.Where(m => m.IsOn).ToList();
         <div class="d-flex flex-wrap align-items-baseline gap-1 mb-1" style="max-width:52rem">
@@ -4263,6 +4398,12 @@
                 <span class="badge text-bg-light fw-normal @(e.IsOn ? null : "opacity-50")"
                       title="@(e.IsOn ? "This effect is on" : "This effect is switched off")">
                     @e.Label · @e.TypeId.ToString("D3") @e.TypeName@(e.IsOn ? "" : " (off)")
+                    @if (editable && e.Slot <= EffectSlot.Ifx12)
+                    {
+                        <button type="button" class="btn-close ms-1" style="font-size:.55em; vertical-align:baseline"
+                                title="Clear this insert slot (only allowed when nothing plays through it)"
+                                aria-label="Clear @e.Label" @onclick="() => ClearIfx(combi, (int)e.Slot)"></button>
+                    }
                 </span>
             }
         </div>

@@ -17,8 +17,13 @@ public enum EffectSlot
     Mfx1, Mfx2, Tfx1, Tfx2,
 }
 
-/// <summary>One effect slot of a combi: which effect is loaded and whether it runs.</summary>
-public sealed record CombiEffect(EffectSlot Slot, int TypeId, bool IsOn)
+/// <summary>
+/// One effect slot: which effect is loaded, whether it runs, and — for insert slots — its
+/// chain link. Programs carry the identical region at the identical offsets, so this model
+/// serves both (see <see cref="ProgramInfo.Effects"/>).
+/// </summary>
+public sealed record CombiEffect(EffectSlot Slot, int TypeId, bool IsOn,
+                                 bool ChainOn = false, int ChainTo = 0)
 {
     /// <summary>Slot label as the hardware shows it: IFX1–IFX12, MFX1/2, TFX1/2.</summary>
     public string Label => Slot switch

@@ -589,7 +589,7 @@ public static class PcgEditor
     private const int BankNameLength = 24;
 
     // Combi name is at record offset 0; bank data is a 12-byte sub-header then records.
-    private static (long Offset, int RecordSize) LocateCombi(PcgFile pcg, int bank, int index)
+    internal static (long Offset, int RecordSize) LocateCombi(PcgFile pcg, int bank, int index)
     {
         var (recordsStart, recordSize, count) = LocateBank(pcg, "CMB1", bank);
         if (index < 0 || index >= count)
@@ -675,7 +675,7 @@ public static class PcgEditor
     }
 
     // Every edit ends here: recompute per-chunk checksums so the hardware accepts the file.
-    private static byte[] Finalized(PcgFile pcg, byte[] data)
+    internal static byte[] Finalized(PcgFile pcg, byte[] data)
     {
         PcgChecksum.Recompute(pcg, data);
         return data;
@@ -897,7 +897,7 @@ public static class PcgEditor
     }
 
     // Program name is at record offset 0; bank data is a 12-byte sub-header then fixed records.
-    private static (long Offset, int RecordSize) LocateProgram(PcgFile pcg, int bank, int index)
+    internal static (long Offset, int RecordSize) LocateProgram(PcgFile pcg, int bank, int index)
     {
         var (recordsStart, recordSize, count) = LocateBank(pcg, "PRG1", bank);
         if (index < 0 || index >= count)

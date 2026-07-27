@@ -235,6 +235,31 @@ same pair §4 rewrites in bulk.
 - [x] Undo a program move before downloading: the Songs tab's "tracks followed" banner
       disappears and the .SNG download offer goes away, because the file is unchanged again.
 
+## 19. Program effects into a combi (Copy From Program, offline)
+Status: **pending** — the byte mechanics are strong (the effect region is byte-identical
+between program and combi records per the vendor dump, verified over ~24k program slots, and
+each copied slot travels as a verbatim 74-byte block), but three things only hardware can
+prove: the chain renumbering *sounds* right, the timbre bus/send re-point matches what the
+instrument's own Copy From Program produces, and whether TFX2's deep parameters travel (its
+parameter block is not contiguously mapped in the dump — the one soft spot).
+- [ ] Pick a combi with free IFX slots and a spare timbre. Point the timbre at a program with
+      distinctive effects (the FX button beside the program picker shows the plan: how many
+      slots it needs and exactly where they land). Apply, download, load: the layer sounds
+      like the program did in Program mode — effects included.
+- [ ] On the instrument's IFX page for that combi: the copied effects sit in exactly the
+      slots the plan predicted, switched on/off as the program had them, and every effect
+      that was already in the combi is byte-for-byte where it was.
+- [ ] The combi's **other timbres sound completely unchanged** (the additive guarantee).
+- [ ] If the source program chains effects (e.g. compressor → EQ), the chain still runs in
+      order at its new slot numbers.
+- [ ] Copy with the **MFX** box ticked from a program whose master effects differ from the
+      combi's: the combi's MFX1/2 now match the program's — and, as warned, every layer
+      sounds different through them. Same check for **TFX**, listening specifically for
+      whether TFX2's parameters came across (the dump's soft spot).
+- [ ] Clear an unused insert effect (✕ on the effects list), download, load: the slot is
+      empty on the instrument and nothing else changed. The app refuses to clear a slot
+      anything plays through — confirm the refusal names the timbre correctly.
+
 ## Known limitation
 - A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
   that slot and will play whatever now lives there. That is deliberate — the sound it used is

@@ -17,6 +17,16 @@ public sealed class ProgramInfo
     /// name via <see cref="ExiEngines.Name"/>.</summary>
     public required int? ExiEngine { get; init; }
 
+    /// <summary>
+    /// The program's sixteen effect slots (IFX1–12, MFX1/2, TFX1/2) — the same region, at
+    /// the same offsets, as a combi's (<see cref="Combi.Effects"/>), which is what makes
+    /// copying them into a combi a block move.
+    /// </summary>
+    public required IReadOnlyList<CombiEffect> Effects { get; init; }
+
+    /// <summary>Slots that hold a real effect (type ≠ 000: No Effect).</summary>
+    public IEnumerable<CombiEffect> ActiveEffects => Effects.Where(e => e.HasEffect);
+
     public bool IsEmpty => Name.Length == 0;
 }
 

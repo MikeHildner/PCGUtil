@@ -52,11 +52,17 @@ public static class CombiReader
     private const int PortamentoFollowsProgram = 0xFF; // 0 = off, 1-127 = time
     private static readonly int[] KarmaGeSelectOffsets = { 1814, 2558, 3302, 4046 };
 
-    private const int IfxBase = 88;
-    private const int IfxStride = 74;
-    private const int IfxCount = 12;
-    private static readonly int[] MasterFxOffsets = { 976, 1044, 1116, 1184 }; // MFX1, MFX2, TFX1, TFX2
-    private const int FxOnBit = 0x40; // in the flag byte at slot +1
+    // The effect region is byte-identical between combi and program records (vendor dump,
+    // confirmed by scanning ~24k program IFX slots with zero range violations), so these are
+    // internal: ProgramReader shares the decode and ProgramFxCopy moves whole slots between
+    // the two record kinds.
+    internal const int IfxBase = 88;
+    internal const int IfxStride = 74;
+    internal const int IfxCount = 12;
+    internal static readonly int[] MasterFxOffsets = { 976, 1044, 1116, 1184 }; // MFX1, MFX2, TFX1, TFX2
+    internal const int FxOnBit = 0x40;    // in the flag byte at slot +1
+    internal const int FxChainBit = 0x80; // slot +1 bit 7: chained into the next linked slot
+    internal const int FxChainToOffset = 2; // slot +2 bits 0-3: the 1-based IFX this slot feeds
 
     public static IReadOnlyList<Combi> Read(PcgFile pcg)
     {
@@ -108,18 +114,26 @@ public static class CombiReader
         return combis;
     }
 
-    private static IReadOnlyList<CombiEffect> ReadEffects(byte[] data, long record, int recordSize)
+    /// <summary>
+    /// Decodes the sixteen effect slots of a record. Internal because programs carry the
+    /// identical region at the identical offsets, so <see cref="ProgramReader"/> shares this
+    /// rather than repeating it.
+    /// </summary>
+    internal static IReadOnlyList<CombiEffect> ReadEffects(byte[] data, long record, int recordSize)
     {
         var effects = new List<CombiEffect>(IfxCount + MasterFxOffsets.Length);
         for (int slot = 0; slot < IfxCount + MasterFxOffsets.Length; slot++)
         {
             int offset = slot < IfxCount ? IfxBase + slot * IfxStride : MasterFxOffsets[slot - IfxCount];
-            if (offset + 2 > recordSize || record + offset + 2 > data.Length)
+            if (offset + 3 > recordSize || record + offset + 3 > data.Length)
                 break;
+            byte flag = data[record + offset + 1];
             effects.Add(new CombiEffect(
                 (EffectSlot)slot,
                 data[record + offset],
-                (data[record + offset + 1] & FxOnBit) != 0));
+                (flag & FxOnBit) != 0,
+                ChainOn: slot < IfxCount && (flag & FxChainBit) != 0,
+                ChainTo: slot < IfxCount ? data[record + offset + FxChainToOffset] & 0x0F : 0));
         }
         return effects;
     }
