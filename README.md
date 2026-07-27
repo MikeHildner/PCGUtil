@@ -21,7 +21,9 @@ Main tabs:
   leaving everything already there untouched, so the layer sounds like the program did on
   its own.
 - **Programs** — the same for programs: reorder, copy, or rename. Every combi timbre and
-  set-list slot that referenced a program is updated to follow it to its new spot.
+  set-list slot that referenced a program is updated to follow it to its new spot. **Re-point
+  references** retargets in bulk by rule — everything that plays one program (or a whole
+  range, or a whole bank) plays another instead, with a preview of exactly what changes.
 - **Songs** — open the `.SNG` saved beside your backup and see what each sequencer track
   loads. Move programs around and the tracks follow their sounds automatically; download the
   edited `.SNG` alongside the edited `.PCG`.
@@ -37,7 +39,9 @@ Behind **More**:
 - **Usage** — which programs are actually used and by what, plus a list of programs and combis
   that nothing references (cleanup candidates).
 - **Duplicates** — programs and combis grouped by their sound data, so renamed copies still
-  group together; names shared by different sounds are listed separately.
+  group together; names shared by different sounds are listed separately. In Edit mode, one
+  click re-points every reference at a single copy, so the twins stop being used and can be
+  cleared.
 - **Copy** — precise slot-level copies between two files, including set-list slots.
 - **File info**, **Strings**, **Chunk tree** — file structure and raw data.
 

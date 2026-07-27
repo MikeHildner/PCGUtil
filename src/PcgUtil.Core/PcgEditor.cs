@@ -668,7 +668,7 @@ public static class PcgEditor
     }
 
     // Rewrites bank (B1, low 5 bits) and number (B2, low 7 bits), preserving the other bits.
-    private static void WriteSlotReference(byte[] data, long refOffset, int bank, int index)
+    internal static void WriteSlotReference(byte[] data, long refOffset, int bank, int index)
     {
         data[refOffset + 1] = (byte)((data[refOffset + 1] & 0xE0) | (bank & 0x1F));
         data[refOffset + 2] = (byte)((data[refOffset + 2] & 0x80) | (index & 0x7F));
@@ -958,9 +958,9 @@ public static class PcgEditor
 
     // ----- Set List layout helpers -----
 
-    private readonly record struct SetListLayout(long RecordsStart, int RecordSize, int Count, int SlotsPerList);
+    internal readonly record struct SetListLayout(long RecordsStart, int RecordSize, int Count, int SlotsPerList);
 
-    private static SetListLayout GetLayout(PcgFile pcg)
+    internal static SetListLayout GetLayout(PcgFile pcg)
     {
         ArgumentNullException.ThrowIfNull(pcg);
         var sbk = pcg.FindFirst("SBK1")

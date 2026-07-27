@@ -1243,10 +1243,107 @@
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
                                         title="Move empty slots to the end — every song keeps its sound"
                                         @onclick="CompactProgramBank">Compact</button>
+                                <button type="button" class="btn btn-sm @(_showRepoint ? "btn-secondary" : "btn-outline-secondary")"
+                                        title="Bulk re-point references: everything that plays these programs plays other ones instead"
+                                        @onclick="ToggleRepoint">Re-point references…</button>
                             </div>
                         }
                     </div>
                 </div>
+
+                @if (_editMode && _showRepoint)
+                {
+                    var repointRules = _repointRules.Select(r => r.ToRule()).ToList();
+                    var repointPlan = PcgRepoint.Plan(_pcg!, _sng, repointRules, _catalog);
+                    <div class="pcg-surface p-3 mb-3">
+                        <div class="d-flex align-items-baseline gap-2 mb-1">
+                            <strong class="small">Re-point references</strong>
+                            <span class="small text-body-secondary">everything that plays the left side plays the right side instead — the programs themselves don't move</span>
+                            <button type="button" class="btn-close ms-auto" aria-label="Close" @onclick="() => _showRepoint = false"></button>
+                        </div>
+                        @for (var ri = 0; ri < _repointRules.Count; ri++)
+                        {
+                            var row = _repointRules[ri];
+                            var rowIndex = ri;
+                            <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
+                                <select class="form-select form-select-sm d-inline-block" style="width:9rem" aria-label="From bank"
+                                        @onchange="@(e => { row.FromBank = int.Parse((string)e.Value!); RepointClampRow(row); })">
+                                    @foreach (var b in PresentBanks(_catalog.ProgramBanks))
+                                    {
+                                        <option value="@b" selected="@(b == row.FromBank)">@PcgBankLabels.Program(b)</option>
+                                    }
+                                </select>
+                                <input type="number" min="0" max="127" class="form-control form-control-sm" style="width:4.6rem"
+                                       aria-label="From start" value="@row.FromStart"
+                                       @onchange="@(e => { row.FromStart = RepointNum(e.Value); RepointClampRow(row); })" />
+                                <span class="small text-body-secondary">..</span>
+                                <input type="number" min="0" max="127" class="form-control form-control-sm" style="width:4.6rem"
+                                       aria-label="From end" value="@row.FromEnd"
+                                       @onchange="@(e => { row.FromEnd = RepointNum(e.Value); RepointClampRow(row); })" />
+                                <span aria-hidden="true">→</span>
+                                <select class="form-select form-select-sm d-inline-block" style="width:9rem" aria-label="To bank"
+                                        @onchange="@(e => row.ToBank = int.Parse((string)e.Value!))">
+                                    @foreach (var b in PresentBanks(_catalog.ProgramBanks))
+                                    {
+                                        <option value="@b" selected="@(b == row.ToBank)">@PcgBankLabels.Program(b)</option>
+                                    }
+                                </select>
+                                <input type="number" min="0" max="127" class="form-control form-control-sm" style="width:4.6rem"
+                                       aria-label="To start" value="@row.ToStart"
+                                       @onchange="@(e => row.ToStart = RepointNum(e.Value))" />
+                                @if (row.FromEnd > row.FromStart)
+                                {
+                                    <span class="small text-body-secondary">..@Math.Min(row.ToStart + row.FromEnd - row.FromStart, 999).ToString("D3")</span>
+                                }
+                                <button type="button" class="btn btn-sm btn-outline-secondary px-2" title="Remove this rule"
+                                        disabled="@(_repointRules.Count == 1)"
+                                        @onclick="() => _repointRules.RemoveAt(rowIndex)">✕</button>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-2" @onclick="AddRepointRule">+ Add rule</button>
+
+                        @foreach (var err in repointPlan.Errors)
+                        {
+                            <div class="small text-danger">@err</div>
+                        }
+                        @foreach (var warn in repointPlan.Warnings)
+                        {
+                            <div class="small text-warning-emphasis">@warn</div>
+                        }
+                        @if (repointPlan.IsValid)
+                        {
+                            <div class="small my-1">
+                                Re-points <strong>@repointPlan.CombiTimbres</strong> combi timbre@(repointPlan.CombiTimbres == 1 ? "" : "s"),
+                                <strong>@repointPlan.SetListSlots</strong> set-list slot@(repointPlan.SetListSlots == 1 ? "" : "s")@(_sng is not null ? "," : ".")
+                                @if (_sng is not null)
+                                {
+                                    <span> <strong>@repointPlan.SongTracks</strong> song track@(repointPlan.SongTracks == 1 ? "" : "s").</span>
+                                }
+                                @if (repointPlan.SongTracks > 0)
+                                {
+                                    <span class="text-body-secondary"> Songs follow too — download both files afterwards.</span>
+                                }
+                            </div>
+                            @if (repointPlan.Sites.Count > 0)
+                            {
+                                <div class="d-flex flex-wrap gap-1 mb-2">
+                                    @foreach (var site in repointPlan.Sites.Take(15))
+                                    {
+                                        <span class="badge text-bg-light fw-normal">@RepointSiteLabel(site)</span>
+                                    }
+                                    @if (repointPlan.Total > 15)
+                                    {
+                                        <span class="small text-body-secondary align-self-center">… +@(repointPlan.Total - 15) more</span>
+                                    }
+                                </div>
+                            }
+                            <button type="button" class="btn btn-sm btn-primary" disabled="@(repointPlan.Total == 0)"
+                                    @onclick="() => ApplyRepointRules(repointRules)">
+                                Re-point @repointPlan.Total reference@(repointPlan.Total == 1 ? "" : "s")
+                            </button>
+                        }
+                    </div>
+                }
 
                 @if (!string.IsNullOrWhiteSpace(_programFilter))
                 {
@@ -2313,7 +2410,31 @@
                                         else if (g.Names.Count > 1) { <span class="badge text-bg-warning">different names</span> }
                                     </td>
                                     <td class="text-end">@g.Count</td>
-                                    <td class="small text-body-secondary">@MemberList(g.Members, isProgram: true, withNames: g.Names.Count > 1)</td>
+                                    @if (_editMode)
+                                    {
+                                        <td class="small">
+                                            @* One chip per copy: "use" re-points every reference in the file
+                                               (and the .SNG) at that copy — the sounds are byte-identical, so
+                                               nothing changes sonically, and Usage then shows the twins free. *@
+                                            @foreach (var m in g.Members.Take(12))
+                                            {
+                                                <span class="badge text-bg-light fw-normal me-1">
+                                                    @PcgBankLabels.Program(m.Bank) #@m.Index.ToString("D3")@(g.Names.Count > 1 ? $" '{m.Name}'" : "")
+                                                    <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                                                            title="Re-point every reference at this copy — the other copies stop being used"
+                                                            @onclick="() => UseOneCopy(g, m)">use</button>
+                                                </span>
+                                            }
+                                            @if (g.Members.Count > 12)
+                                            {
+                                                <span class="text-body-secondary">… +@(g.Members.Count - 12) more</span>
+                                            }
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td class="small text-body-secondary">@MemberList(g.Members, isProgram: true, withNames: g.Names.Count > 1)</td>
+                                    }
                                 </tr>
                             }
                         </tbody>
@@ -2842,6 +2963,7 @@
     void ResetHistory(bool baselineDirty)
     {
         _history.Clear();
+        _sngHistory.Clear(); // the paired repoint entries reference the old stack's labels
         _baselineDirty = baselineDirty;
     }
 
@@ -2849,8 +2971,10 @@
     {
         if (_pcg is null || !_history.CanUndo) return;
         var beforeFile = _pcg;
+        string? label = _history.UndoLabel; // capture before the stack pops
         _pcg = PcgReader.Parse(_history.Undo(_pcg.Data));
         SyncSongs(beforeFile, _pcg); // same call, states in undo order: the songs walk back
+        StepSngHistoryWith(label, redo: false); // repoints stepped the .SNG by rules, not sounds
         RecomputeDirty();
         LoadDerived(preserveSelection: true);
         PushToCache(); // restore always offers the latest state
@@ -2860,8 +2984,10 @@
     {
         if (_pcg is null || !_history.CanRedo) return;
         var beforeFile = _pcg;
+        string? label = _history.RedoLabel;
         _pcg = PcgReader.Parse(_history.Redo(_pcg.Data));
         SyncSongs(beforeFile, _pcg);
+        StepSngHistoryWith(label, redo: true);
         RecomputeDirty();
         LoadDerived(preserveSelection: true);
         PushToCache();
@@ -3668,6 +3794,122 @@
         }
     }
 
+    // ----- Re-point references: bulk retarget by rules (Programs tab + Duplicates one-click) -----
+    //
+    // Rules are matched against each reference's ORIGINAL value — first match wins, rules
+    // never cascade (PcgRepoint's contract). The preview recomputes from live bytes on every
+    // render, so it stays honest across edits and undo.
+    bool _showRepoint;
+    readonly List<RepointRuleRow> _repointRules = new();
+
+    // Mutable row for binding; ToRule() snapshots it for Core.
+    sealed class RepointRuleRow
+    {
+        public int FromBank, FromStart, FromEnd, ToBank, ToStart;
+        public RepointRule ToRule() => new(FromBank, FromStart, FromEnd, ToBank, ToStart);
+    }
+
+    static int RepointNum(object? value) =>
+        int.TryParse(value?.ToString(), out var n) ? Math.Clamp(n, 0, 999) : 0;
+
+    void RepointClampRow(RepointRuleRow row)
+    {
+        if (_catalog is null) return;
+        int count = row.FromBank >= 0 && row.FromBank < _catalog.ProgramBanks.Count
+            ? _catalog.ProgramBanks[row.FromBank].Count : 0;
+        if (count > 0)
+        {
+            row.FromStart = Math.Clamp(row.FromStart, 0, count - 1);
+            row.FromEnd = Math.Clamp(row.FromEnd, row.FromStart, count - 1);
+        }
+    }
+
+    void ToggleRepoint()
+    {
+        _showRepoint = !_showRepoint;
+        if (_showRepoint && _repointRules.Count == 0)
+            AddRepointRule();
+    }
+
+    void AddRepointRule()
+    {
+        int count = _catalog?.ProgramBanks[_selectedProgramBank].Count ?? 128;
+        _repointRules.Add(new RepointRuleRow
+        {
+            FromBank = _selectedProgramBank, FromStart = 0, FromEnd = Math.Max(0, count - 1),
+            ToBank = _selectedProgramBank, ToStart = 0,
+        });
+    }
+
+    string RepointSiteLabel(RepointSite site) => site.Kind switch
+    {
+        RepointSiteKind.CombiTimbre =>
+            $"{PcgBankLabels.Combi(site.OuterBank)} #{site.OuterIndex:D3} T{site.Inner + 1} → #{site.ToNumber:D3}",
+        RepointSiteKind.SetListSlot => $"SL{site.OuterIndex:D3} slot {site.Inner:D3} → #{site.ToNumber:D3}",
+        _ => $"Song {site.OuterIndex:D3} T{site.Inner + 1} → #{site.ToNumber:D3}",
+    };
+
+    // Applies rules to the .PCG and, when songs are hit, to the .SNG in the same gesture.
+    // The song side gets its own history entry under a "(+songs)" label so Undo/Redo can
+    // pair them — SyncSongs follows SOUNDS between states, and a repoint moves no sounds,
+    // so it correctly ignores these edits and the pairing below steps the .SNG instead.
+    void ApplyRepointRules(List<RepointRule> rules, string baseLabel = "Re-point references")
+    {
+        if (_pcg is null) return;
+        var plan = PcgRepoint.Plan(_pcg, _sng, rules, _catalog);
+        if (!plan.IsValid || plan.Total == 0) return;
+
+        bool touchesSongs = plan.SongTracks > 0 && _sng is not null;
+        string label = touchesSongs ? $"{baseLabel} (+songs)" : baseLabel;
+
+        ApplyEdit(PcgRepoint.Apply(_pcg, rules), label);
+        if (touchesSongs)
+        {
+            var before = _sng!.Data;
+            var edited = PcgRepoint.ApplySng(_sng, rules);
+            _sngHistory.Push(before, edited, label);
+            _sng = PcgReader.Parse(edited);
+            _songs = SongReader.Read(_sng);
+            _sngRetargetedRefs = CountMovedSinceLoad();
+            _sngDirty = _sngRetargetedRefs > 0;
+        }
+        _showRepoint = false;
+    }
+
+    // Duplicates one-click: every other copy's references converge on the chosen one.
+    // No preview dialog — the sounds are byte-identical by construction, so nothing changes
+    // sonically, and undo covers regret.
+    void UseOneCopy(SoundDuplicateGroup group, DuplicateMember keep)
+    {
+        if (_pcg is null) return;
+        var rules = group.Members
+            .Where(m => m.Bank != keep.Bank || m.Index != keep.Index)
+            .Select(m => RepointRule.Single(m.Bank, m.Index, keep.Bank, keep.Index))
+            .ToList();
+        if (rules.Count > 0)
+            ApplyRepointRules(rules, "Use one copy");
+    }
+
+    // The .SNG's own tiny history, holding ONLY "(+songs)" repoint entries, in the same
+    // order as their PCG twins. Undo/Redo consult it when the PCG entry's label carries the
+    // suffix; everything else that reaches the .SNG goes through sound-following SyncSongs,
+    // which is self-inverse, so the pairing stays aligned.
+    readonly PcgEditHistory _sngHistory = new();
+
+    void StepSngHistoryWith(string? pcgLabel, bool redo)
+    {
+        if (_sng is null || pcgLabel is null || !pcgLabel.EndsWith("(+songs)", StringComparison.Ordinal))
+            return;
+        if (redo ? !_sngHistory.CanRedo : !_sngHistory.CanUndo)
+            return;
+        if ((redo ? _sngHistory.RedoLabel : _sngHistory.UndoLabel) != pcgLabel)
+            return;
+        _sng = PcgReader.Parse(redo ? _sngHistory.Redo(_sng.Data) : _sngHistory.Undo(_sng.Data));
+        _songs = SongReader.Read(_sng);
+        _sngRetargetedRefs = CountMovedSinceLoad();
+        _sngDirty = _sngRetargetedRefs > 0;
+    }
+
     // ----- Companion .SNG: the sequencer songs, which a .PCG does not carry -----
     //
     // A backup holds set lists, programs, combis, drum kits, wave sequences and global, and
@@ -3706,6 +3948,7 @@
             _sngUnresolvedRefs = 0;
             _songs = SongReader.Read(parsed);
             _songsAsLoaded = _songs;
+            _sngHistory.Clear(); // a fresh .SNG owes nothing to earlier repoints
         }
         catch (Exception ex)
         {

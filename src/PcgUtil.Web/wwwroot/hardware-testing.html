@@ -270,6 +270,20 @@
     </ul>
   </section>
 
+  <section>
+    <h2>20. Re-point references <span class="hint">bulk retarget by rule</span></h2>
+    <p class="hint">Programs tab → Edit → <strong>Re-point references…</strong>: everything that plays
+    the left side plays the right side instead — combi layers, set-list slots, and song tracks. The
+    programs themselves don't move, and the preview shows exactly what a rule touches before you apply.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Copy a program somewhere else, then re-point the original to the copy, download, and load: everything that used it plays exactly as before — same sound, new location.</span></label></li>
+      <li><label><input type="checkbox"><span>A repointed set-list slot keeps its color, volume, transpose, hold time, and notes.</span></label></li>
+      <li><label><input type="checkbox"><span>Try a <strong>range</strong> rule (a few programs to a new spot): each reference lands offset-correct — spot-check a couple on your instrument.</span></label></li>
+      <li><label><input type="checkbox"><span>With the <code>.SNG</code> loaded and a rule that hits a song track: load both files — the song plays the new target.</span></label></li>
+      <li><label><input type="checkbox"><span>On the Duplicates tab in Edit mode, press <strong>use</strong> on one copy of a duplicated sound: combis that used the other copies sound identical, and Usage shows those copies at zero.</span></label></li>
+    </ul>
+  </section>
+
   <div class="note warn">
     <strong>Known limitation.</strong> If you <em>overwrite</em> a program a song track uses (paste or
     clear, rather than move it), the track keeps its slot and will play whatever now lives there —

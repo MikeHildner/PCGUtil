@@ -262,6 +262,24 @@ TFX2 parameter block was the one soft spot, and the instrument accepted the regi
       empty on the instrument and nothing else changed. The app refuses to clear a slot
       anything plays through — confirm the refusal names the timbre correctly.
 
+## 20. Re-point references (rule-based bulk retarget)
+Status: **pending** — low format risk by construction: the written bytes are the §4-proven
+reference fields (timbre +0/+1, the set-list slot reference triplet, song track +0/+1), and
+the slot writer is the same bit-preserving helper every reorg uses. What is new is the
+*mapping* — rules, ranges, first-match-wins — which is fully unit-tested; hardware's job
+here is confirming the ends: the right things changed and nothing else did.
+- [ ] Re-point one program that combis and a set list use to a **copy of itself** elsewhere
+      (make the copy first), download (both files if the .SNG is loaded), load: everything
+      that used it plays exactly as before — same sound from the new location.
+- [ ] A repointed set-list slot keeps its color, volume, transpose, hold time, and notes.
+- [ ] A **range rule** (e.g. three programs to a new spot): each reference lands
+      offset-correct — spot-check two on the instrument's combi timbre pages.
+- [ ] With the .SNG loaded and a rule that hits a song track: the song plays the new target
+      after loading both files.
+- [ ] **Duplicates one-click**: on a duplicated sound, "use this copy" — recall a combi that
+      used one of the twins: identical sound (the copies are byte-identical), and the Usage
+      tab now shows the twins at zero references.
+
 ## Known limitation
 - A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
   that slot and will play whatever now lives there. That is deliberate — the sound it used is
