@@ -1,7 +1,7 @@
 # Publishes PcgUtil.Web self-contained (win-x86, matches the host's 32-bit app pool) and
 # mirrors it to the shared host over explicit FTPS.
 #
-# Usage:  .\deploy\deploy-ftp.ps1 [-SkipPublish] [-EnableStdoutLog]
+# Usage:  .\deploy\deploy-ftp.ps1 [-SkipPublish] [-EnableStdoutLog] [-RepublishSameVersion]
 #
 # Credentials come from deploy\ftp.secrets.json (git-ignored; see ftp.secrets.json.example).
 # The script drops app_offline.htm first so ANCM stops the app and unlocks its files, then
@@ -9,8 +9,9 @@
 
 [CmdletBinding()]
 param(
-    [switch]$SkipPublish,     # reuse deploy\out from a previous run
-    [switch]$EnableStdoutLog  # turn on ANCM stdout logging in the uploaded web.config
+    [switch]$SkipPublish,          # reuse deploy\out from a previous run
+    [switch]$EnableStdoutLog,      # turn on ANCM stdout logging in the uploaded web.config
+    [switch]$RepublishSameVersion  # deploy a version that has already been published
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,6 +28,60 @@ foreach ($key in 'host', 'user', 'pass', 'remotePath') {
 }
 $remotePath = $secrets.remotePath.Trim('/')  # e.g. "pcgutil"
 
+# ----- 0. Version guard -----
+#
+# Every publish gets its own version. AppVersion in the csproj is the single source of the
+# "v1.0.2" the UI shows, and a successful deploy tags the commit v<AppVersion>. If that tag
+# already exists then AppVersion was not bumped, and shipping would put a second, different
+# build on a number that is already live - exactly the drift this guard exists to stop (the
+# version read 1.0 for every deploy up to 2026-07-26). Checked BEFORE the publish and before
+# the app goes offline, so a forgotten bump costs seconds, not a broken deploy.
+#
+# Escape hatch: -RepublishSameVersion, for redeploying an identical build on purpose (a host
+# that lost files, say). A deploy that FAILS never tags, so retrying after a failure needs no
+# switch.
+$csprojPath = Join-Path $repoRoot 'src/PcgUtil.Web/PcgUtil.Web.csproj'
+$csprojText = Get-Content $csprojPath -Raw
+$appVer = [regex]::Match($csprojText, '<AppVersion>(.+?)</AppVersion>').Groups[1].Value
+if (-not $appVer) { throw "Could not read <AppVersion> from $csprojPath." }
+$versionTag = "v$appVer"
+
+$publishedTags = & git -C $repoRoot tag -l 'v*'
+$gitOk = ($LASTEXITCODE -eq 0)
+if (-not $gitOk) { Write-Warning 'git is unavailable here - version guard and tagging skipped.' }
+
+if ($gitOk) {
+    $alreadyPublished = ($publishedTags -contains $versionTag)
+    if ($alreadyPublished -and -not $RepublishSameVersion) {
+        throw ("Version $appVer is already published (tag $versionTag). Bump <AppVersion> in " +
+               "$csprojPath - minor for a feature, patch for a docs or fix redeploy - then " +
+               "deploy again. To redeploy this exact version on purpose, pass -RepublishSameVersion.")
+    }
+    if ($alreadyPublished) {
+        Write-Warning "$versionTag is already published; republishing it because -RepublishSameVersion was given."
+    }
+
+    # The tag will point at HEAD, so uncommitted work would not be what the tag describes.
+    $dirty = & git -C $repoRoot status --porcelain
+    if ($dirty) {
+        Write-Warning "Uncommitted changes present: $versionTag will point at HEAD, which is not quite what you are publishing."
+    }
+
+    # Going backwards is legal but is nearly always a slip.
+    $parsedTags = @()
+    foreach ($t in $publishedTags) {
+        $v = $null
+        if ([version]::TryParse($t.TrimStart('v'), [ref]$v)) { $parsedTags += $v }
+    }
+    $highest = $parsedTags | Sort-Object -Descending | Select-Object -First 1
+    $mine = $null
+    if ($highest -and [version]::TryParse($appVer, [ref]$mine) -and $mine -lt $highest) {
+        Write-Warning "AppVersion $appVer is BELOW the highest published version $highest."
+    }
+
+    Write-Host "Publishing version $appVer (tags $versionTag once the site is back online)."
+}
+
 # ----- 1. Publish -----
 if (-not $SkipPublish) {
     Write-Host "Publishing self-contained win-x86 to $outDir ..."
@@ -39,12 +94,9 @@ if (-not $SkipPublish) {
     # (2026-07-21: PcgUtil.Core.dll rejected under ANY name), the next stamp shifts every RVA
     # and the match evaporates.
     $stamp = Get-Date -Format 'yyyy.MM.dd.HHmm'
-    # The UI's "v1.0 - Build date - hash" line: AppVersion comes from the csproj (bump it
-    # there on milestones), the short git hash pins the exact source. Plus-separated so
-    # the runtime parse is unambiguous and no CLI quoting is needed.
-    $csproj = Get-Content (Join-Path $repoRoot 'src/PcgUtil.Web/PcgUtil.Web.csproj') -Raw
-    $appVer = [regex]::Match($csproj, '<AppVersion>(.+?)</AppVersion>').Groups[1].Value
-    if (-not $appVer) { $appVer = '0.0' }
+    # The UI's "v1.0.2 - Build date - hash" line: $appVer was read and guarded in step 0
+    # above, and the short git hash pins the exact source. Plus-separated so the runtime
+    # parse is unambiguous and no CLI quoting is needed.
     $sha = (& git -C $repoRoot rev-parse --short HEAD)
     if ($LASTEXITCODE -ne 0 -or -not $sha) { $sha = 'nogit' }
     dotnet publish (Join-Path $repoRoot 'src/PcgUtil.Web') -c Release -r win-x86 --self-contained true -p:PublishReadyToRun=true -p:Version=$stamp "-p:InformationalVersion=$appVer+$stamp+$sha" -o $outDir --nologo
@@ -164,4 +216,24 @@ Write-Host 'Bringing the app back online ...'
 Invoke-FtpDelete 'app_offline.htm'
 Remove-Item $appOffline -Force
 
-Write-Host 'Done. Browse: https://hildner.org/pcgutil/'
+# ----- Claim the version -----
+# Last thing, and only on the success path: every throw above leaves the version untagged so
+# a failed deploy can simply be re-run. The tag is local until pushed - the guard reads local
+# tags, so it works either way, but pushing keeps the published history somewhere durable.
+if ($gitOk) {
+    $tagExists = (& git -C $repoRoot tag -l $versionTag) -contains $versionTag
+    if ($tagExists) {
+        Write-Host "Version tag $versionTag already existed - left as it was."
+    }
+    else {
+        & git -C $repoRoot tag -a $versionTag -m "Published $appVer to https://hildner.org/pcgutil/" | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Tagged this commit $versionTag. Run 'git push --tags' to publish the tag."
+        }
+        else {
+            Write-Warning "Deploy succeeded but tagging $versionTag failed - tag it by hand so the next deploy's guard is accurate."
+        }
+    }
+}
+
+Write-Host "Done (v$appVer). Browse: https://hildner.org/pcgutil/"
