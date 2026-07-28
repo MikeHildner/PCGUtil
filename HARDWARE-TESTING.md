@@ -7,10 +7,10 @@ things on the workstation itself:
 2. its interpretation of the references **matches ours** — every patch still recalls the same
    sound after an edit.
 
-**Status: every section is confirmed on hardware as of 2026-07-27** — §0–§19 are all green.
+**Status: every section is confirmed on hardware as of 2026-07-27** — §0–§20 are all green.
 Every write path this app ships has been round-tripped through the instrument, from the first
-set-list rename to timbre zones, drag reordering, deep merges, song retargeting, and
-program-effect copies.
+set-list rename to timbre zones, drag reordering, deep merges, song retargeting,
+program-effect copies, and rule-based re-pointing.
 
 This file is the **internal tracker**: per-section Status lines record what has been verified
 on our own hardware, and items may reference patches from our sample file. The public,
@@ -263,20 +263,21 @@ TFX2 parameter block was the one soft spot, and the instrument accepted the regi
       anything plays through — confirm the refusal names the timbre correctly.
 
 ## 20. Re-point references (rule-based bulk retarget)
-Status: **pending** — low format risk by construction: the written bytes are the §4-proven
-reference fields (timbre +0/+1, the set-list slot reference triplet, song track +0/+1), and
-the slot writer is the same bit-preserving helper every reorg uses. What is new is the
-*mapping* — rules, ranges, first-match-wins — which is fully unit-tested; hardware's job
-here is confirming the ends: the right things changed and nothing else did.
-- [ ] Re-point one program that combis and a set list use to a **copy of itself** elsewhere
+Status: **confirmed** on hardware (2026-07-27 — all five checks passed: the copy-of-itself
+re-point recalled identically everywhere, slot settings survived, a range rule landed
+offset-correct, a song-hitting rule worked with both files loaded, and the Duplicates
+one-click left the twins silent-identical and unreferenced). With this, **every PCG Tools
+feature short of multi-model coverage is not just shipped but hardware-verified** — the
+rule mapping was the last new logic standing on unit tests alone.
+- [x] Re-point one program that combis and a set list use to a **copy of itself** elsewhere
       (make the copy first), download (both files if the .SNG is loaded), load: everything
       that used it plays exactly as before — same sound from the new location.
-- [ ] A repointed set-list slot keeps its color, volume, transpose, hold time, and notes.
-- [ ] A **range rule** (e.g. three programs to a new spot): each reference lands
+- [x] A repointed set-list slot keeps its color, volume, transpose, hold time, and notes.
+- [x] A **range rule** (e.g. three programs to a new spot): each reference lands
       offset-correct — spot-check two on the instrument's combi timbre pages.
-- [ ] With the .SNG loaded and a rule that hits a song track: the song plays the new target
+- [x] With the .SNG loaded and a rule that hits a song track: the song plays the new target
       after loading both files.
-- [ ] **Duplicates one-click**: on a duplicated sound, "use this copy" — recall a combi that
+- [x] **Duplicates one-click**: on a duplicated sound, "use this copy" — recall a combi that
       used one of the twins: identical sound (the copies are byte-identical), and the Usage
       tab now shows the twins at zero references.
 
