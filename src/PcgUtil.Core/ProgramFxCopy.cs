@@ -68,13 +68,14 @@ public static class ProgramFxCopy
     private const int BusIfxLast = 12;
     private const int BusLR = 0;
 
-    // Master regions, from the vendor dump's combi table: MFX spans both slots plus the
-    // shared returns/chain bytes (976..1115); TFX spans 1116..1189 (TFX1's full block,
-    // TFX2's header, master volume). TFX2's deep parameter bytes are not contiguously
-    // mapped in the dump — hardware section 19 probes whether they travel.
-    private const int MfxRegionStart = 976;
-    private const int MfxRegionEnd = 1116;   // exclusive
-    private const int TfxRegionStart = 1116;
+    // Master regions. With the probe-proven params-before-header geometry: MFX1's params
+    // at 912, header 976; MFX2's params 980, header 1044; shared returns/chain 1046..1051;
+    // TFX1 params 1052, header 1116; TFX2 params 1120, header 1184; master volume 1188.
+    // "Copy the MFXs" therefore spans 912..1051 and "the TFXs" 1052..1189 — contiguous
+    // runs that carry each slot's params AND header plus the shared bytes between them.
+    private const int MfxRegionStart = 912;
+    private const int MfxRegionEnd = 1052;   // exclusive
+    private const int TfxRegionStart = 1052;
     private const int TfxRegionEnd = 1190;   // exclusive
 
     /// <summary>
@@ -138,13 +139,19 @@ public static class ProgramFxCopy
         data[tOff] = (byte)programIndex;
         data[tOff + 1] = (byte)PcgCatalog.ProgramBankPcgIdForIndex(programBank);
 
-        // 2. Pack the used insert effects into the free slots, verbatim blocks first.
+        // 2. Pack the used insert effects into the free slots. A slot's 74-byte stride is
+        // NOT self-contained: it holds this slot's 9-byte header plus the NEXT slot's
+        // parameter area — each slot's own parameters sit 64 bytes BEFORE its header
+        // (probe-proven, see EffectParams). So header and parameter area copy as a pair.
         var newSlotOfOld = plan.Placements.ToDictionary(p => p.SourceIfx, p => p.DestinationIfx);
         foreach (var p in plan.Placements)
         {
             Array.Copy(data, progOffset + CombiReader.IfxBase + (long)p.SourceIfx * CombiReader.IfxStride,
                        data, combiOffset + CombiReader.IfxBase + (long)p.DestinationIfx * CombiReader.IfxStride,
-                       CombiReader.IfxStride);
+                       9); // the routing header
+            Array.Copy(data, progOffset + EffectParams.ParamBase((EffectSlot)p.SourceIfx),
+                       data, combiOffset + EffectParams.ParamBase((EffectSlot)p.DestinationIfx),
+                       EffectParams.ParamAreaBeforeHeader); // the packed parameters
         }
         // Then renumber chain links — Chain To stores absolute 1-based slot numbers.
         foreach (var p in plan.Placements)
@@ -235,15 +242,18 @@ public static class ProgramFxCopy
         }
 
         var data = (byte[])pcg.Data.Clone();
-        long slotOffset = combiOffset + CombiReader.IfxBase + (long)ifxSlot * CombiReader.IfxStride;
-        WriteEmptySlotPattern(pcg, data, slotOffset);
+        long headerOffset = combiOffset + CombiReader.IfxBase + (long)ifxSlot * CombiReader.IfxStride;
+        long paramOffset = combiOffset + EffectParams.ParamBase((EffectSlot)ifxSlot);
+        WriteEmptySlotPattern(pcg, data, headerOffset, paramOffset, ifxSlot);
         return PcgEditor.Finalized(pcg, data);
     }
 
     // The empty pattern is taken from a real empty slot in the same file — the instrument's
-    // own idea of "no effect here" — rather than synthesized. Fallback: zeros with the
-    // observed 0x10 flag, matching the factory statistics.
-    private static void WriteEmptySlotPattern(PcgFile pcg, byte[] data, long slotOffset)
+    // own idea of "no effect here" — rather than synthesized: its 9-byte header AND its
+    // 64-byte parameter area (which sits before the header — probe-proven geometry).
+    // Fallback: zeros with the observed 0x10 flag, matching the factory statistics.
+    private static void WriteEmptySlotPattern(PcgFile pcg, byte[] data,
+                                              long headerOffset, long paramOffset, int ifxSlot)
     {
         foreach (var chunk in pcg.EnumerateChunks())
         {
@@ -261,17 +271,20 @@ public static class ProgramFxCopy
                     break;
                 for (int k = 0; k < CombiReader.IfxCount; k++)
                 {
-                    long src = record + CombiReader.IfxBase + (long)k * CombiReader.IfxStride;
-                    if (pcg.Data[src] != 0 || src == slotOffset)
+                    long srcHeader = record + CombiReader.IfxBase + (long)k * CombiReader.IfxStride;
+                    if (pcg.Data[srcHeader] != 0 || srcHeader == headerOffset)
                         continue; // holds an effect, or is the very slot being cleared
-                    Array.Copy(pcg.Data, src, data, slotOffset, CombiReader.IfxStride);
+                    Array.Copy(pcg.Data, srcHeader, data, headerOffset, 9);
+                    Array.Copy(pcg.Data, record + EffectParams.ParamBase((EffectSlot)k),
+                               data, paramOffset, EffectParams.ParamAreaBeforeHeader);
                     return;
                 }
             }
         }
         // No empty slot anywhere (implausible in practice): synthesize the observed pattern.
-        Array.Clear(data, (int)slotOffset, CombiReader.IfxStride);
-        data[slotOffset + 1] = 0x10;
+        Array.Clear(data, (int)headerOffset, 9);
+        Array.Clear(data, (int)paramOffset, EffectParams.ParamAreaBeforeHeader);
+        data[headerOffset + 1] = 0x10;
     }
 
     // A program's "used" insert slots: every slot holding a real effect, plus the empty

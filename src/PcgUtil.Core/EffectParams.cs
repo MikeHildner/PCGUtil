@@ -1,33 +1,36 @@
 namespace PcgUtil.Core;
 
 /// <summary>
-/// The effect parameter tables and the machinery to read a slot's settings — currently
-/// <em>blocked on one hardware probe</em>, and deliberately not wired to any UI.
+/// Reads the actual parameter settings of a record's effect slots — the values behind the
+/// effect names the app has shown since the effects decode.
 ///
-/// What is known: the parameters live inside the slot's 74 bytes (§19 proved it on
-/// hardware — block-copying a slot carried the sound's exact settings), the routing
-/// header occupies the first 9 bytes, and the documented tables (names, widths, order,
-/// ranges) are certainly right — they are generated from the same source as everything
-/// the instrument has ever confirmed. What is NOT known is the record's packing rule:
-/// the documentation's tight bit-stream layout does not match record bytes under any
-/// simple transform — base shifts 0..17, either bit order, per-byte mirroring, byte
-/// padding, one-byte-per-parameter, and MSB-filled streams all decode factory content
-/// at statistical noise (~15% out-of-range), while the first packed byte alone decodes
-/// cleanly. A single-parameter probe on the instrument (save, change one knob, save
-/// again, diff) will expose the real rule in one shot; until then this class refuses to
-/// guess in front of a musician.
+/// The geometry was cracked by a single-parameter hardware probe (2026-07-31) and then
+/// proven corpus-wide at exactly zero range violations over 299,638 fields in two real
+/// backups: <em>each slot's parameter area sits 64 bytes BEFORE its header</em>, encoded
+/// precisely as the documentation's packed bit-stream (fields take minimal widths,
+/// straddle bytes freely, low bits first; sign is two's-complement over the field's
+/// allocated bits). So IFX k's parameters live at 24 + 74k — the region every doc table
+/// masks out belongs to the FOLLOWING slot — and the masters sit at 912 (MFX1), 980
+/// (MFX2), 1052 (TFX1) and 1120 (TFX2), whose "missing" parameter block was never
+/// missing at all. The probe: Stereo Dyna Compressor with Wet/Dry 37, Sensitivity 99,
+/// Attack 61, Output Level 73 diffed to bytes 24/27–29/31 of the combi record, matching
+/// the packed table bit for bit.
 /// </summary>
 public static class EffectParams
 {
-    /// <summary>Bytes between an insert slot's start and its parameter area.</summary>
-    public const int IfxParamOffset = 9;
+    /// <summary>A slot's parameter area starts this many bytes before its header.</summary>
+    public const int ParamAreaBeforeHeader = 64;
 
-    // Master parameter areas, relative to the record start. MFX1 and TFX1 follow their
-    // 2-byte headers; MFX2's parameters sit past the shared master bytes (returns/chain)
-    // at 1052 — candidates validated by the in-range scan over every factory effect.
-    private const int Mfx1ParamBase = 978;
-    private const int Mfx2ParamBase = 1052;
-    private const int Tfx1ParamBase = 1118;
+    /// <summary>Where a slot's packed parameter area begins, relative to the record start
+    /// (probe-anchored, zero violations corpus-wide — see the class remarks).</summary>
+    public static long ParamBase(EffectSlot slot) => slot switch
+    {
+        <= EffectSlot.Ifx12 => CombiReader.IfxBase + (int)slot * CombiReader.IfxStride - ParamAreaBeforeHeader,
+        EffectSlot.Mfx1 => 912,
+        EffectSlot.Mfx2 => 980,
+        EffectSlot.Tfx1 => 1052,
+        _ => 1120, // TFX2
+    };
 
     /// <summary>The documented parameter table for an effect type (null for type 0, "No
     /// Effect", and for ids outside the documented range).</summary>
@@ -35,29 +38,16 @@ public static class EffectParams
         typeId <= 0 ? null : ParamTables.Effect(typeId);
 
     /// <summary>
-    /// Where <paramref name="slot"/>'s parameter area begins, relative to the record
-    /// start — or null when the slot's parameters are undocumented (TFX2).
-    /// </summary>
-    public static long? ParamBase(EffectSlot slot) => slot switch
-    {
-        <= EffectSlot.Ifx12 => CombiReader.IfxBase + (int)slot * CombiReader.IfxStride + IfxParamOffset,
-        EffectSlot.Mfx1 => Mfx1ParamBase,
-        EffectSlot.Mfx2 => Mfx2ParamBase,
-        EffectSlot.Tfx1 => Tfx1ParamBase,
-        _ => null, // TFX2: the documentation carries no parameter area for it
-    };
-
-    /// <summary>
     /// Decodes one effect slot's parameters from a record. Returns null when the slot is
-    /// empty, its type undocumented, or its parameter area unknown (TFX2). The Bypass
-    /// constant every table starts with is filtered — the on/off switch already shows in
-    /// the slot header.
+    /// empty or its type undocumented. The Bypass constant every table starts with is
+    /// filtered — the on/off switch already shows in the slot header.
     /// </summary>
     public static IReadOnlyList<ParamValue>? Read(byte[] data, long recordOffset, CombiEffect effect)
     {
         ArgumentNullException.ThrowIfNull(data);
-        if (TableFor(effect.TypeId) is not { } table || ParamBase(effect.Slot) is not { } paramBase)
+        if (TableFor(effect.TypeId) is not { } table)
             return null;
+        long paramBase = ParamBase(effect.Slot);
 
         long baseOffset = recordOffset + paramBase;
         var values = new List<ParamValue>(table.Fields.Count);

@@ -128,7 +128,8 @@ public class ProgramFxCopyTests
         Assert.Equal(src.Index, combiAfter.Timbres[15].ProgramNumber);
         Assert.Equal(PcgCatalog.ProgramBankPcgIdForIndex(src.Bank), combiAfter.Timbres[15].ProgramBankPcgId);
 
-        // Each placed slot carries the source's effect; every other slot is untouched.
+        // Each placed slot carries the source's header AND its parameter area — which sits
+        // 64 bytes BEFORE the header (probe-proven geometry). Every other slot untouched.
         var (progOffset, _) = Locate(pcg, "PRG1", src.Bank, src.Index);
         var (combiOffset, _) = Locate(pcg, "CMB1", dst.Bank, dst.Index);
         var placedDst = plan.Placements.Select(p => p.DestinationIfx).ToHashSet();
@@ -136,23 +137,27 @@ public class ProgramFxCopyTests
         {
             Assert.Equal(src.Effects[p.SourceIfx].TypeId, combiAfter.Effects[p.DestinationIfx].TypeId);
             Assert.Equal(src.Effects[p.SourceIfx].IsOn, combiAfter.Effects[p.DestinationIfx].IsOn);
-            // Verbatim beyond the header too: the 74-byte block matches except the chain byte.
-            for (int b = 0; b < 74; b++)
+            for (int b = 0; b < 9; b++) // header, minus the renumberable chain byte
             {
-                if (b == 2) continue; // chain link may be renumbered
+                if (b == 2) continue;
                 Assert.Equal(pcg.Data[progOffset + 88 + 74 * p.SourceIfx + b],
                              edited[combiOffset + 88 + 74 * p.DestinationIfx + b]);
             }
+            for (int b = 0; b < 64; b++) // the packed parameter area travels verbatim
+                Assert.Equal(pcg.Data[progOffset + 24 + 74 * p.SourceIfx + b],
+                             edited[combiOffset + 24 + 74 * p.DestinationIfx + b]);
         }
         for (int k = 0; k < 12; k++)
         {
             if (placedDst.Contains(k)) continue;
-            for (int b = 0; b < 74; b++)
+            for (int b = 0; b < 9; b++)
                 Assert.Equal(pcg.Data[combiOffset + 88 + 74 * k + b], edited[combiOffset + 88 + 74 * k + b]);
+            for (int b = 0; b < 64; b++)
+                Assert.Equal(pcg.Data[combiOffset + 24 + 74 * k + b], edited[combiOffset + 24 + 74 * k + b]);
         }
 
-        // Masters untouched — they were not requested.
-        for (long o = combiOffset + 976; o < combiOffset + 1190; o++)
+        // Masters untouched — they were not requested (params + headers, 912..1189).
+        for (long o = combiOffset + 912; o < combiOffset + 1190; o++)
             Assert.Equal(pcg.Data[o], edited[o]);
 
         AssertChecksumsValid(pcg, edited);
@@ -253,16 +258,16 @@ public class ProgramFxCopyTests
         var (combiOffset, _) = Locate(pcg, "CMB1", dst.Bank, dst.Index);
 
         var withMfx = ProgramFxCopy.Apply(pcg, src.Bank, src.Index, dst.Bank, dst.Index, 15, includeMfx: true);
-        for (long b = 0; b < 1116 - 976; b++)
-            Assert.Equal(pcg.Data[progOffset + 976 + b], withMfx[combiOffset + 976 + b]);
-        for (long b = 0; b < 1190 - 1116; b++) // TFX region untouched
-            Assert.Equal(pcg.Data[combiOffset + 1116 + b], withMfx[combiOffset + 1116 + b]);
+        for (long b = 0; b < 1052 - 912; b++)
+            Assert.Equal(pcg.Data[progOffset + 912 + b], withMfx[combiOffset + 912 + b]);
+        for (long b = 0; b < 1190 - 1052; b++) // TFX region untouched
+            Assert.Equal(pcg.Data[combiOffset + 1052 + b], withMfx[combiOffset + 1052 + b]);
 
         var withTfx = ProgramFxCopy.Apply(pcg, src.Bank, src.Index, dst.Bank, dst.Index, 15, includeTfx: true);
-        for (long b = 0; b < 1190 - 1116; b++)
-            Assert.Equal(pcg.Data[progOffset + 1116 + b], withTfx[combiOffset + 1116 + b]);
-        for (long b = 0; b < 1116 - 976; b++) // MFX region untouched
-            Assert.Equal(pcg.Data[combiOffset + 976 + b], withTfx[combiOffset + 976 + b]);
+        for (long b = 0; b < 1190 - 1052; b++)
+            Assert.Equal(pcg.Data[progOffset + 1052 + b], withTfx[combiOffset + 1052 + b]);
+        for (long b = 0; b < 1052 - 912; b++) // MFX region untouched
+            Assert.Equal(pcg.Data[combiOffset + 912 + b], withTfx[combiOffset + 912 + b]);
     }
 
     [Fact]

@@ -237,13 +237,18 @@ same pair §4 rewrites in bulk.
       disappears and the .SNG download offer goes away, because the file is unchanged again.
 
 ## 19. Program effects into a combi (Copy From Program, offline)
-Status: **confirmed** on hardware (2026-07-27 — all six checks passed: packed effects landed
-in the predicted slots and the layer sounds as it did in Program mode, existing effects and
-the other timbres untouched, chains run in order at their renumbered slots, the MFX/TFX
-opt-ins replace the shared masters as warned, and the guarded clear behaved). This
-write-verifies the whole effect region — the first writes ever made to it — including the
-chain renumbering, the timbre bus/send re-point, and the TFX region: the dump's unmapped
-TFX2 parameter block was the one soft spot, and the instrument accepted the region copy.
+Status: **confirmed 2026-07-27, mechanism corrected 2026-07-31 — one re-check pending.**
+The 2026-07-31 effect-parameter probe revealed that each slot's parameters sit 64 bytes
+BEFORE its header, so the original copy moved header/parameter pairs that were off by one
+slot — the effect types, routing, chains and placements were all right (what the six checks
+verified), but a copied effect could carry a neighbor's knob settings, which listening
+didn't catch. The copy now moves each slot's header and its true parameter area as a pair
+(and the MFX/TFX regions were re-drawn to 912–1051 / 1052–1189, params + headers complete —
+including TFX2's, whose "missing" parameters turned out to live at 1120).
+- [ ] **Re-check (post-correction):** copy a program with a distinctively *set* effect
+      (e.g. an extreme EQ or a very long delay) onto a spare timbre, download, load: the
+      copied effect's PARAMETER VALUES on the instrument's editor page match the source
+      program's exactly — not just the effect name.
 - [x] Pick a combi with free IFX slots and a spare timbre. Point the timbre at a program with
       distinctive effects (the FX button beside the program picker shows the plan: how many
       slots it needs and exactly where they land). Apply, download, load: the layer sounds

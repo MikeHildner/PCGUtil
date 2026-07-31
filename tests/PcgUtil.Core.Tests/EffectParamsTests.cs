@@ -48,41 +48,80 @@ public class EffectParamsTests
     }
 
     /// <summary>
-    /// THE OPEN QUESTION this feature is parked on, pinned so it can't be forgotten and so
-    /// nobody wires the sheets to the UI while it still holds: the documentation's packed
-    /// layout does NOT describe record bytes. Decoding every used insert slot in the real
-    /// backups under it leaves double-digit percentages of fields outside their documented
-    /// ranges — orders of magnitude beyond doc drift, and flat across every simple
-    /// transform (base shifts, bit orders, mirroring, byte padding, unpacked structs).
-    /// A one-parameter hardware probe (save, turn one knob, save, diff) will expose the
-    /// record's real packing rule; when it does, this test flips into the zero-violation
-    /// scan and the UI wiring becomes safe.
+    /// The probe that cracked the geometry, pinned forever: Stereo Dyna Compressor on
+    /// IFX1 of combi USER-G 001 with Wet/Dry 37, Sensitivity 99, Attack 61, Output Level
+    /// 73, Trim 100 dialed on the instrument's own panel. If this decodes, the
+    /// params-before-header rule and the packed bit-stream are anchored to hardware
+    /// ground truth, not statistics.
     /// </summary>
     [Fact]
-    public void The_documented_packing_does_not_yet_map_to_record_bytes()
+    public void The_hardware_probe_decodes_exactly()
     {
-        long fields = 0, violations = 0;
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "files"))) dir = dir.Parent;
+        var path = Directory.EnumerateFiles(Path.Combine(dir!.FullName, "files"), "probe-fx-a.PCG",
+            SearchOption.AllDirectories).FirstOrDefault();
+        if (path is null) return; // probe file not present in this checkout
+        var pcg = PcgReader.Parse(File.ReadAllBytes(path));
+
+        var combi = CombiReader.Read(pcg).Single(c => c.Bank == 13 && c.Index == 1); // USER-G 001
+        Assert.Equal(1, combi.Effects[0].TypeId); // Stereo Dyna Compressor
+
+        var (record, _) = Locate(pcg, "CMB1", 13, 1);
+        var values = EffectParams.Read(pcg.Data, record, combi.Effects[0])!;
+        long Of(string name) => values.Single(v => v.Field.Name == name).Raw;
+
+        Assert.Equal(37, Of("Wet/Dry"));
+        Assert.Equal(99, Of("Sensitivity"));
+        Assert.Equal(61, Of("Attack"));
+        Assert.Equal(73, Of("Output Level"));
+        Assert.Equal(0, Of("Wet/Dry Mod.Source"));
+        Assert.Equal(0, Of("Pre LEQ Gain"));
+    }
+
+    /// <summary>
+    /// The zero-violation scan: every used effect slot in both real backups — all sixteen
+    /// slots including TFX2 — decodes with every field inside its documented range. This
+    /// held at exactly 0 of 299,638 when the geometry landed; any regression here means
+    /// the tables, the reader, or the bases drifted.
+    /// </summary>
+    [Fact]
+    public void Every_used_effect_slot_in_both_backups_decodes_in_range()
+    {
+        int slotsChecked = 0, fieldsChecked = 0;
         foreach (var pcg in LoadBackups())
             foreach (var (record, effects) in AllEffectRecords(pcg))
                 foreach (var e in effects)
                 {
-                    if (!e.HasEffect || !e.IsOn) continue;
+                    if (!e.HasEffect) continue;
                     var values = EffectParams.Read(pcg.Data, record, e);
                     if (values is null) continue;
+                    slotsChecked++;
                     foreach (var v in values)
                     {
-                        fields++;
-                        if (!v.Field.InRange(v.Raw)) violations++;
+                        fieldsChecked++;
+                        Assert.True(v.Field.InRange(v.Raw),
+                            $"{e.Label} type {e.TypeId} '{v.Field.Name}' = {v.Raw} outside "
+                            + $"{v.Field.Min}..{v.Field.Max} at record {record}");
                     }
                 }
+        Assert.True(slotsChecked > 2000, $"only {slotsChecked} slots scanned");
+        Assert.True(fieldsChecked > 100_000, $"only {fieldsChecked} fields scanned");
+    }
 
-        Assert.True(fields > 100_000, $"scan too small to mean anything ({fields})");
-        double rate = (double)violations / fields;
-        // If this ever drops to ~zero, the mapping question has answered itself — replace
-        // this test with the strict scan and wire the UI.
-        Assert.True(rate > 0.05,
-            $"violation rate is {rate:P1} — the documented packing suddenly fits records; "
-            + "promote the effect sheets!");
+    [Fact]
+    public void Katjas_house_ifx1_reads_as_a_real_stereo_chorus()
+    {
+        var pcg = LoadBackups().First();
+        var combi = CombiReader.Read(pcg).Single(c => c.Bank == 0 && c.Index == 0); // INT-A 000
+        Assert.Equal(40, combi.Effects[0].TypeId); // §10-confirmed: IFX1 = Stereo Chorus
+
+        var (record, _) = Locate(pcg, "CMB1", 0, 0);
+        var values = EffectParams.Read(pcg.Data, record, combi.Effects[0])!;
+
+        Assert.Contains(values, v => v.Field.Name == "Wet/Dry");
+        Assert.Contains(values, v => v.Field.Name.Contains("LFO Freq"));
+        Assert.All(values, v => Assert.True(v.Field.InRange(v.Raw)));
     }
 
     [Fact]
