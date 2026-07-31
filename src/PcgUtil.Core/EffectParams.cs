@@ -37,6 +37,22 @@ public static class EffectParams
     public static ParamTable? TableFor(int typeId) =>
         typeId <= 0 ? null : ParamTables.Effect(typeId);
 
+    /// <summary>A combi effect slot's decoded settings (null when empty/undocumented).</summary>
+    public static IReadOnlyList<ParamValue>? ReadCombi(PcgFile pcg, int bank, int index, EffectSlot slot)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (offset, recordSize) = PcgEditor.LocateCombi(pcg, bank, index);
+        return Read(pcg.Data, offset, CombiReader.ReadEffects(pcg.Data, offset, recordSize)[(int)slot]);
+    }
+
+    /// <summary>A program effect slot's decoded settings (null when empty/undocumented).</summary>
+    public static IReadOnlyList<ParamValue>? ReadProgram(PcgFile pcg, int bank, int index, EffectSlot slot)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        var (offset, recordSize) = PcgEditor.LocateProgram(pcg, bank, index);
+        return Read(pcg.Data, offset, CombiReader.ReadEffects(pcg.Data, offset, recordSize)[(int)slot]);
+    }
+
     /// <summary>
     /// Decodes one effect slot's parameters from a record. Returns null when the slot is
     /// empty or its type undocumented. The Bypass constant every table starts with is
@@ -79,6 +95,10 @@ public static class EffectParams
             if (raw >= 0 && raw < sources.Count)
                 return sources[(int)raw];
         }
+
+        // Wet/Dry as the instrument writes it: a ratio ("37:63"), not a bare number.
+        if (field.Name == "Wet/Dry" && !field.Signed && field.Max == 100 && raw is >= 0 and <= 100)
+            return raw == 0 ? "Dry" : raw == 100 ? "Wet" : $"{raw}:{100 - raw}";
 
         if (field.Hint is { } hint && TryScale(field, hint, out double scale, out int decimals))
             return (raw / scale).ToString(decimals == 2 ? "0.00" : "0.0",

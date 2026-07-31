@@ -1416,8 +1416,10 @@
                                         var fxCount = info.ActiveEffects.Count();
                                         @if (fxCount > 0)
                                         {
-                                            <span class="badge text-bg-light fw-normal ms-1"
-                                                  title="@string.Join("\n", info.ActiveEffects.Select(e => $"{e.Label}: {e.TypeName}{(e.IsOn ? "" : " (off)")}"))">@fxCount FX</span>
+                                            <span class="badge @(_programFxOpen == (_selectedProgramBank, idx) ? "text-bg-secondary" : "text-bg-light") fw-normal ms-1"
+                                                  role="button" tabindex="0"
+                                                  title="Click to see this program's effects and their settings"
+                                                  @onclick="() => ToggleProgramFx(idx)" @onclick:stopPropagation>@fxCount FX</span>
                                         }
                                         @if (info.Favorite)
                                         {
@@ -1450,6 +1452,33 @@
                                     </td>
                                 }
                             </tr>
+                            @if (_programFxOpen == (_selectedProgramBank, idx)
+                                 && ProgramInfoAt(_selectedProgramBank, idx) is { } fxInfo)
+                            {
+                                <tr>
+                                    <td colspan="@(_editMode ? 5 : 4)">
+                                        <div class="d-flex flex-wrap align-items-baseline gap-1 mb-1">
+                                            <span class="small text-body-secondary me-1">Effects:</span>
+                                            @foreach (var e in fxInfo.ActiveEffects)
+                                            {
+                                                var isOpenSheet = _fxSheet is { ForProgram: true } sh
+                                                    && sh.Bank == _selectedProgramBank && sh.Index == idx && sh.Slot == e.Slot;
+                                                <span class="badge @(isOpenSheet ? "text-bg-secondary" : "text-bg-light") fw-normal @(e.IsOn ? null : "opacity-50")"
+                                                      role="button" tabindex="0" title="Click to see this effect's settings"
+                                                      @onclick="() => ToggleFxSheet(_selectedProgramBank, idx, e.Slot, forProgram: true)">
+                                                    @e.Label · @e.TypeId.ToString("D3") @e.TypeName@(e.IsOn ? "" : " (off)")
+                                                </span>
+                                            }
+                                        </div>
+                                        @if (_fxSheet is { ForProgram: true } psheet
+                                             && psheet.Bank == _selectedProgramBank && psheet.Index == idx)
+                                        {
+                                            @EffectSheet(fxInfo.Effects[(int)psheet.Slot],
+                                                _pcg is null ? null : EffectParams.ReadProgram(_pcg, _selectedProgramBank, idx, psheet.Slot))
+                                        }
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -3743,6 +3772,58 @@
         return 0;
     }
 
+    // ----- Effect parameter sheets: click any effect chip to see its actual settings -----
+    //
+    // Read-only, works in browse mode — the point is answering "what's the delay time on
+    // IFX4?" without recalling the sound on the instrument. Decoding is the probe-proven
+    // params-before-header geometry (EffectParams); the same sheet serves combis and
+    // programs.
+    (int Bank, int Index, EffectSlot Slot, bool ForProgram)? _fxSheet;
+    (int Bank, int Index)? _programFxOpen; // which program row's effect strip is expanded
+
+    void ToggleFxSheet(int bank, int index, EffectSlot slot, bool forProgram)
+    {
+        var next = (bank, index, slot, forProgram);
+        _fxSheet = _fxSheet == next ? null : next;
+    }
+
+    void ToggleProgramFx(int index)
+    {
+        var next = (_selectedProgramBank, index);
+        _programFxOpen = _programFxOpen == next ? null : next;
+        if (_programFxOpen is null) _fxSheet = null;
+    }
+
+    private RenderFragment EffectSheet(CombiEffect effect, IReadOnlyList<ParamValue>? values) => __builder =>
+    {
+        <div class="pcg-surface p-2 mb-2" style="max-width:52rem">
+            <div class="d-flex align-items-baseline gap-2 mb-1">
+                <strong class="small">@effect.Label · @effect.TypeName</strong>
+                @if (!effect.IsOn)
+                {
+                    <span class="badge text-bg-secondary">off</span>
+                }
+                <button type="button" class="btn-close ms-auto" aria-label="Close" @onclick="() => _fxSheet = null"></button>
+            </div>
+            @if (values is null || values.Count == 0)
+            {
+                <div class="small text-body-secondary">No settings to show for this effect.</div>
+            }
+            else
+            {
+                <div class="fx-sheet small" style="columns: 16rem auto; column-gap: 1.5rem">
+                    @foreach (var v in values)
+                    {
+                        <div class="d-flex justify-content-between gap-2" style="break-inside: avoid">
+                            <span class="text-body-secondary text-truncate">@v.Field.Name</span>
+                            <span class="text-nowrap">@v.Display</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    };
+
     // ----- "Bring the program's effects along" — the offline Copy From Program (IFX-All used) -----
     //
     // The panel targets one timbre of the open combi; its plan is recomputed from the live
@@ -4638,18 +4719,26 @@
             }
             @foreach (var e in effects)
             {
-                <span class="badge text-bg-light fw-normal @(e.IsOn ? null : "opacity-50")"
-                      title="@(e.IsOn ? "This effect is on" : "This effect is switched off")">
+                var isOpenSheet = _fxSheet is { } sh && sh.Bank == combi.Bank && sh.Index == combi.Index && sh.Slot == e.Slot;
+                <span class="badge @(isOpenSheet ? "text-bg-secondary" : "text-bg-light") fw-normal @(e.IsOn ? null : "opacity-50")"
+                      role="button" tabindex="0"
+                      title="@(e.IsOn ? "Click to see this effect's settings" : "Switched off — click to see its settings")"
+                      @onclick="() => ToggleFxSheet(combi.Bank, combi.Index, e.Slot, forProgram: false)">
                     @e.Label · @e.TypeId.ToString("D3") @e.TypeName@(e.IsOn ? "" : " (off)")
                     @if (editable && e.Slot <= EffectSlot.Ifx12)
                     {
                         <button type="button" class="btn-close ms-1" style="font-size:.55em; vertical-align:baseline"
                                 title="Clear this insert slot (only allowed when nothing plays through it)"
-                                aria-label="Clear @e.Label" @onclick="() => ClearIfx(combi, (int)e.Slot)"></button>
+                                aria-label="Clear @e.Label" @onclick="() => ClearIfx(combi, (int)e.Slot)" @onclick:stopPropagation></button>
                     }
                 </span>
             }
         </div>
+        @if (_fxSheet is { ForProgram: false } sheet && sheet.Bank == combi.Bank && sheet.Index == combi.Index)
+        {
+            @EffectSheet(combi.Effects[(int)sheet.Slot],
+                _pcg is null ? null : EffectParams.ReadCombi(_pcg, combi.Bank, combi.Index, sheet.Slot))
+        }
         @if (karmaOn.Count > 0)
         {
             <div class="d-flex flex-wrap align-items-baseline gap-1 mb-1" style="max-width:52rem">

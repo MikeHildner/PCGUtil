@@ -8,14 +8,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- The human version shown in the UI ("v1.2.0"). BUMP THIS ON EVERY PUBLISH — minor for
+    <!-- The human version shown in the UI ("v1.3.0"). BUMP THIS ON EVERY PUBLISH — minor for
          a feature, patch for a docs/fix redeploy — so two live builds are never the same
          version. (It read 1.0 for every deploy up to 2026-07-26, when only the date and hash
          moved.) The deploy script reads it and appends the build stamp and git hash as
          InformationalVersion "<AppVersion>+<yyyy.MM.dd.HHmm>+<short-sha>"; dev builds carry
          "+dev". The deploy script refuses to run when v<AppVersion> is already tagged, so a
          forgotten bump fails loudly before anything uploads. -->
-    <AppVersion>1.2.0</AppVersion>
+    <AppVersion>1.3.0</AppVersion>
     <InformationalVersion>$(AppVersion)+dev</InformationalVersion>
     <!-- Keep InformationalVersion exactly what we set: the SDK would otherwise append its
          own +<commit> suffix and break the three-part parse. -->

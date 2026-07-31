@@ -19,7 +19,8 @@ Main tabs:
   which program a layer plays — picked by name — or switch a layer off entirely. A layer's
   program can bring its **effects** along too: they pack into the combi's free effect slots,
   leaving everything already there untouched, so the layer sounds like the program did on
-  its own.
+  its own. Every effect chip is clickable — it opens that effect's **actual settings**
+  (wet/dry, EQ gains, delay times) straight from the file, no instrument required.
 - **Programs** — the same for programs: reorder, copy, or rename. Every combi timbre and
   set-list slot that referenced a program is updated to follow it to its new spot. **Re-point
   references** retargets in bulk by rule — everything that plays one program (or a whole

@@ -286,6 +286,21 @@ rule mapping was the last new logic standing on unit tests alone.
       used one of the twins: identical sound (the copies are byte-identical), and the Usage
       tab now shows the twins at zero references.
 
+## 21. Effect settings readout (read-only decode)
+Status: **probe-anchored, panel compare pending.** The decode already carries the strongest
+evidence a readout can have: the 2026-07-31 single-parameter probe (Stereo Dyna Compressor,
+Wet/Dry 37 / Sensitivity 99 / Attack 61 / Output Level 73 dialed on the instrument's own
+panel) decodes bit-exactly, and the corpus scan holds at 0 out-of-range fields in 299,638
+across both backups and all sixteen slots. What remains is breadth: confirming a few OTHER
+effect types' sheets against their panel pages. Read-only — nothing writes these bytes.
+- [ ] Open a busy combi, click two or three effect chips of different types (a delay, a
+      reverb, an EQ), and compare each sheet against the instrument's Insert/Master Effect
+      editor page for the same combi: the values match, field for field.
+- [ ] A program's FX badge → chip → sheet matches the program's own effect pages the same
+      way.
+- [ ] Wet/Dry reads as the instrument writes it (e.g. "37:63"), and modulation sources show
+      by name (Off, JS X, Ribbon…).
+
 ## Known limitation
 - A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
   that slot and will play whatever now lives there. That is deliberate — the sound it used is
