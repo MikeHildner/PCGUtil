@@ -63,6 +63,42 @@ WriteGz(Path.Combine(outDir, "effects.json.gz"), payload);
 
 int fieldCount = effectTables.Sum(t => t.Fields.Count);
 Console.WriteLine($"effects.json.gz: {effectTables.Count} tables, {fieldCount} fields, dmod {dmod.Length} entries.");
+
+// ----- Tone adjust: one destination table per voice-model engine -----
+//
+// Each VoiceModels/<Engine>.txt carries a "<Engine> Tone Adjust" section with columns
+// assign / type / value / name — the vocabulary behind a timbre's tone-adjust assign
+// bytes. Ids 0-47 are a common region (names identical across engines where present),
+// 48+ engine-private; only id 0 means Off. "type" is Rel (a signed offset from the
+// program's own value) or Abs (an override).
+string voiceModels = Path.Combine(repoRoot, "kronos-manuals", "KRONOS_SysEx_2_1",
+                                  "SysExParams", "VoiceModels");
+string[] engineNames = { "HD-1", "AL-1", "CX-3", "STR-1", "MS-20EX", "PolysixEX",
+                         "MOD-7", "SGX-1", "EP-1" };
+var engines = new Dictionary<string, object>();
+foreach (var engine in engineNames)
+{
+    string path = Path.Combine(voiceModels, engine + ".txt");
+    if (!File.Exists(path)) continue;
+    var rows = ParseToneAdjust(path, engine);
+    engines[engine] = rows.Select(r => new { id = r.Id, n = r.Name, rel = r.Relative ? 1 : 0, h = r.Hint }).ToArray();
+}
+
+var toneAdjust = new
+{
+    source = "SysEx docs 2.1",
+    engines,
+    enums = new Dictionary<string, string[]>
+    {
+        // Combi-level assignable controls; both lists are implicitly 0-indexed from "Off".
+        ["sw12"] = ParseEnumList(Path.Combine(enums, "Miscellaneous Enums.txt"), "* SW1/2 Assignments"),
+        ["knob58"] = ParseEnumList(Path.Combine(enums, "Miscellaneous Enums.txt"), "* Knob 5-8 assignments"),
+    },
+};
+WriteGz(Path.Combine(outDir, "toneadjust.json.gz"), toneAdjust);
+Console.WriteLine($"toneadjust.json.gz: {engines.Count} engines "
+    + $"({string.Join(", ", engines.Select(e => $"{e.Key} {((Array)e.Value).Length}"))}), "
+    + $"sw12 {((string[])toneAdjust.enums["sw12"]).Length}, knob58 {((string[])toneAdjust.enums["knob58"]).Length}.");
 return 0;
 
 // ----- Parsing -----
@@ -138,6 +174,43 @@ static List<EffectTable> ParseEffectFile(string path)
     }
 }
 
+// The "<Engine> Tone Adjust" section: space-aligned assign/type/value/name rows, running
+// from the header to the next section (the AMS list, which has its own header + columns).
+// A blank line inside the table separates the common ids from the engine-private ones and
+// must NOT end parsing — only a non-indented, non-numeric line does.
+static List<(int Id, string Name, bool Relative, string? Hint)> ParseToneAdjust(string path, string engine)
+{
+    var rows = new List<(int, string, bool, string?)>();
+    bool inSection = false;
+    foreach (var raw in File.ReadLines(path))
+    {
+        string line = raw.TrimEnd();
+        if (!inSection)
+        {
+            inSection = line.Trim() == engine + " Tone Adjust";
+            continue;
+        }
+        if (line.Trim().Length == 0) continue;                  // blank: separator or padding
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2) continue;
+        if (!int.TryParse(parts[0], out int id))
+        {
+            if (line.StartsWith("assign", StringComparison.Ordinal)
+                || line.StartsWith("------", StringComparison.Ordinal))
+                continue;                                        // header rows
+            break;                                               // next section reached
+        }
+        // "0  -  -  Off" | "1  Rel  -99..99  Filter Cutoff" | "48  Abs  0..8  Upper Drawbar 1"
+        string type = parts[1];
+        string hint = parts.Length > 2 ? parts[2] : "";
+        int nameFrom = parts.Length > 3 ? 3 : 2;
+        string name = string.Join(' ', parts.Skip(nameFrom));
+        if (id == 0) continue;                                   // Off is implicit
+        rows.Add((id, name, type == "Rel", hint == "-" ? null : hint));
+    }
+    return rows;
+}
+
 static (int Hi, int Lo) ParseBits(string bit)
 {
     if (bit.Length == 0) return (7, 0);            // whole byte
@@ -146,23 +219,48 @@ static (int Hi, int Lo) ParseBits(string bit)
     return (int.Parse(bit[..tilde]), int.Parse(bit[(tilde + 1)..]));
 }
 
+// Enum lists are implicitly 0-indexed by position, so an elided run ("MIDI CC#00 / ... /
+// MIDI CC#95") must be EXPANDED or every later entry lands at the wrong id. The docs use
+// a bare "..." between two numbered endpoints of the same family.
 static string[] ParseEnumList(string path, string header)
 {
     var names = new List<string>();
     bool inList = false;
+    bool pendingEllipsis = false;
     foreach (var raw in File.ReadLines(path, Encoding.UTF8))
     {
-        string line = raw.TrimEnd('\r');
+        string line = raw.TrimEnd('\r').Trim();
         if (line.StartsWith('*'))
         {
             if (inList) break;
-            inList = line.Trim() == header;
+            inList = line == header;
             continue;
         }
-        if (!inList || line.Trim().Length == 0) continue;
-        names.Add(line.Trim());
+        if (!inList || line.Length == 0) continue;
+        if (line == "...")
+        {
+            pendingEllipsis = true;
+            continue;
+        }
+        if (pendingEllipsis && names.Count > 0
+            && TrailingNumber(names[^1]) is { } from && TrailingNumber(line) is { } to && to > from + 1)
+        {
+            string prefix = names[^1][..^from.ToString("00").Length];
+            for (int n = from + 1; n < to; n++)
+                names.Add(prefix + n.ToString("00"));
+        }
+        pendingEllipsis = false;
+        names.Add(line);
     }
     return names.ToArray();
+
+    // "MIDI CC#00" -> 0; null when the entry doesn't end in digits.
+    static int? TrailingNumber(string text)
+    {
+        int i = text.Length;
+        while (i > 0 && char.IsDigit(text[i - 1])) i--;
+        return i == text.Length ? null : int.Parse(text[i..]);
+    }
 }
 
 static void WriteGz(string path, object payload)

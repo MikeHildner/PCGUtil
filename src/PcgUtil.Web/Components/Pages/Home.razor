@@ -3779,7 +3779,14 @@
     // params-before-header geometry (EffectParams); the same sheet serves combis and
     // programs.
     (int Bank, int Index, EffectSlot Slot, bool ForProgram)? _fxSheet;
-    (int Bank, int Index)? _programFxOpen; // which program row's effect strip is expanded
+    (int Bank, int Index)? _programFxOpen;              // which program row's effect strip is expanded
+    (int Bank, int Index, int Timbre)? _toneAdjustTimbre; // which timbre's tone adjust is open
+
+    void ToggleToneAdjust(int bank, int index, int timbre)
+    {
+        var next = (bank, index, timbre);
+        _toneAdjustTimbre = _toneAdjustTimbre == next ? null : next;
+    }
 
     void ToggleFxSheet(int bank, int index, EffectSlot slot, bool forProgram)
     {
@@ -4499,6 +4506,7 @@
                     <th style="width:3.5rem" class="d-none d-md-table-cell">Ch</th><th style="width:3.5rem" class="d-none d-md-table-cell">Vol</th><th style="width:4rem" class="d-none d-md-table-cell">Xpose</th>
                     <th style="width:4rem" class="d-none d-lg-table-cell" title="Pitch-bend range in semitones; PRG follows the program's own setting">Bend</th>
                     <th style="width:4rem" class="d-none d-lg-table-cell" title="Portamento time; PRG follows the program's own setting">Porta</th>
+                    <th style="width:4.5rem" title="Tone adjust: tweaks this combi makes to the layer's program">Tweaks</th>
                 </tr>
             </thead>
             <tbody>
@@ -4628,7 +4636,47 @@
                         @* Read-only in both modes: nothing writes these bytes yet. *@
                         <td class="d-none d-lg-table-cell @(t.OverridesBend ? null : "text-body-tertiary")">@t.BendRangeLabel</td>
                         <td class="d-none d-lg-table-cell @(t.OverridesPortamento ? null : "text-body-tertiary")">@t.PortamentoLabel</td>
+                        @{
+                            var tweaks = _pcg is null ? Array.Empty<ToneAdjustEntry>()
+                                : ToneAdjust.ReadCombiTimbre(_pcg, combi.Bank, combi.Index, t.Index);
+                        }
+                        <td class="text-nowrap">
+                            @if (tweaks.Count > 0)
+                            {
+                                var openTa = _toneAdjustTimbre == (combi.Bank, combi.Index, t.Index);
+                                <button type="button" class="btn btn-sm @(openTa ? "btn-secondary" : "btn-outline-secondary") px-2"
+                                        title="This layer tweaks its program — click to see what"
+                                        @onclick="() => ToggleToneAdjust(combi.Bank, combi.Index, t.Index)">@tweaks.Count ✎</button>
+                            }
+                        </td>
                     </tr>
+                    @if (_toneAdjustTimbre == (combi.Bank, combi.Index, t.Index) && _pcg is not null)
+                    {
+                        var entries = ToneAdjust.ReadCombiTimbre(_pcg, combi.Bank, combi.Index, t.Index);
+                        <tr>
+                            <td colspan="9">
+                                <div class="pcg-surface p-2 mb-1" style="max-width:52rem">
+                                    <div class="d-flex align-items-baseline gap-2 mb-1">
+                                        <strong class="small">T@(t.Index + 1) tone adjust</strong>
+                                        <span class="small text-body-secondary">what this combi changes about its program</span>
+                                        <button type="button" class="btn-close ms-auto" aria-label="Close"
+                                                @onclick="() => _toneAdjustTimbre = null"></button>
+                                    </div>
+                                    <div class="fx-sheet small" style="columns: 17rem auto; column-gap: 1.5rem">
+                                        @foreach (var e in entries)
+                                        {
+                                            <div class="d-flex justify-content-between gap-2" style="break-inside: avoid">
+                                                <span class="text-body-secondary text-truncate">
+                                                    @e.Control · @e.Label@(e.TargetsSecondPatch ? " (EXi2)" : "")
+                                                </span>
+                                                <span class="text-nowrap">@e.Display</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -4738,6 +4786,21 @@
         {
             @EffectSheet(combi.Effects[(int)sheet.Slot],
                 _pcg is null ? null : EffectParams.ReadCombi(_pcg, combi.Bank, combi.Index, sheet.Slot))
+        }
+        var panelControls = _pcg is null ? (IReadOnlyList<CombiControl>)Array.Empty<CombiControl>()
+            : ToneAdjust.ReadCombiControls(_pcg, combi.Bank, combi.Index);
+        @if (panelControls.Count > 0)
+        {
+            <div class="d-flex flex-wrap align-items-baseline gap-1 mb-1" style="max-width:52rem">
+                <span class="small text-body-secondary me-1"
+                      title="What the panel switches and assignable knobs do in this combi">Controls:</span>
+                @foreach (var pc in panelControls)
+                {
+                    <span class="badge text-bg-light fw-normal">
+                        @pc.Control · @pc.Label@(pc.Control.StartsWith("SW") ? (pc.Momentary ? " (momentary)" : "") : "")
+                    </span>
+                }
+            </div>
         }
         @if (karmaOn.Count > 0)
         {

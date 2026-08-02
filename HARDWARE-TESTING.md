@@ -301,6 +301,20 @@ effect types' sheets against their panel pages. Read-only — nothing writes the
 - [ ] Wet/Dry reads as the instrument writes it (e.g. "37:63"), and modulation sources show
       by name (Off, JS X, Ribbon…).
 
+**Tone adjust (added 2026-08-02).** The same read-only compare, for the per-timbre tweaks a
+combi applies to its programs. Names come from the engine of the program each timbre plays,
+so a CX-3 layer's faders read as drawbars and an AL-1 layer's as envelope stages — the
+showcase check is a drawbar registration matching the panel bar for bar.
+- [ ] Open a combi whose timbre shows a **✎ count** in the Timbres table, click it, and
+      compare against the instrument's Tone Adjust page for that timbre: every control's
+      name and value matches.
+- [ ] An organ (CX-3) layer: the eight faders read as **Upper Drawbar 1–8** with the same
+      registration the instrument shows, and Master fader as Drawbar 9.
+- [ ] A layer on a different engine in the same combi reads that engine's names instead
+      (no organ terms on a synth layer).
+- [ ] The **Controls:** line above the effects strip matches the combi's SW1/SW2 and
+      assignable-knob assignments on the instrument.
+
 ## Known limitation
 - A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
   that slot and will play whatever now lives there. That is deliberate — the sound it used is

@@ -56,6 +56,14 @@ public sealed record ParamValue(ParamField Field, long Raw, string Display)
 }
 
 /// <summary>
+/// One tone-adjust destination: what a knob/switch/fader assign id points at on a given
+/// engine. <see cref="Relative"/> destinations hold a signed offset from the program's own
+/// value; absolute ones hold an override. <see cref="RangeHint"/> is the documentation's
+/// range text ("-99..99", "0..8").
+/// </summary>
+public sealed record ToneAdjustDestination(int Id, string Name, bool Relative, string? RangeHint);
+
+/// <summary>
 /// The effect parameter tables — one per effect type id (0..185) — generated from the
 /// vendor SysEx documentation by <c>tools/ParamTableGen</c> and embedded as a resource,
 /// so builds never need the source documents. Offsets inside a table are relative to the
@@ -65,6 +73,7 @@ public sealed record ParamValue(ParamField Field, long Raw, string Display)
 public static class ParamTables
 {
     private static readonly Lazy<Loaded> _effects = new(() => Load("effects.json.gz"));
+    private static readonly Lazy<ToneAdjustVocabulary> _toneAdjust = new(LoadToneAdjust);
 
     public static ParamTable? Effect(int typeId) =>
         _effects.Value.Tables.TryGetValue(typeId, out var t) ? t : null;
@@ -74,17 +83,72 @@ public static class ParamTables
     public static IReadOnlyList<string> DmodSources => _effects.Value.Enums.TryGetValue("dmod", out var e)
         ? e : Array.Empty<string>();
 
+    /// <summary>
+    /// What a tone-adjust assign id means on a given engine. One table per voice model
+    /// ("HD-1", "AL-1", "CX-3", …): ids 1–47 are a shared region whose names agree across
+    /// engines that support them, 48+ are engine-private (a CX-3's 48–56 are its drawbars).
+    /// Null when the engine is unknown or the id isn't valid for it.
+    /// </summary>
+    public static ToneAdjustDestination? ToneAdjust(string engine, int assignId) =>
+        _toneAdjust.Value.Engines.TryGetValue(VocabularyEngine(engine), out var table)
+        && table.TryGetValue(assignId, out var d) ? d : null;
+
+    // The two vendor documents disagree on one engine's name: the product (and the voice
+    // name list our ExiEngines table was verified against, 640/640) calls engine id 8
+    // "SGX-2", while the SysEx docs file it as "SGX-1". Same engine — map it across.
+    private static string VocabularyEngine(string engine) =>
+        engine == "SGX-2" ? "SGX-1" : engine;
+
+    /// <summary>Names for a combi's SW1/SW2 assign values, indexed by raw value.</summary>
+    public static IReadOnlyList<string> SwitchAssignments => _toneAdjust.Value.Sw12;
+
+    /// <summary>Names for a combi's assignable Knob5–8 values, indexed by raw value.</summary>
+    public static IReadOnlyList<string> KnobAssignments => _toneAdjust.Value.Knob58;
+
+    private sealed record ToneAdjustVocabulary(
+        IReadOnlyDictionary<string, IReadOnlyDictionary<int, ToneAdjustDestination>> Engines,
+        string[] Sw12, string[] Knob58);
+
+    private static ToneAdjustVocabulary LoadToneAdjust()
+    {
+        using var doc = JsonDocument.Parse(ReadResource("toneadjust.json.gz"));
+        var engines = new Dictionary<string, IReadOnlyDictionary<int, ToneAdjustDestination>>();
+        foreach (var e in doc.RootElement.GetProperty("engines").EnumerateObject())
+        {
+            var map = new Dictionary<int, ToneAdjustDestination>();
+            foreach (var row in e.Value.EnumerateArray())
+            {
+                int id = row.GetProperty("id").GetInt32();
+                map[id] = new ToneAdjustDestination(
+                    id,
+                    row.GetProperty("n").GetString()!,
+                    row.GetProperty("rel").GetInt32() != 0,
+                    row.TryGetProperty("h", out var h) && h.ValueKind == JsonValueKind.String ? h.GetString() : null);
+            }
+            engines[e.Name] = map;
+        }
+        string[] List(string key) =>
+            doc.RootElement.GetProperty("enums").TryGetProperty(key, out var v)
+                ? v.EnumerateArray().Select(x => x.GetString()!).ToArray() : Array.Empty<string>();
+        return new ToneAdjustVocabulary(engines, List("sw12"), List("knob58"));
+    }
+
     private sealed record Loaded(IReadOnlyDictionary<int, ParamTable> Tables,
                                  IReadOnlyDictionary<string, string[]> Enums);
 
-    private static Loaded Load(string resourceName)
+    private static byte[] ReadResource(string resourceName)
     {
         var assembly = typeof(ParamTables).Assembly;
         string full = assembly.GetManifestResourceNames()
             .First(n => n.EndsWith(resourceName, StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(full)!;
         using var gz = new GZipStream(stream, CompressionMode.Decompress);
-        using var doc = JsonDocument.Parse(ReadAll(gz));
+        return ReadAll(gz);
+    }
+
+    private static Loaded Load(string resourceName)
+    {
+        using var doc = JsonDocument.Parse(ReadResource(resourceName));
 
         var tables = new Dictionary<int, ParamTable>();
         foreach (var t in doc.RootElement.GetProperty("tables").EnumerateArray())

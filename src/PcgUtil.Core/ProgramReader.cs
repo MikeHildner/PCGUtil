@@ -23,6 +23,7 @@ public static class ProgramReader
     public const int FavoriteBit = 0x20;
     private const int CategoryOffset = 2568;
     private const int ExiEngineOffset = 2857;
+    private const int ExiEngine2Offset = 3909; // the second EXi slot's algorithm type
 
     public static IReadOnlyList<ProgramInfo> Read(PcgFile pcg)
     {
@@ -61,6 +62,7 @@ public static class ProgramReader
                     SubCategory = recordSize > CategoryOffset ? (data[record + CategoryOffset] >> 5) & 0x07 : 0,
                     Favorite = recordSize > FavoriteOffset && (data[record + FavoriteOffset] & FavoriteBit) != 0,
                     ExiEngine = isExi && recordSize > ExiEngineOffset ? data[record + ExiEngineOffset] : null,
+                    ExiEngine2 = isExi && recordSize > ExiEngine2Offset ? data[record + ExiEngine2Offset] : null,
                     // Same region, same offsets as a combi — the decode is shared outright.
                     Effects = CombiReader.ReadEffects(data, record, recordSize),
                 });

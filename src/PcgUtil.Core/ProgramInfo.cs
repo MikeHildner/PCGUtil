@@ -18,6 +18,13 @@ public sealed class ProgramInfo
     public required int? ExiEngine { get; init; }
 
     /// <summary>
+    /// The second EXi slot's engine id, for layered EXi programs (0 = the slot is off).
+    /// Tone-adjust assigns carry a patch selector in bit 7 that chooses between the two,
+    /// which is the only reason this matters outside a full program editor.
+    /// </summary>
+    public int? ExiEngine2 { get; init; }
+
+    /// <summary>
     /// The program's sixteen effect slots (IFX1–12, MFX1/2, TFX1/2) — the same region, at
     /// the same offsets, as a combi's (<see cref="Combi.Effects"/>), which is what makes
     /// copying them into a combi a block move.
