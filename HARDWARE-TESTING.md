@@ -336,6 +336,27 @@ polarity with only two values named). Read-only — nothing writes these bytes.
 - [ ] In a combi's Timbres table, the **⚙** on a layer opens the program that layer plays.
 - [ ] The Find box narrows to matching settings across sections (try "cutoff").
 
+## 23. Gig sheet (read-only, printable)
+Status: **built from decoded facts, panel compare pending.** A one-page sheet per set-list
+slot: an 88-key keyboard with each sounding layer's range drawn on it, the layers table, the
+effect chain, and what your joystick, pedals, switches and knobs actually do while you play.
+Two things it now knows rather than assumes — the global MIDI channel (so it lists only the
+layers that answer the keyboard) and each engine's own modulation-source vocabulary (so a
+control is named by what it moves). Read-only: nothing writes these bytes. Open the
+downloaded file and print it, or Save as PDF.
+- [ ] Open a song's gig sheet and compare the **keyboard map** against the combi's key zones
+      on the instrument: each layer starts and ends on the same notes, and the split lands
+      where you play it.
+- [ ] The sheet lists only the layers that **actually sound**. Check a combi whose unused
+      timbres sit on other MIDI channels: the instrument plays what the sheet shows, and the
+      "other timbres never sound" line is true.
+- [ ] The **effect chain** matches the instrument's routing page — same order, same effects,
+      and anything the sheet shows as separate really is outside the chain.
+- [ ] **What moves what**: move each control the sheet lists and confirm it does what the
+      sheet says. Anything the sheet calls unused should do nothing.
+- [ ] Print it (or Save as PDF): one landscape page, light background, layer bars still
+      readable, and readable at arm's length on the music stand.
+
 ## Known limitation
 - A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
   that slot and will play whatever now lives there. That is deliberate — the sound it used is

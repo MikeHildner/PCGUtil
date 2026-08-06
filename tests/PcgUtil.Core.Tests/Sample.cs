@@ -91,6 +91,22 @@ internal static class FavoritesProbe
 }
 
 /// <summary>
+/// Locates the optional gig-file export (20260806a.PCG — the backup taken after the Footloose
+/// patches were loaded on the instrument, whose set list 000 carries the seven Footloose
+/// slots). <see cref="Sample"/> resolves to the first *.PCG by name, which predates that
+/// merge, so gig-sheet content pins name this file explicitly. Silently absent-safe.
+/// </summary>
+internal static class GigFile
+{
+    public static PcgFile? Parse()
+    {
+        var path = System.IO.Path.Combine(
+            System.IO.Path.GetDirectoryName(Sample.Path)!, "20260806a.PCG");
+        return File.Exists(path) ? PcgReader.Parse(File.ReadAllBytes(path)) : null;
+    }
+}
+
+/// <summary>
 /// Locates the optional single-program pack (ONETHINGLEADS.PCG — one EXi program in USER-G,
 /// no combi or set-list sections at all; the file that exposed the absent-section compat
 /// bug, 2026-07-22). Silently absent-safe.

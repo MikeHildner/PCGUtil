@@ -69,10 +69,23 @@ foreach (var engine in engineNames)
     engines[engine] = rows.Select(r => new { id = r.Id, n = r.Name, rel = r.Relative ? 1 : 0, h = r.Hint }).ToArray();
 }
 
+// Modulation sources, one list per engine. A program stores these as bare numbers, and the
+// same number means different things on different engines (50 is the vector joystick on an
+// AL-1 and unused on a CX-3), so the list has to travel per engine or values get mislabelled.
+var amsSources = new Dictionary<string, object>();
+foreach (var engine in engineNames)
+{
+    string path = Path.Combine(voiceModels, engine + ".txt");
+    if (!File.Exists(path)) continue;
+    var rows = ParseAmsSources(path, engine);
+    if (rows.Length > 0) amsSources[engine] = rows;
+}
+
 var toneAdjust = new
 {
     source = "SysEx docs 2.1",
     engines,
+    ams = amsSources,
     enums = new Dictionary<string, string[]>
     {
         // Combi-level assignable controls; both lists are implicitly 0-indexed from "Off".
@@ -83,7 +96,8 @@ var toneAdjust = new
 WriteGz(Path.Combine(outDir, "toneadjust.json.gz"), toneAdjust);
 Console.WriteLine($"toneadjust.json.gz: {engines.Count} engines "
     + $"({string.Join(", ", engines.Select(e => $"{e.Key} {((Array)e.Value).Length}"))}), "
-    + $"sw12 {((string[])toneAdjust.enums["sw12"]).Length}, knob58 {((string[])toneAdjust.enums["knob58"]).Length}.");
+    + $"sw12 {((string[])toneAdjust.enums["sw12"]).Length}, knob58 {((string[])toneAdjust.enums["knob58"]).Length}, "
+    + $"ams {amsSources.Count} engines x {(amsSources.Count == 0 ? 0 : ((string[])amsSources.Values.First()).Length)}.");
 
 // ----- Program records: one table per documented section -----
 //
@@ -398,6 +412,36 @@ static Dictionary<string, List<Table>> ParseRecordDoc(string path, RecordStats s
             }
         return overlaps;
     }
+}
+
+// The "<Engine> AMS Sources" section: a plain "src  name" table, indexed by position, whose
+// tail is padded with repeated "Off" entries. Kept verbatim including the padding so an id
+// always lands on its own row.
+static string[] ParseAmsSources(string path, string engine)
+{
+    var names = new List<string>();
+    bool inSection = false;
+    foreach (var raw in File.ReadLines(path))
+    {
+        string line = raw.TrimEnd();
+        if (!inSection)
+        {
+            inSection = line.Trim() == engine + " AMS Sources";
+            continue;
+        }
+        if (line.Trim().Length == 0) continue;
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (!int.TryParse(parts[0], out int id))
+        {
+            if (line.StartsWith("src", StringComparison.Ordinal)
+                || line.StartsWith("---", StringComparison.Ordinal))
+                continue;                                    // header rows
+            break;                                           // next section reached
+        }
+        if (id != names.Count) continue;                     // ids are positional; skip surprises
+        names.Add(string.Join(' ', parts.Skip(1)));
+    }
+    return names.ToArray();
 }
 
 static (int Hi, int Lo) ParseBits(string bit)

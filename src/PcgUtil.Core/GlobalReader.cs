@@ -20,6 +20,7 @@ public static class GlobalReader
     private const int KeyTransposeOffset = 1; // signed semitones
     private const int ProgramCategoriesOffset = 12912;
     private const int CombiCategoriesOffset = 16800;
+    private const int MidiChannelOffset = 24576;  // 00~0F = channel 1–16
 
     /// <summary>Per-file global settings and category names, or null when the file carries no GLB1.</summary>
     public sealed class GlobalInfo
@@ -29,6 +30,15 @@ public static class GlobalReader
 
         /// <summary>Global key transpose in semitones (probe-verified: +2 → byte 2).</summary>
         public required int KeyTranspose { get; init; }
+
+        /// <summary>
+        /// The global MIDI channel, 0–15 for channels 1–16 — the channel the keyboard plays
+        /// on. This is what decides which of a combi's timbres actually sound when you press
+        /// a key: a timbre answers the keyboard only when its own channel is this one (or
+        /// "Gch"). Null when the file's GLB1 is too short to carry it, in which case callers
+        /// should say the channel is unknown rather than assume one.
+        /// </summary>
+        public required int? MidiChannel { get; init; }
 
         public required IReadOnlyList<string> ProgramCategoryNames { get; init; }
         public required IReadOnlyList<string> CombiCategoryNames { get; init; }
@@ -45,6 +55,10 @@ public static class GlobalReader
         {
             MasterTune = (sbyte)pcg.Data[glb.DataOffset + MasterTuneOffset],
             KeyTranspose = (sbyte)pcg.Data[glb.DataOffset + KeyTransposeOffset],
+            // Its own guard: the channel sits well past the name tables this method already
+            // requires, so a shorter GLB1 still yields categories rather than nothing.
+            MidiChannel = glb.Size > MidiChannelOffset
+                ? pcg.Data[glb.DataOffset + MidiChannelOffset] & 0x0F : null,
             ProgramCategoryNames = ReadNames(pcg.Data, glb.DataOffset + ProgramCategoriesOffset),
             CombiCategoryNames = ReadNames(pcg.Data, glb.DataOffset + CombiCategoriesOffset),
         };

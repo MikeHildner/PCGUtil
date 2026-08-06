@@ -24,6 +24,22 @@ public class GlobalReaderTests
         Assert.Equal("Drums/Hits", global.CombiCategoryNames[15]);
     }
 
+    /// <summary>
+    /// The global MIDI channel — the channel the keyboard plays on, and so the fact that
+    /// decides which of a combi's timbres actually sound. Every backup here reads channel 1,
+    /// which is both the factory default and what the Footloose combi's three sounding layers
+    /// sit on; a file with a non-default channel hasn't been captured yet, so this pins the
+    /// offset's plausibility rather than proving it against a moved value.
+    /// </summary>
+    [Fact]
+    public void Reads_the_global_midi_channel()
+    {
+        var global = GlobalReader.Read(Sample.Parse());
+        Assert.NotNull(global);
+        Assert.Equal(0, global!.MidiChannel);   // raw 0 = channel 1
+        Assert.InRange(global.MidiChannel!.Value, 0, 15);
+    }
+
     // The instrument stores combi category 9 as "Motion Synth" (with a space); the
     // hardcoded factory table says "MotionSynth". File-aware names surface the file's
     // own spelling; the static stays as the no-GLB1 fallback.

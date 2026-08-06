@@ -154,6 +154,22 @@ public static class ParamTables
     private static string VocabularyEngine(string engine) =>
         engine == "SGX-2" ? "SGX-1" : engine;
 
+    /// <summary>
+    /// What a program's modulation-source value means on a given engine ("SW1 (CC#80)",
+    /// "JS+Y (CC#1)", "Common LFO"). Each engine publishes its own list and they genuinely
+    /// differ — id 50 is the vector joystick on an AL-1 and nothing at all on a CX-3 — so a
+    /// value must always be read against the engine that stored it. Null when the engine or
+    /// the id is unknown, including on an older resource that predates these lists.
+    /// </summary>
+    public static string? AmsSource(string engine, int id) =>
+        _toneAdjust.Value.Ams.TryGetValue(VocabularyEngine(engine), out var list)
+        && id >= 0 && id < list.Length && list[id] != "Off" ? list[id] : null;
+
+    /// <summary>One engine's whole modulation-source list, empty when unknown.</summary>
+    public static IReadOnlyList<string> AmsSources(string engine) =>
+        _toneAdjust.Value.Ams.TryGetValue(VocabularyEngine(engine), out var list)
+            ? list : Array.Empty<string>();
+
     /// <summary>Names for a combi's SW1/SW2 assign values, indexed by raw value.</summary>
     public static IReadOnlyList<string> SwitchAssignments => _toneAdjust.Value.Sw12;
 
@@ -194,7 +210,7 @@ public static class ParamTables
 
     private sealed record ToneAdjustVocabulary(
         IReadOnlyDictionary<string, IReadOnlyDictionary<int, ToneAdjustDestination>> Engines,
-        string[] Sw12, string[] Knob58);
+        IReadOnlyDictionary<string, string[]> Ams, string[] Sw12, string[] Knob58);
 
     private static ToneAdjustVocabulary LoadToneAdjust()
     {
@@ -214,10 +230,17 @@ public static class ParamTables
             }
             engines[e.Name] = map;
         }
+        // Read with TryGetProperty throughout: the modulation-source lists arrived after the
+        // resource format did, so a resource generated before them must still load.
+        var ams = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        if (doc.RootElement.TryGetProperty("ams", out var amsNode) && amsNode.ValueKind == JsonValueKind.Object)
+            foreach (var e in amsNode.EnumerateObject())
+                ams[e.Name] = e.Value.EnumerateArray().Select(x => x.GetString()!).ToArray();
+
         string[] List(string key) =>
             doc.RootElement.GetProperty("enums").TryGetProperty(key, out var v)
                 ? v.EnumerateArray().Select(x => x.GetString()!).ToArray() : Array.Empty<string>();
-        return new ToneAdjustVocabulary(engines, List("sw12"), List("knob58"));
+        return new ToneAdjustVocabulary(engines, ams, List("sw12"), List("knob58"));
     }
 
     private sealed record Loaded(IReadOnlyDictionary<int, ParamTable> Tables,
