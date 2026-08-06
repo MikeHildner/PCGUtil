@@ -15,7 +15,7 @@
          InformationalVersion "<AppVersion>+<yyyy.MM.dd.HHmm>+<short-sha>"; dev builds carry
          "+dev". The deploy script refuses to run when v<AppVersion> is already tagged, so a
          forgotten bump fails loudly before anything uploads. -->
-    <AppVersion>1.4.0</AppVersion>
+    <AppVersion>1.5.0</AppVersion>
     <InformationalVersion>$(AppVersion)+dev</InformationalVersion>
     <!-- Keep InformationalVersion exactly what we set: the SDK would otherwise append its
          own +<commit> suffix and break the three-part parse. -->

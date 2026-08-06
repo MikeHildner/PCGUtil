@@ -315,6 +315,27 @@ showcase check is a drawbar registration matching the panel bar for bar.
 - [ ] The **Controls:** line above the effects strip matches the combi's SW1/SW2 and
       assignable-knob assignments on the instrument.
 
+## 22. Program settings readout (read-only decode)
+Status: **cross-checked, panel compare pending.** A program's whole documented interior now
+reads out by name — oscillators, filters, envelopes, LFOs, and for an EXi program whichever
+engine each slot runs, in that engine's own vocabulary. Two things back it before you touch
+the instrument: every field this project had already verified against hardware (category,
+bus, sends, the effect slots, tone adjust, the EXi engine ids) sits exactly where these
+tables say, and a scan of 15.2 million field reads across three backups lands in range
+apart from three known documentation gaps (effect ids 186–197, which the Parameter Guide
+names; a seventeenth switch assignment the range text omits; and a two-bit Dynamic MIDI
+polarity with only two values named). Read-only — nothing writes these bytes.
+- [ ] An HD-1 program: **OSC1 Filter A** — Cutoff, Resonance and Keyboard Track match the
+      instrument's filter page for that program.
+- [ ] Same program, **OSC1 Amplifier EG**: the envelope levels and times match the amp
+      envelope page.
+- [ ] An organ (CX-3) program: **EXi1 CX-3: Drawbar** shows the registration the drawbar
+      page does, bar for bar; **Rotary Speaker** matches its own page.
+- [ ] A two-engine EXi program shows a section group per slot (**EXi1 …**, **EXi2 …**), each
+      in its own engine's names.
+- [ ] In a combi's Timbres table, the **⚙** on a layer opens the program that layer plays.
+- [ ] The Find box narrows to matching settings across sections (try "cutoff").
+
 ## Known limitation
 - A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
   that slot and will play whatever now lives there. That is deliberate — the sound it used is

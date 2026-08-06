@@ -305,6 +305,22 @@
     </ul>
   </section>
 
+  <section>
+    <h2>22. Program settings <span class="hint">read-only — compare, don't change</span></h2>
+    <p class="hint">Every program now opens to its whole interior: oscillators, filters, envelopes, LFOs —
+    and for an EXi program, whichever engine it runs, in that engine's own words. Click <strong>⚙ Settings</strong>
+    on a program row, or the <strong>⚙</strong> beside a combi layer to read the program that layer plays.
+    Sections start closed; the Find box is the fast way to one setting. Nothing is written here.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox"><span>Open an HD-1 program's settings, expand <strong>OSC1 Filter A</strong>, and compare Cutoff, Resonance and Keyboard Track against the instrument's Filter page for that program: the values match.</span></label></li>
+      <li><label><input type="checkbox"><span>Same program, <strong>OSC1 Amplifier EG</strong>: the attack, decay, sustain and release levels and times match the instrument's amp envelope page.</span></label></li>
+      <li><label><input type="checkbox"><span>An organ (CX-3) program: <strong>EXi1 CX-3: Drawbar</strong> shows the same registration the instrument's drawbar page does, bar for bar, and <strong>Rotary Speaker</strong> matches its own page.</span></label></li>
+      <li><label><input type="checkbox"><span>A program running two EXi engines shows a section group for each (<strong>EXi1 …</strong> and <strong>EXi2 …</strong>), each in its own engine's names.</span></label></li>
+      <li><label><input type="checkbox"><span>In a combi's Timbres table, the <strong>⚙</strong> on a layer opens the program that layer plays — the same values you just compared.</span></label></li>
+      <li><label><input type="checkbox"><span>Type <em>cutoff</em> in the Find box: only matching settings remain, grouped under their sections.</span></label></li>
+    </ul>
+  </section>
+
   <div class="note warn">
     <strong>Known limitation.</strong> If you <em>overwrite</em> a program a song track uses (paste or
     clear, rather than move it), the track keeps its slot and will play whatever now lives there —

@@ -40,22 +40,7 @@ var dmod = ParseEnumList(Path.Combine(enums, "Miscellaneous Enums.txt"),
 var payload = new
 {
     source = "SysEx docs 2.1",
-    tables = effectTables.Select(t => new
-    {
-        id = t.Id,
-        name = t.Name,
-        size = t.Size,
-        fields = t.Fields.Select(f => new
-        {
-            n = f.Name,
-            b = f.Spans.Select(s => new[] { s.Byte, s.Hi, s.Lo }).ToArray(),
-            sg = f.Signed ? 1 : 0,
-            lo = f.Min,
-            hi = f.Max,
-            fx = f.Fixed,
-            h = f.Hint,
-        }).ToArray(),
-    }).ToArray(),
+    tables = TableArray(effectTables),
     enums = new Dictionary<string, string[]> { ["dmod"] = dmod },
 };
 
@@ -99,14 +84,47 @@ WriteGz(Path.Combine(outDir, "toneadjust.json.gz"), toneAdjust);
 Console.WriteLine($"toneadjust.json.gz: {engines.Count} engines "
     + $"({string.Join(", ", engines.Select(e => $"{e.Key} {((Array)e.Value).Length}"))}), "
     + $"sw12 {((string[])toneAdjust.enums["sw12"]).Length}, knob58 {((string[])toneAdjust.enums["knob58"]).Length}.");
+
+// ----- Program records: one table per documented section -----
+//
+// Prog_HD-1.txt and Prog_EXi_Common.txt describe a program record byte by byte — their OFS
+// values ARE record offsets, unlike Effect.txt's (which turned out to address a packed area
+// sitting 64 bytes before each effect header). Prog_EXi.txt holds one table per EXi engine,
+// addressed from the start of that engine's payload region inside an EXi record. Same row
+// grammar as Effect.txt, plus: a section column in the two record files, "[Group] Name"
+// prefixes in the engine tables, a literal '|' in the OFS cell marking an elided run of
+// rows, and a "* Big Endian" annotation on the one field that is stored high byte first.
+var stats = new RecordStats();
+var hd1 = ParseRecordDoc(Path.Combine(dumps, "Prog_HD-1.txt"), stats)[""];
+var exiCommon = ParseRecordDoc(Path.Combine(dumps, "Prog_EXi_Common.txt"), stats)[""];
+var engineDoc = ParseRecordDoc(Path.Combine(dumps, "Prog_EXi.txt"), stats);
+
+var records = new
+{
+    source = "SysEx docs 2.1",
+    hd1 = new { tables = TableArray(hd1) },
+    exi = new { tables = TableArray(exiCommon) },
+    engines = engineDoc.Where(e => e.Value.Count > 0)
+                       .ToDictionary(e => e.Key, e => (object)new { tables = TableArray(e.Value) }),
+};
+WriteGz(Path.Combine(outDir, "records.json.gz"), records);
+
+int Fields(List<Table> t) => t.Sum(x => x.Fields.Count);
+Console.WriteLine($"records.json.gz: HD-1 {hd1.Count} sections/{Fields(hd1)} fields, "
+    + $"EXi common {exiCommon.Count}/{Fields(exiCommon)}, engines "
+    + string.Join(", ", engineDoc.Where(e => e.Value.Count > 0)
+        .Select(e => $"{e.Key} {e.Value.Count}/{Fields(e.Value)}")) + ".");
+Console.WriteLine($"  dropped: {stats.Ascii} name bytes, {stats.Uuid} sysex-only (UUID), "
+    + $"{stats.Elided} elided; {stats.Truncated} ranges widened (column-truncated), "
+    + $"{stats.BigEndian} big-endian, {stats.Overlap} overlapping bit claims.");
 return 0;
 
 // ----- Parsing -----
 
-static List<EffectTable> ParseEffectFile(string path)
+static List<Table> ParseEffectFile(string path)
 {
-    var tables = new List<EffectTable>();
-    EffectTable? current = null;
+    var tables = new List<Table>();
+    Table? current = null;
     int[]? pipes = null;      // column slice positions from the current header
     int currentByte = -1;
     Field? open = null;       // field awaiting possible continuation rows
@@ -121,7 +139,7 @@ static List<EffectTable> ParseEffectFile(string path)
         if (colon is > 0 and <= 3 && int.TryParse(line[..colon], out int id) && !line.StartsWith("|"))
         {
             Close(ref open, current);
-            current = new EffectTable(id, line[(colon + 1)..].Trim());
+            current = new Table(id, line[(colon + 1)..].Trim());
             tables.Add(current);
             pipes = null;
             currentByte = -1;
@@ -165,7 +183,7 @@ static List<EffectTable> ParseEffectFile(string path)
     Close(ref open, current);
     return tables;
 
-    static void Close(ref Field? open, EffectTable? table)
+    static void Close(ref Field? open, Table? table)
     {
         if (open is null || table is null) { open = null; return; }
         open.Finish();
@@ -209,6 +227,177 @@ static List<(int Id, string Name, bool Relative, string? Hint)> ParseToneAdjust(
         rows.Add((id, name, type == "Rel", hint == "-" ? null : hint));
     }
     return rows;
+}
+
+// One record document -> tables keyed by engine name ("" for the two files that describe
+// the record itself; "AL-1", "CX-3", … for the per-engine payload tables). Tables come out
+// in first-encounter order, which is the order the instrument's own editor pages follow.
+static Dictionary<string, List<Table>> ParseRecordDoc(string path, RecordStats stats)
+{
+    var result = new Dictionary<string, List<Table>>(StringComparer.Ordinal);
+    var buckets = new Dictionary<string, Dictionary<string, Table>>(StringComparer.Ordinal);
+    string engine = "";
+    result[engine] = new List<Table>();
+    buckets[engine] = new Dictionary<string, Table>(StringComparer.Ordinal);
+
+    int[]? pipes = null;
+    bool hasSection = false;
+    int currentByte = -1;
+    string lastSection = "";
+    Field? open = null;
+    Table? current = null;
+
+    foreach (var raw in File.ReadLines(path))
+    {
+        string line = raw.TrimEnd('\r');
+        if (line.Length == 0) continue;
+
+        // "2:AL-1, Number Of Param. = 609" opens an engine's table set.
+        int colon = line.IndexOf(':');
+        if (colon is > 0 and <= 3 && line[0] != '|' && int.TryParse(line[..colon], out _))
+        {
+            Close(ref open, current, stats);
+            string label = line[(colon + 1)..].Trim();
+            int comma = label.IndexOf(',');
+            engine = (comma > 0 ? label[..comma] : label).Trim();
+            if (!result.ContainsKey(engine))
+            {
+                result[engine] = new List<Table>();
+                buckets[engine] = new Dictionary<string, Table>(StringComparer.Ordinal);
+            }
+            pipes = null; currentByte = -1; current = null; lastSection = "";
+            continue;
+        }
+        if (line[0] != '|' && line[0] != '+') continue;
+        if (line[0] == '+') { Close(ref open, current, stats); continue; }
+        if (line.Contains("| OFS", StringComparison.Ordinal))
+        {
+            // Column positions differ per table — always re-derive them from the header.
+            pipes = Enumerable.Range(0, line.Length).Where(i => line[i] == '|').ToArray();
+            hasSection = pipes.Length >= 12;
+            continue;
+        }
+        if (pipes is null) continue;
+
+        string Cell(int i)
+        {
+            int start = pipes[i] + 1;
+            int end = i + 1 < pipes.Length ? pipes[i + 1] : line.Length;
+            if (start >= line.Length) return "";
+            return line[start..Math.Min(end, line.Length)].Trim();
+        }
+
+        string ofs = Cell(0), bit = Cell(1);
+        string name = Cell(hasSection ? 3 : 2);
+        string data = Cell(hasSection ? 4 : 3);
+        string hint = Cell(hasSection ? 5 : 4);
+        string annotation = Cell(pipes.Length - 1);
+
+        // "|" in the OFS cell elides a run of identical rows: whatever field is open cannot
+        // be reassembled across the gap, so it is dropped rather than silently shortened.
+        if (ofs == "|")
+        {
+            if (open is not null) open.Incomplete = true;
+            Close(ref open, current, stats);
+            continue;
+        }
+        if (name == "*") { Close(ref open, current, stats); continue; }   // undocumented byte
+        if (ofs.Length > 0 && int.TryParse(ofs, out int b)) currentByte = b;
+        if (currentByte < 0) continue;
+
+        var (hi, lo) = ParseBits(bit);
+        if (name.Length > 0)
+        {
+            Close(ref open, current, stats);
+            string group;
+            if (hasSection)
+            {
+                string section = Cell(2);
+                if (section.Length > 0) lastSection = section;
+                group = lastSection;
+            }
+            else
+            {
+                group = StripGroup(ref name);
+            }
+            current = Bucket(engine, group);
+            open = new Field(name, data, hint, annotation);
+            open.Spans.Add(new Span(currentByte, hi, lo));
+        }
+        else if (open is not null && data.Length == 0)
+        {
+            open.Spans.Add(new Span(currentByte, hi, lo));   // more bits, LSB-first
+        }
+    }
+    Close(ref open, current, stats);
+
+    foreach (var list in result.Values)
+        foreach (var table in list)
+            stats.Overlap += CountOverlaps(table);
+    return result;
+
+    Table Bucket(string engineKey, string group)
+    {
+        var byName = buckets[engineKey];
+        if (!byName.TryGetValue(group, out var table))
+        {
+            table = new Table(byName.Count, group);
+            byName[group] = table;
+            result[engineKey].Add(table);
+        }
+        return table;
+    }
+
+    static void Close(ref Field? open, Table? table, RecordStats stats)
+    {
+        var field = open;
+        open = null;
+        if (field is null || table is null) return;
+        // Multisample bank ids are 16-byte UUIDs the docs address only by sysex message
+        // (and write with an elided row run); the zone still reads through its Type /
+        // Number / Level / Start Offset / Reverse fields.
+        if (field.Annotation.Contains("use binary param change", StringComparison.Ordinal))
+        {
+            stats.Uuid++;
+            return;
+        }
+        if (field.Incomplete) { stats.Elided++; return; }
+        if (field.Name == "Name") { stats.Ascii++; return; }   // the 24-byte ASCII name
+        if (field.Annotation.Contains("Big Endian", StringComparison.Ordinal))
+        {
+            field.BigEndian = true;
+            stats.BigEndian++;
+        }
+        field.Finish();
+        if (field.Truncated) stats.Truncated++;
+        table.Fields.Add(field);
+    }
+
+    // "[Rotary Speaker] Slow Speed" -> group "Rotary Speaker", name "Slow Speed".
+    static string StripGroup(ref string name)
+    {
+        if (name.Length == 0 || name[0] != '[') return "Other";
+        int close = name.IndexOf(']');
+        if (close < 0) return "Other";
+        string group = name[1..close].Trim();
+        name = name[(close + 1)..].Trim();
+        return group.Length == 0 ? "Other" : group;
+    }
+
+    static int CountOverlaps(Table table)
+    {
+        var claimed = new Dictionary<int, int>();   // byte -> bit mask already spoken for
+        int overlaps = 0;
+        foreach (var field in table.Fields)
+            foreach (var span in field.Spans)
+            {
+                int mask = ((1 << (span.Hi - span.Lo + 1)) - 1) << span.Lo;
+                claimed.TryGetValue(span.Byte, out int already);
+                if ((already & mask) != 0) overlaps++;
+                claimed[span.Byte] = already | mask;
+            }
+        return overlaps;
+    }
 }
 
 static (int Hi, int Lo) ParseBits(string bit)
@@ -263,6 +452,24 @@ static string[] ParseEnumList(string path, string header)
     }
 }
 
+// The on-disk field encoding, shared by every resource this tool writes.
+static object[] TableArray(IEnumerable<Table> tables) => tables.Select(t => new
+{
+    id = t.Id,
+    name = t.Name,
+    size = t.Size,
+    fields = t.Fields.Select(f => new
+    {
+        n = f.Name,
+        b = f.Spans.Select(s => new[] { s.Byte, s.Hi, s.Lo }).ToArray(),
+        sg = f.Signed ? 1 : 0,
+        lo = f.Min,
+        hi = f.Max,
+        fx = f.Fixed,
+        h = f.Hint,
+    }).ToArray(),
+}).Cast<object>().ToArray();
+
 static void WriteGz(string path, object payload)
 {
     var json = JsonSerializer.SerializeToUtf8Bytes(payload, new JsonSerializerOptions
@@ -289,22 +496,37 @@ static string FindRepoRoot()
 
 sealed record Span(int Byte, int Hi, int Lo);
 
+sealed class RecordStats
+{
+    public int Ascii, Uuid, Elided, Truncated, BigEndian, Overlap;
+}
+
 sealed class Field
 {
-    public Field(string name, string data, string hint) { Name = name; _data = data; Hint = hint.Length == 0 ? null : hint; }
+    public Field(string name, string data, string hint, string annotation = "")
+    {
+        Name = name; _data = data; Annotation = annotation;
+        Hint = hint.Length == 0 ? null : hint;
+    }
 
     private readonly string _data;
     public string Name { get; }
     public string? Hint { get; }
+    public string Annotation { get; }
     public List<Span> Spans { get; } = new();
     public bool Signed { get; private set; }
     public long Min { get; private set; }
     public long Max { get; private set; }
     public long? Fixed { get; private set; }
+    public bool Incomplete { get; set; }
+    public bool BigEndian { get; set; }
+    public bool Truncated { get; private set; }
 
     public void Finish()
     {
         int width = Spans.Sum(s => s.Hi - s.Lo + 1);
+        if (BigEndian)
+            Spans.Reverse();   // stored high byte first; the reader assembles LSB-first
         int paren = _data.IndexOf("(fixed)", StringComparison.Ordinal);
         if (paren > 0)
         {
@@ -315,13 +537,25 @@ sealed class Field
         int tilde = _data.IndexOf('~');
         if (tilde <= 0)
         {
-            Min = 0; Max = (1L << Math.Min(width, 62)) - 1; // undeclared: whole raw range
+            FullRange(width, signed: false);   // undeclared: whole raw range
             return;
         }
         string loHex = _data[..tilde], hiHex = _data[(tilde + 1)..];
-        long rawLo = Convert.ToInt64(loHex, 16);
-        long rawHi = Convert.ToInt64(hiHex, 16);
+        if (!TryHex(loHex, out long rawLo) || !TryHex(hiHex, out long rawHi))
+        {
+            FullRange(width, signed: false);
+            return;
+        }
         Signed = rawLo > rawHi;
+        // The DATA column is only twelve characters wide and truncates a long range without
+        // warning ("80000000~7FFF" is a 32-bit field's -2147483648~+2147483647). Unequal
+        // literal widths are the tell; the honest reading is then the whole allocated range.
+        if (loHex.Length != hiHex.Length)
+        {
+            Truncated = true;
+            FullRange(width, Signed);
+            return;
+        }
         if (Signed)
         {
             // The endpoints are written at the HEX LITERAL's width (E2 means -30 as an
@@ -338,13 +572,31 @@ sealed class Field
         _ = width; // reader-side concern; kept for clarity that allocation ≥ range width
     }
 
+    private void FullRange(int width, bool signed)
+    {
+        Signed = signed;
+        int w = Math.Min(width, 62);
+        Min = signed ? -(1L << (w - 1)) : 0;
+        Max = signed ? (1L << (w - 1)) - 1 : (1L << w) - 1;
+    }
+
+    private static bool TryHex(string text, out long value)
+    {
+        value = 0;
+        if (text.Length is 0 or > 15) return false;
+        foreach (char c in text)
+            if (!Uri.IsHexDigit(c)) return false;
+        value = Convert.ToInt64(text, 16);
+        return true;
+    }
+
     private static long SignExtend(long raw, int width) =>
         width is > 0 and < 63 && (raw & (1L << (width - 1))) != 0 ? raw - (1L << width) : raw;
 }
 
-sealed class EffectTable
+sealed class Table
 {
-    public EffectTable(int id, string name) { Id = id; Name = name; }
+    public Table(int id, string name) { Id = id; Name = name; }
     public int Id { get; }
     public string Name { get; }
     public List<Field> Fields { get; } = new();

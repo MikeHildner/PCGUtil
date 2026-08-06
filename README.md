@@ -27,6 +27,9 @@ Main tabs:
   set-list slot that referenced a program is updated to follow it to its new spot. **Re-point
   references** retargets in bulk by rule — everything that plays one program (or a whole
   range, or a whole bank) plays another instead, with a preview of exactly what changes.
+  **⚙ Settings** opens a program's whole interior — oscillators, filters, envelopes, and for
+  an EXi program whichever engine it runs, in that engine's own words, so an organ reads out
+  as its drawbar registration. Search it, or open the same sheet from a combi layer.
 - **Songs** — open the `.SNG` saved beside your backup and see what each sequencer track
   loads. Move programs around and the tracks follow their sounds automatically; download the
   edited `.SNG` alongside the edited `.PCG`.

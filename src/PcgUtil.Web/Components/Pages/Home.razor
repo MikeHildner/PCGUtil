@@ -1421,6 +1421,10 @@
                                                   title="Click to see this program's effects and their settings"
                                                   @onclick="() => ToggleProgramFx(idx)" @onclick:stopPropagation>@fxCount FX</span>
                                         }
+                                        <span class="badge @(_paramsSheet == (_selectedProgramBank, idx) ? "text-bg-secondary" : "text-bg-light") fw-normal ms-1"
+                                              role="button" tabindex="0"
+                                              title="Click to see everything this program is set to"
+                                              @onclick="() => ToggleParamsSheet(_selectedProgramBank, idx)" @onclick:stopPropagation>⚙ Settings</span>
                                         @if (info.Favorite)
                                         {
                                             <span class="ms-1" title="Favorite">★</span>
@@ -1477,6 +1481,12 @@
                                                 _pcg is null ? null : EffectParams.ReadProgram(_pcg, _selectedProgramBank, idx, psheet.Slot))
                                         }
                                     </td>
+                                </tr>
+                            }
+                            @if (_paramsSheet == (_selectedProgramBank, idx) && _pcg is not null)
+                            {
+                                <tr>
+                                    <td colspan="@(_editMode ? 5 : 4)">@ProgramParamsSheet($"{name} settings")</td>
                                 </tr>
                             }
                         }
@@ -3831,6 +3841,112 @@
         </div>
     };
 
+    // ----- Program parameter sheets: what a sound actually does, without the instrument -----
+    //
+    // A program's whole documented interior — oscillators, filters, envelopes, and for an
+    // EXi program whichever engine it runs (a CX-3's drawbars, an AL-1's filters). Sections
+    // start collapsed because there are thousands of settings; the Find box is the fast way
+    // in. Read-only, and available in browse mode, same as the effect and tone-adjust sheets.
+    (int Bank, int Index)? _paramsSheet;
+    string _paramsFilter = "";
+    readonly HashSet<string> _paramsOpenSections = new(StringComparer.Ordinal);
+    byte[]? _paramsImage;                               // the file image the cache came from
+    IReadOnlyList<RecordSection>? _paramsSections;
+
+    void ToggleParamsSheet(int bank, int index)
+    {
+        var next = (bank, index);
+        _paramsSheet = _paramsSheet == next ? null : next;
+        _paramsFilter = "";
+        _paramsOpenSections.Clear();
+        _paramsSections = null;
+    }
+
+    void CloseParamsSheet()
+    {
+        _paramsSheet = null;
+        _paramsSections = null;
+    }
+
+    void ToggleParamsSection(string title)
+    {
+        if (!_paramsOpenSections.Add(title)) _paramsOpenSections.Remove(title);
+    }
+
+    // Decoding a whole program costs a couple of thousand field reads, and the Find box
+    // re-renders on every keystroke — so hold the result until the sheet moves or the file
+    // itself changes (an edit or an undo hands us a fresh image).
+    IReadOnlyList<RecordSection> ParamsSections()
+    {
+        if (_paramsSheet is not { } key || _pcg is null) return Array.Empty<RecordSection>();
+        if (_paramsSections is null || !ReferenceEquals(_paramsImage, _pcg.Data))
+        {
+            _paramsSections = RecordParams.ReadProgram(_pcg, key.Bank, key.Index);
+            _paramsImage = _pcg.Data;
+        }
+        return _paramsSections;
+    }
+
+    bool ParamsMatch(string text) =>
+        text.Contains(_paramsFilter.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private RenderFragment ProgramParamsSheet(string title) => __builder =>
+    {
+        var sections = ParamsSections();
+        var searching = _paramsFilter.Trim().Length > 0;
+        var shown = sections.Select(s => (Section: s, Values: searching && !ParamsMatch(s.Title)
+                                    ? s.Values.Where(v => ParamsMatch(v.Field.Name)).ToList()
+                                    : (IReadOnlyList<ParamValue>)s.Values))
+                            .Where(s => s.Values.Count > 0).ToList();
+        <div class="pcg-surface p-2 mb-2" style="max-width:52rem">
+            <div class="d-flex align-items-baseline gap-2 mb-2">
+                <strong class="small">@title</strong>
+                <span class="small text-body-secondary d-none d-sm-inline">every setting, read from the file</span>
+                <button type="button" class="btn-close ms-auto" aria-label="Close" @onclick="CloseParamsSheet"></button>
+            </div>
+            <input class="form-control form-control-sm mb-2" style="max-width:20rem" @bind="_paramsFilter"
+                   @bind:event="oninput" placeholder="Find a setting — cutoff, drawbar, attack…"
+                   aria-label="Find a setting" />
+            @if (shown.Count == 0)
+            {
+                <div class="small text-body-secondary">
+                    @(searching ? "No setting matches that." : "No settings to show for this program.")
+                </div>
+            }
+            else
+            {
+                <div class="small text-body-secondary mb-2">
+                    @shown.Count section@(shown.Count == 1 ? "" : "s") ·
+                    @shown.Sum(s => s.Values.Count) setting@(shown.Sum(s => s.Values.Count) == 1 ? "" : "s")
+                    @(searching ? " matching" : "")
+                </div>
+                @foreach (var entry in shown)
+                {
+                    var open = searching || _paramsOpenSections.Contains(entry.Section.Title);
+                    <div class="mb-1">
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none text-start"
+                                @onclick="() => ToggleParamsSection(entry.Section.Title)">
+                            <span class="small">@(open ? "▾" : "▸") @entry.Section.Title</span>
+                            <span class="badge text-bg-light fw-normal ms-1">@entry.Values.Count</span>
+                        </button>
+                        @if (open)
+                        {
+                            <div class="fx-sheet small mt-1 mb-2" style="columns: 17rem auto; column-gap: 1.5rem">
+                                @foreach (var v in entry.Values)
+                                {
+                                    <div class="d-flex justify-content-between gap-2" style="break-inside: avoid">
+                                        <span class="text-body-secondary text-truncate" title="@v.Field.Hint">@v.Field.Name</span>
+                                        <span class="text-nowrap">@v.Display</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    };
+
     // ----- "Bring the program's effects along" — the offline Copy From Program (IFX-All used) -----
     //
     // The panel targets one timbre of the open combi; its plan is recomputed from the live
@@ -4639,6 +4755,7 @@
                         @{
                             var tweaks = _pcg is null ? Array.Empty<ToneAdjustEntry>()
                                 : ToneAdjust.ReadCombiTimbre(_pcg, combi.Bank, combi.Index, t.Index);
+                            var tBank = PcgCatalog.ProgramBankIndexForPcgId(t.ProgramBankPcgId);
                         }
                         <td class="text-nowrap">
                             @if (tweaks.Count > 0)
@@ -4648,8 +4765,23 @@
                                         title="This layer tweaks its program — click to see what"
                                         @onclick="() => ToggleToneAdjust(combi.Bank, combi.Index, t.Index)">@tweaks.Count ✎</button>
                             }
+                            @if (tBank >= 0)
+                            {
+                                var openParams = _paramsSheet == (tBank, t.ProgramNumber);
+                                <button type="button" class="btn btn-sm @(openParams ? "btn-secondary" : "btn-outline-secondary") px-2 ms-1"
+                                        title="See everything this layer's program is set to"
+                                        @onclick="() => ToggleParamsSheet(tBank, t.ProgramNumber)">⚙</button>
+                            }
                         </td>
                     </tr>
+                    @if (_paramsSheet is { } ps && tBank >= 0 && ps == (tBank, t.ProgramNumber) && _pcg is not null)
+                    {
+                        <tr>
+                            <td colspan="9">
+                                @ProgramParamsSheet($"T{t.Index + 1} · {ProgramInfoAt(tBank, t.ProgramNumber)?.Name ?? "program"} settings")
+                            </td>
+                        </tr>
+                    }
                     @if (_toneAdjustTimbre == (combi.Bank, combi.Index, t.Index) && _pcg is not null)
                     {
                         var entries = ToneAdjust.ReadCombiTimbre(_pcg, combi.Bank, combi.Index, t.Index);

@@ -100,46 +100,6 @@ public static class EffectParams
         if (field.Name == "Wet/Dry" && !field.Signed && field.Max == 100 && raw is >= 0 and <= 100)
             return raw == 0 ? "Dry" : raw == 100 ? "Wet" : $"{raw}:{100 - raw}";
 
-        if (field.Hint is { } hint && TryScale(field, hint, out double scale, out int decimals))
-            return (raw / scale).ToString(decimals == 2 ? "0.00" : "0.0",
-                System.Globalization.CultureInfo.InvariantCulture);
-
-        return raw.ToString();
-    }
-
-    // A decimal display range over a wider raw range means a linear scale: "-15.0~+15.0"
-    // over raw -30..30 is raw/2; "40.00~300.00" over 4000..30000 is raw/100. The divisor
-    // is whatever maps the endpoints exactly — not necessarily a power of ten.
-    private static bool TryScale(ParamField field, string hint, out double scale, out int decimals)
-    {
-        scale = 1;
-        int tilde = hint.IndexOf('~');
-        decimals = 0;
-        if (tilde <= 0) return false;
-        string loText = hint[..tilde], hiText = hint[(tilde + 1)..];
-        decimals = DecimalsOf(hiText);
-        if (decimals is < 1 or > 2 || DecimalsOf(loText) != decimals) return false;
-        if (!double.TryParse(loText, System.Globalization.CultureInfo.InvariantCulture, out double lo)
-            || !double.TryParse(hiText, System.Globalization.CultureInfo.InvariantCulture, out double hi)
-            || hi <= lo || field.Max <= field.Min)
-            return false;
-        double candidate = (field.Max - field.Min) / (hi - lo);
-        if (candidate <= 1) return false;
-        // Real only when both endpoints map exactly under it.
-        if (Math.Abs(lo * candidate - field.Min) < 0.001 && Math.Abs(hi * candidate - field.Max) < 0.001)
-        {
-            scale = candidate;
-            return true;
-        }
-        return false;
-    }
-
-    private static int DecimalsOf(string text)
-    {
-        int dot = text.LastIndexOf('.');
-        if (dot < 0) return 0;
-        int count = 0;
-        for (int i = dot + 1; i < text.Length && char.IsDigit(text[i]); i++) count++;
-        return count;
+        return ParamFormat.Number(field, raw);
     }
 }

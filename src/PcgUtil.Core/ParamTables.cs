@@ -56,6 +56,60 @@ public sealed record ParamValue(ParamField Field, long Raw, string Display)
 }
 
 /// <summary>
+/// Display text for a decoded parameter, in whatever units the documentation declares.
+/// Shared by every table-driven reader; the effect-only readings (modulation sources by
+/// name, Wet/Dry ratios) live in <see cref="EffectParams.Format"/> on top of this.
+/// </summary>
+public static class ParamFormat
+{
+    /// <summary>The number, scaled when the documented display range says it is a decimal.</summary>
+    public static string Number(ParamField field, long raw)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        if (field.Hint is { } hint && TryScale(field, hint, out double scale, out int decimals))
+            return (raw / scale).ToString(decimals == 2 ? "0.00" : "0.0",
+                System.Globalization.CultureInfo.InvariantCulture);
+        return raw.ToString();
+    }
+
+    // A decimal display range over a wider raw range means a linear scale: "-15.0~+15.0"
+    // over raw -30..30 is raw/2; "40.00~300.00" over 4000..30000 is raw/100. The divisor
+    // is whatever maps the endpoints exactly — not necessarily a power of ten.
+    private static bool TryScale(ParamField field, string hint, out double scale, out int decimals)
+    {
+        scale = 1;
+        int tilde = hint.IndexOf('~');
+        decimals = 0;
+        if (tilde <= 0) return false;
+        string loText = hint[..tilde], hiText = hint[(tilde + 1)..];
+        decimals = DecimalsOf(hiText);
+        if (decimals is < 1 or > 2 || DecimalsOf(loText) != decimals) return false;
+        if (!double.TryParse(loText, System.Globalization.CultureInfo.InvariantCulture, out double lo)
+            || !double.TryParse(hiText, System.Globalization.CultureInfo.InvariantCulture, out double hi)
+            || hi <= lo || field.Max <= field.Min)
+            return false;
+        double candidate = (field.Max - field.Min) / (hi - lo);
+        if (candidate <= 1) return false;
+        // Real only when both endpoints map exactly under it.
+        if (Math.Abs(lo * candidate - field.Min) < 0.001 && Math.Abs(hi * candidate - field.Max) < 0.001)
+        {
+            scale = candidate;
+            return true;
+        }
+        return false;
+    }
+
+    private static int DecimalsOf(string text)
+    {
+        int dot = text.LastIndexOf('.');
+        if (dot < 0) return 0;
+        int count = 0;
+        for (int i = dot + 1; i < text.Length && char.IsDigit(text[i]); i++) count++;
+        return count;
+    }
+}
+
+/// <summary>
 /// One tone-adjust destination: what a knob/switch/fader assign id points at on a given
 /// engine. <see cref="Relative"/> destinations hold a signed offset from the program's own
 /// value; absolute ones hold an override. <see cref="RangeHint"/> is the documentation's
@@ -74,6 +128,7 @@ public static class ParamTables
 {
     private static readonly Lazy<Loaded> _effects = new(() => Load("effects.json.gz"));
     private static readonly Lazy<ToneAdjustVocabulary> _toneAdjust = new(LoadToneAdjust);
+    private static readonly Lazy<RecordVocabulary> _records = new(LoadRecords);
 
     public static ParamTable? Effect(int typeId) =>
         _effects.Value.Tables.TryGetValue(typeId, out var t) ? t : null;
@@ -104,6 +159,38 @@ public static class ParamTables
 
     /// <summary>Names for a combi's assignable Knob5–8 values, indexed by raw value.</summary>
     public static IReadOnlyList<string> KnobAssignments => _toneAdjust.Value.Knob58;
+
+    /// <summary>
+    /// The program record's documented sections, in the documentation's order — one table
+    /// per section, whose field offsets are absolute inside the record. HD-1 and EXi
+    /// programs have different records (3706 vs 4960 bytes) and so different section lists.
+    /// </summary>
+    public static IReadOnlyList<ParamTable> ProgramSections(bool exi) =>
+        exi ? _records.Value.Exi : _records.Value.Hd1;
+
+    /// <summary>
+    /// One EXi engine's own parameter sections ("Drawbar", "Rotary Speaker", …), addressed
+    /// from the start of that engine's payload region inside an EXi program record. Empty
+    /// when the engine is unknown.
+    /// </summary>
+    public static IReadOnlyList<ParamTable> EngineSections(string engine) =>
+        _records.Value.Engines.TryGetValue(VocabularyEngine(engine), out var tables)
+            ? tables : Array.Empty<ParamTable>();
+
+    private sealed record RecordVocabulary(IReadOnlyList<ParamTable> Hd1, IReadOnlyList<ParamTable> Exi,
+                                           IReadOnlyDictionary<string, IReadOnlyList<ParamTable>> Engines);
+
+    private static RecordVocabulary LoadRecords()
+    {
+        using var doc = JsonDocument.Parse(ReadResource("records.json.gz"));
+        var engines = new Dictionary<string, IReadOnlyList<ParamTable>>(StringComparer.Ordinal);
+        foreach (var e in doc.RootElement.GetProperty("engines").EnumerateObject())
+            engines[e.Name] = ReadTables(e.Value);
+        return new RecordVocabulary(
+            ReadTables(doc.RootElement.GetProperty("hd1")),
+            ReadTables(doc.RootElement.GetProperty("exi")),
+            engines);
+    }
 
     private sealed record ToneAdjustVocabulary(
         IReadOnlyDictionary<string, IReadOnlyDictionary<int, ToneAdjustDestination>> Engines,
@@ -146,12 +233,11 @@ public static class ParamTables
         return ReadAll(gz);
     }
 
-    private static Loaded Load(string resourceName)
+    /// <summary>Reads a {"tables": [...]} object — every resource encodes fields the same way.</summary>
+    private static List<ParamTable> ReadTables(JsonElement owner)
     {
-        using var doc = JsonDocument.Parse(ReadResource(resourceName));
-
-        var tables = new Dictionary<int, ParamTable>();
-        foreach (var t in doc.RootElement.GetProperty("tables").EnumerateArray())
+        var tables = new List<ParamTable>();
+        foreach (var t in owner.GetProperty("tables").EnumerateArray())
         {
             var fields = new List<ParamField>();
             foreach (var f in t.GetProperty("fields").EnumerateArray())
@@ -172,10 +258,16 @@ public static class ParamTables
                     f.TryGetProperty("fx", out var fx) && fx.ValueKind == JsonValueKind.Number ? fx.GetInt64() : null,
                     f.TryGetProperty("h", out var h) && h.ValueKind == JsonValueKind.String ? h.GetString() : null));
             }
-            int id = t.GetProperty("id").GetInt32();
-            tables[id] = new ParamTable(id, t.GetProperty("name").GetString()!,
-                t.GetProperty("size").GetInt32(), fields);
+            tables.Add(new ParamTable(t.GetProperty("id").GetInt32(), t.GetProperty("name").GetString()!,
+                t.GetProperty("size").GetInt32(), fields));
         }
+        return tables;
+    }
+
+    private static Loaded Load(string resourceName)
+    {
+        using var doc = JsonDocument.Parse(ReadResource(resourceName));
+        var tables = ReadTables(doc.RootElement).ToDictionary(t => t.Id);
 
         var enums = new Dictionary<string, string[]>();
         if (doc.RootElement.TryGetProperty("enums", out var en))
