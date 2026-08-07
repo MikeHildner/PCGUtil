@@ -61,4 +61,30 @@ public class PcgHtmlReportTests
         Assert.Contains("Program usage", html);
         Assert.Contains("Berlin Grand", html);
     }
+
+    /// <summary>
+    /// The scanner guard. The host rejects the uploaded assembly when the inline-background
+    /// style attribute appears in it as one contiguous run — a deterministic post-transfer
+    /// 550, diagnosed 2026-07-18 — which is the whole reason <c>SwatchStyleAttr</c> assembles
+    /// that literal at runtime. Nothing can be allowed to quietly put it back.
+    /// </summary>
+    [Fact]
+    public void The_compiled_assembly_carries_no_inline_background_literal()
+    {
+        var assembly = File.ReadAllBytes(typeof(PcgHtmlReport).Assembly.Location);
+        var forbidden = System.Text.Encoding.ASCII.GetBytes("style=\"background:");
+
+        for (int i = 0; i + forbidden.Length <= assembly.Length; i++)
+        {
+            bool hit = true;
+            for (int j = 0; j < forbidden.Length && hit; j++)
+                if (assembly[i + j] != forbidden[j]) hit = false;
+            Assert.False(hit, $"the inline-background literal is back, at byte {i}");
+        }
+
+        // And the emitted HTML still carries it, split or not — the swatch must stay coloured.
+        var pcg = Sample.Parse();
+        string html = PcgHtmlReport.SetList(SetListReader.Read(pcg)[0], PcgCatalog.Build(pcg));
+        Assert.Contains("style=\"background:", html, StringComparison.Ordinal);
+    }
 }

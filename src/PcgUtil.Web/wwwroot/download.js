@@ -41,9 +41,11 @@ window.pcgDownload = (filename, mime, text) => {
 };
 
 // Saves binary bytes (streamed from .NET) as a file download.
-window.pcgSaveFile = async (filename, streamRef) => {
+// The type matters for a PDF: with the right one the browser and the OS open it in a
+// viewer rather than treating it as an unknown blob. Defaults to the old behaviour.
+window.pcgSaveFile = async (filename, streamRef, mime) => {
     const buffer = await streamRef.arrayBuffer();
-    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    const blob = new Blob([buffer], { type: mime || "application/octet-stream" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

@@ -68,11 +68,58 @@ public sealed record GigSheet(SetList List, SetListSlot Slot, string Loads, stri
                               IReadOnlyList<GigControl> Controls,
                               int? GlobalMidiChannel, string? Unavailable)
 {
+    /// <summary>
+    /// Other slots of the same set list that load this very sound. A set list often plays one
+    /// combi several times — a chorus that comes round three times — and printing three
+    /// identical pages helps nobody, so the page names the repeats instead.
+    /// </summary>
+    public IReadOnlyList<SetListSlot> AlsoAt { get; init; } = Array.Empty<SetListSlot>();
+
+    /// <summary>Slots among <see cref="AlsoAt"/> whose own settings differ from this one's —
+    /// volume, transpose and hold belong to a slot, not to the sound it loads.</summary>
+    public IEnumerable<SetListSlot> DifferingSlots => AlsoAt.Where(s =>
+        s.Volume != Slot.Volume || s.Transpose != Slot.Transpose
+        || s.HoldTimeIndex != Slot.HoldTimeIndex);
+
     /// <summary>Layers that answer the keyboard, plus the ones that never will.</summary>
     public IEnumerable<GigLayer> AllLayers => Layers.Concat(Silent);
 
     /// <summary>Every insert effect the sheet lists, chained or not.</summary>
     public IEnumerable<GigEffect> Inserts => Chains.SelectMany(c => c.Steps).Concat(Standalone);
+
+    /// <summary>
+    /// One page per distinct sound, in the order it is first played. Two slots that load the
+    /// same combi share a page, which names the repeats; the pages come back in set order, so
+    /// a printed stack still reads the way the gig runs.
+    /// </summary>
+    public static IReadOnlyList<GigSheet> BuildPages(PcgFile pcg, PcgCatalog catalog, SetList list,
+                                                     IEnumerable<int> slotIndices,
+                                                     IReadOnlyList<Combi>? combis = null,
+                                                     IReadOnlyList<ProgramInfo>? programs = null,
+                                                     IReadOnlyList<IReadOnlyList<string>>? geBanks = null)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(slotIndices);
+        combis ??= CombiReader.Read(pcg);
+        programs ??= ProgramReader.Read(pcg);
+
+        var pages = new List<GigSheet>();
+        var seen = new Dictionary<(PcgItemKind, int, int), int>();   // sound -> page index
+        foreach (int index in slotIndices.Distinct().OrderBy(i => i))
+        {
+            var slot = list.Slots.ElementAtOrDefault(index);
+            if (slot is null || slot.IsEmpty) continue;
+            var key = (slot.Reference.Kind, slot.Reference.Bank, slot.Reference.Index);
+            if (seen.TryGetValue(key, out int at))
+            {
+                pages[at] = pages[at] with { AlsoAt = pages[at].AlsoAt.Append(slot).ToList() };
+                continue;
+            }
+            seen[key] = pages.Count;
+            pages.Add(Build(pcg, catalog, list, slot, combis, programs, geBanks));
+        }
+        return pages;
+    }
 
     /// <summary>
     /// Builds the sheet for one slot. Never throws for a slot the file can't resolve — a

@@ -13,10 +13,11 @@ Main tabs:
 
 - **Set Lists** — see every set list and the program or combi each slot loads. In **Edit
   mode** you can rename, reorder, and copy slots; a moved slot keeps pointing at the same sound.
-  Click a song and hit **Gig sheet** for a printable page you can put on the music stand: an
-  88-key keyboard with each layer's range drawn on it, the effect chain, and what your
-  joystick, pedals and switches actually do — including which layers really sound and which
-  are just sitting there. **Gig sheets** does the whole set list, one song per page.
+  Tick the songs you want and hit **Gig sheets** for a **PDF** you can put on the music stand:
+  one page per sound, in the order you play it, with an 88-key keyboard showing each layer's
+  range, the effect chain, and what your joystick, pedals and switches actually do — including
+  which layers really sound and which are just sitting there. A song that comes round three
+  times prints once and says where else it plays.
 - **Combis** — browse a bank and reorganize: reorder, copy, or rename combis. Reordering
   automatically updates the set-list slots that use them, so your songs keep their sound.
   Each combi's key and velocity zones are editable right in its zone map, and you can change

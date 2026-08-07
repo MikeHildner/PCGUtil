@@ -336,26 +336,26 @@ polarity with only two values named). Read-only — nothing writes these bytes.
 - [ ] In a combi's Timbres table, the **⚙** on a layer opens the program that layer plays.
 - [ ] The Find box narrows to matching settings across sections (try "cutoff").
 
-## 23. Gig sheet (read-only, printable)
-Status: **built from decoded facts, panel compare pending.** A one-page sheet per set-list
-slot: an 88-key keyboard with each sounding layer's range drawn on it, the layers table, the
-effect chain, and what your joystick, pedals, switches and knobs actually do while you play.
-Two things it now knows rather than assumes — the global MIDI channel (so it lists only the
-layers that answer the keyboard) and each engine's own modulation-source vocabulary (so a
-control is named by what it moves). Read-only: nothing writes these bytes. Open the
-downloaded file and print it, or Save as PDF.
-- [ ] Open a song's gig sheet and compare the **keyboard map** against the combi's key zones
-      on the instrument: each layer starts and ends on the same notes, and the split lands
-      where you play it.
-- [ ] The sheet lists only the layers that **actually sound**. Check a combi whose unused
-      timbres sit on other MIDI channels: the instrument plays what the sheet shows, and the
-      "other timbres never sound" line is true.
-- [ ] The **effect chain** matches the instrument's routing page — same order, same effects,
-      and anything the sheet shows as separate really is outside the chain.
-- [ ] **What moves what**: move each control the sheet lists and confirm it does what the
-      sheet says. Anything the sheet calls unused should do nothing.
-- [ ] Print it (or Save as PDF): one landscape page, light background, layer bars still
-      readable, and readable at arm's length on the music stand.
+## 23. Gig sheet (read-only, printable PDF)
+Status: **built from decoded facts, panel compare pending.** Tick songs in a set list and get
+a PDF: one landscape page per sound, in the order the songs are first played. A set list that
+plays one combi three times prints it once and names the repeats. Each page carries an 88-key
+keyboard with every sounding layer's range on it, the layers table, the effect chain, the tone
+adjust, and what the joystick, pedals, switches and knobs actually do while you play. The PDF
+is written by the app itself using the standard fonts every reader has, so there is nothing to
+install and nothing to go missing. Read-only: nothing writes these bytes.
+- [ ] Compare the **keyboard map** against the combi's key zones on the instrument: each layer
+      starts and ends on the same notes, and the split lands where you play it.
+- [ ] The page lists only the layers that **actually sound**. On a combi whose spare timbres
+      sit on other MIDI channels, the instrument plays exactly what the page shows.
+- [ ] The **effect chain** matches the instrument's routing page — same order, same effects —
+      and anything shown outside the chain really is separate.
+- [ ] **What moves what**: move each control the page lists and confirm it does what the page
+      says. Anything listed as unused should do nothing.
+- [ ] **Paging**: tick a handful of songs including one that plays twice. The PDF has one page
+      per distinct sound, in playing order, and the repeat is named on its page.
+- [ ] Print it: one landscape page per sound, layer bars still readable, legible at arm's
+      length on the stand. Open it in a second reader too — it should look identical.
 
 ## Known limitation
 - A song track whose program was **overwritten** (paste/clear, not moved) keeps pointing at
