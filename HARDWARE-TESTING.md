@@ -354,6 +354,9 @@ install and nothing to go missing. Read-only: nothing writes these bytes.
       says. Anything listed as unused should do nothing.
 - [ ] **Paging**: tick a handful of songs including one that plays twice. The PDF has one page
       per distinct sound, in playing order, and the repeat is named on its page.
+- [ ] A combi that no set list plays: **Combis** tab → **Gig sheet** on its row. Same page,
+      minus the slot number, colour and volume/transpose/hold — a combi on its own has none
+      of those, and the page says nothing about them rather than inventing them.
 - [ ] Print it: one landscape page per sound, layer bars still readable, legible at arm's
       length on the stand. Open it in a second reader too — it should look identical.
 

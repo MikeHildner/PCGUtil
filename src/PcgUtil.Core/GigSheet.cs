@@ -54,12 +54,18 @@ public sealed record GigEffectChain(IReadOnlyList<GigEffect> Steps);
 public sealed record GigControl(string Source, string Moves, string Where);
 
 /// <summary>
-/// Everything a printable sheet needs about one Set List slot. Assembled by
-/// <see cref="Build"/> and rendered by <see cref="PcgHtmlReport"/> — keeping the two apart
+/// Everything a printable sheet needs about one sound. Usually that sound is a Set List slot
+/// — a song — but a combi can be printed on its own, which is why <see cref="Slot"/> and
+/// <see cref="List"/> are optional. Assembled by <see cref="Build"/> or
+/// <see cref="BuildCombi"/> and rendered by <see cref="GigSheetPdf"/>; keeping the two apart
 /// means the judgement calls (which layers sound, how effects chain, which controls are the
-/// player's) are testable as values instead of as markup.
+/// player's) are testable as values instead of as marks on a page.
+///
+/// The page's heading comes from <see cref="Title"/>, <see cref="Number"/> and
+/// <see cref="SlotSettings"/> rather than from the slot directly, so a combi printed on its
+/// own simply has no slot settings to show — better than inventing a volume for it.
 /// </summary>
-public sealed record GigSheet(SetList List, SetListSlot Slot, string Loads, string? TargetName,
+public sealed record GigSheet(SetList? List, SetListSlot? Slot, string Loads, string? TargetName,
                               decimal Tempo, IReadOnlyList<GigKarma> Karma,
                               IReadOnlyList<GigLayer> Layers, IReadOnlyList<GigLayer> Silent,
                               IReadOnlyList<GigEffectChain> Chains,
@@ -77,9 +83,37 @@ public sealed record GigSheet(SetList List, SetListSlot Slot, string Loads, stri
 
     /// <summary>Slots among <see cref="AlsoAt"/> whose own settings differ from this one's —
     /// volume, transpose and hold belong to a slot, not to the sound it loads.</summary>
-    public IEnumerable<SetListSlot> DifferingSlots => AlsoAt.Where(s =>
-        s.Volume != Slot.Volume || s.Transpose != Slot.Transpose
-        || s.HoldTimeIndex != Slot.HoldTimeIndex);
+    public IEnumerable<SetListSlot> DifferingSlots => Slot is not { } slot
+        ? Array.Empty<SetListSlot>()
+        : AlsoAt.Where(s => s.Volume != slot.Volume || s.Transpose != slot.Transpose
+                            || s.HoldTimeIndex != slot.HoldTimeIndex);
+
+    /// <summary>What the page is called: the song's name, or the sound's own.</summary>
+    public string Title => Slot?.Name is { Length: > 0 } name ? name : TargetName ?? Loads;
+
+    /// <summary>The number beside the title — a slot number in a set list, else the sound's.</summary>
+    public string Number => Slot is { } slot ? slot.Index.ToString("D3") : "";
+
+    /// <summary>The slot's colour, or null when this sheet isn't a set-list song.</summary>
+    public int? Colour => Slot?.Color;
+
+    /// <summary>
+    /// The volume, transpose and hold time — settings that belong to a <em>slot</em>. Null for
+    /// a combi printed on its own, which has none of them.
+    /// </summary>
+    public string? SlotSettings => Slot is not { } slot ? null
+        : $"Slot volume {slot.Volume} · "
+          + (slot.Transpose == 0 ? "no transpose" : $"transpose {slot.Transpose:+0;-0}")
+          + $" · hold {slot.HoldTimeLabel}";
+
+    /// <summary>The player's own notes on the slot, empty when there are none.</summary>
+    public string Notes => Slot?.Description ?? "";
+
+    /// <summary>The size those notes were given on the instrument.</summary>
+    public int NotesFont => Slot?.CommentFont ?? 8;
+
+    /// <summary>Where this sheet came from, for the top-right of the page.</summary>
+    public string Source => List is { } list ? $"{list.DisplayName} · {Loads}" : Loads;
 
     /// <summary>Layers that answer the keyboard, plus the ones that never will.</summary>
     public IEnumerable<GigLayer> AllLayers => Layers.Concat(Silent);
@@ -122,6 +156,31 @@ public sealed record GigSheet(SetList List, SetListSlot Slot, string Loads, stri
     }
 
     /// <summary>
+    /// A sheet for a combi that isn't in any set list — the same page, minus the things that
+    /// belong to a song rather than to a sound.
+    /// </summary>
+    public static GigSheet BuildCombi(PcgFile pcg, PcgCatalog catalog, int bank, int index,
+                                      IReadOnlyList<Combi>? combis = null,
+                                      IReadOnlyList<ProgramInfo>? programs = null,
+                                      IReadOnlyList<IReadOnlyList<string>>? geBanks = null)
+    {
+        ArgumentNullException.ThrowIfNull(pcg);
+        ArgumentNullException.ThrowIfNull(catalog);
+        var combi = (combis ?? CombiReader.Read(pcg))
+            .FirstOrDefault(c => c.Bank == bank && c.Index == index);
+        string loads = $"Combi {PcgBankLabels.Combi(bank)} #{index:D3}";
+
+        var empty = new GigSheet(null, null, loads, combi?.Name, 0, Array.Empty<GigKarma>(),
+            Array.Empty<GigLayer>(), Array.Empty<GigLayer>(), Array.Empty<GigEffectChain>(),
+            Array.Empty<GigEffect>(), Array.Empty<GigEffect>(), Array.Empty<GigControl>(),
+            GlobalReader.Read(pcg)?.MidiChannel, null);
+
+        return combi is null
+            ? empty with { Unavailable = $"{loads} isn't in this file." }
+            : Populate(pcg, catalog, empty, combi, programs ?? ProgramReader.Read(pcg), geBanks);
+    }
+
+    /// <summary>
     /// Builds the sheet for one slot. Never throws for a slot the file can't resolve — a
     /// vendor pack routinely references banks it doesn't carry, and one bad slot must not
     /// take down a whole set list's worth of sheets.
@@ -157,13 +216,20 @@ public sealed record GigSheet(SetList List, SetListSlot Slot, string Loads, stri
         if (combi is null)
             return empty with { Unavailable = $"{loads} isn't in this file." };
 
+        return Populate(pcg, catalog, empty, combi, programs ?? ProgramReader.Read(pcg), geBanks);
+    }
+
+    /// <summary>Fills a sheet from a combi — shared by the set-list and standalone paths.</summary>
+    private static GigSheet Populate(PcgFile pcg, PcgCatalog catalog, GigSheet sheet, Combi combi,
+                                     IReadOnlyList<ProgramInfo> programs,
+                                     IReadOnlyList<IReadOnlyList<string>>? geBanks)
+    {
         var layers = new List<GigLayer>();
         var silent = new List<GigLayer>();
-        programs ??= ProgramReader.Read(pcg);
         foreach (var timbre in combi.Timbres)
         {
             if (timbre.Status is TimbreStatus.Off) continue;
-            var layer = LayerOf(pcg, catalog, programs, combi, timbre, globalChannel);
+            var layer = LayerOf(pcg, catalog, programs, combi, timbre, sheet.GlobalMidiChannel);
             (layer.Sounds ? layers : silent).Add(layer);
         }
 
@@ -173,7 +239,7 @@ public sealed record GigSheet(SetList List, SetListSlot Slot, string Loads, stri
                 geBanks is null ? null : KgeReader.UserGeName(geBanks, m.GeId)))
             .ToList();
 
-        return empty with
+        return sheet with
         {
             Tempo = combi.Tempo,
             Karma = karma,

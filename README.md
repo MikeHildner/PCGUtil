@@ -17,7 +17,8 @@ Main tabs:
   one page per sound, in the order you play it, with an 88-key keyboard showing each layer's
   range, the effect chain, and what your joystick, pedals and switches actually do — including
   which layers really sound and which are just sitting there. A song that comes round three
-  times prints once and says where else it plays.
+  times prints once and says where else it plays. Combis not in any set list get the same
+  page from the **Gig sheet** button on their own row in the Combis tab.
 - **Combis** — browse a bank and reorganize: reorder, copy, or rename combis. Reordering
   automatically updates the set-list slots that use them, so your songs keep their sound.
   Each combi's key and velocity zones are editable right in its zone map, and you can change

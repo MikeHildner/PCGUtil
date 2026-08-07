@@ -1176,11 +1176,16 @@
                                     }
                                 </td>
                                 <td class="d-none d-md-table-cell">@(refs > 0 ? refs.ToString() : "")</td>
-                                <td>
+                                <td class="text-nowrap">
                                     @if (!isEmpty)
                                     {
                                         <button type="button" class="btn btn-sm @(_timbreCombi == idx ? "btn-secondary" : "btn-outline-secondary") px-2"
                                                 title="What's inside this combi" @onclick="() => ToggleTimbres(idx)">Timbres</button>
+                                        @* The same page the set list prints, for a combi that
+                                           isn't in one. *@
+                                        <button type="button" class="btn btn-sm btn-outline-secondary px-2 ms-1"
+                                                title="A printable page for this combi: the keyboard map, the effects, and what your controls do"
+                                                @onclick="() => ExportCombiGigSheet(idx)">Gig sheet</button>
                                     }
                                 </td>
                                 @if (_editMode)
@@ -3297,7 +3302,7 @@
                     <div class="pcg-context-divider"></div>
                     <button type="button" class="pcg-context-item" role="menuitem" disabled="@slot.IsEmpty"
                             title="A printable page for this song: the keyboard map, the effects, and what your controls do"
-                            @onclick="() => RunMenuItem(() => ExportGigSheet(menu.Index))">Gig sheet</button>
+                            @onclick="async () => { CloseRowMenu(); await ExportGigSheet(menu.Index); }">Gig sheet</button>
                     break;
                 }
                 case "combis":
@@ -3521,6 +3526,17 @@
 
     async Task ExportGigSheet(int slotIndex) => await WriteGigSheets(new[] { slotIndex }, one: true);
 
+    /// <summary>The same sheet for a combi straight from its bank, set list or no set list.</summary>
+    async Task ExportCombiGigSheet(int index)
+    {
+        if (_catalog is null || _pcg is null) return;
+        var sheet = GigSheet.BuildCombi(_pcg, _catalog, _selectedCombiBank, index,
+            CombiReader.Read(_pcg), _programInfos.Values.ToList(), _kgeBanks);
+        string bank = PcgBankLabels.Combi(_selectedCombiBank);
+        await SaveBytes($"gigsheet-combi-{bank}-{index:D3}.pdf",
+            GigSheetPdf.Render(sheet, _fileName), "application/pdf");
+    }
+
     async Task ExportGigSheetsPdf() => await WriteGigSheets(_gigSlots, one: false);
 
     async Task WriteGigSheets(IEnumerable<int> slotIndices, bool one)
@@ -3533,7 +3549,7 @@
         if (pages.Count == 0) return;
 
         string name = one
-            ? $"gigsheet-{sl.Index:D3}-{pages[0].Slot.Index:D3}.pdf"
+            ? $"gigsheet-{sl.Index:D3}-{pages[0].Number}.pdf"
             : $"gigsheets-{sl.Index:D3}.pdf";
         await SaveBytes(name, GigSheetPdf.Render(pages, _fileName), "application/pdf");
     }

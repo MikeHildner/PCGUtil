@@ -53,12 +53,19 @@ public static class GigSheetPdf
         double top = Margin;
 
         // ----- header -----
-        pdf.Box(Margin, Y(top + 22), 9, 22, SetListSlotColors.Css(sheet.Slot.Color).TrimStart('#'), "bbbbbb", 0.5);
+        // A set-list song wears its slot colour; a combi printed on its own has none.
+        pdf.Box(Margin, Y(top + 22), 9, 22,
+            sheet.Colour is { } colour ? SetListSlotColors.Css(colour).TrimStart('#') : "ffffff",
+            "bbbbbb", 0.5);
         double titleBase = top + 17;
-        string number = sheet.Slot.Index.ToString("D3");
-        pdf.Text(number, Margin + 15, Y(titleBase), PdfFont.HelveticaBold, 20, Ink);
-        double nameX = Margin + 15 + PdfWriter.Measure(number, PdfFont.HelveticaBold, 20) + 10;
-        string title = PdfWriter.Truncate(sheet.Slot.Name, PdfFont.HelveticaBold, 20, 330);
+        string number = sheet.Number;
+        double nameX = Margin + 15;
+        if (number.Length > 0)
+        {
+            pdf.Text(number, nameX, Y(titleBase), PdfFont.HelveticaBold, 20, Ink);
+            nameX += PdfWriter.Measure(number, PdfFont.HelveticaBold, 20) + 10;
+        }
+        string title = PdfWriter.Truncate(sheet.Title, PdfFont.HelveticaBold, 20, 330);
         pdf.Text(title, nameX, Y(titleBase), PdfFont.HelveticaBold, 20, Ink);
 
         // The meta line shares the band with the title, and a combi running four KARMA
@@ -71,9 +78,11 @@ public static class GigSheetPdf
                 Right, Y(top + 19), PdfFont.Helvetica, 9, Ink);
 
         top += 26;
-        string settings = Settings(sheet);
+        var pieces = new List<string>();
+        if (sheet.SlotSettings is { } slotSettings) pieces.Add(slotSettings);
         if (sheet.Karma.Count > 0)
-            settings += " · KARMA " + string.Join(", ", sheet.Karma.Select(k => $"{k.Module} {k.Display}"));
+            pieces.Add("KARMA " + string.Join(", ", sheet.Karma.Select(k => $"{k.Module} {k.Display}")));
+        string settings = string.Join(" · ", pieces);
         double settingsRoom = sheet.AlsoAt.Count > 0 ? ColumnW + 40 : ColumnW * 2;
         pdf.Text(PdfWriter.Truncate(settings, PdfFont.Helvetica, 8.5, settingsRoom),
             Margin, Y(top + 7), PdfFont.Helvetica, 8.5, Muted);
@@ -123,17 +132,8 @@ public static class GigSheetPdf
         Footer(pdf, sourceFile);
     }
 
-    private static string Meta(GigSheet sheet)
-    {
-        var parts = new List<string> { sheet.List.DisplayName, sheet.Loads };
-        if (sheet.Tempo > 0) parts.Add($"{sheet.Tempo:0.##} BPM");
-        return string.Join(" · ", parts);
-    }
-
-    private static string Settings(GigSheet sheet) =>
-        $"Slot volume {sheet.Slot.Volume} · "
-        + (sheet.Slot.Transpose == 0 ? "no transpose" : $"transpose {sheet.Slot.Transpose:+0;-0}")
-        + $" · hold {sheet.Slot.HoldTimeLabel}";
+    private static string Meta(GigSheet sheet) =>
+        sheet.Tempo > 0 ? $"{sheet.Source} · {sheet.Tempo:0.##} BPM" : sheet.Source;
 
     /// <summary>
     /// The other songs on this page. Slot settings belong to a slot, so when a repeat differs
@@ -147,8 +147,8 @@ public static class GigSheetPdf
         return differing.Count == 0 ? also
             : also + " — " + string.Join(", ", differing.Select(s =>
                 $"{s.Index:D3} volume {s.Volume}"
-                + (s.Transpose == sheet.Slot.Transpose ? "" : $", transpose {s.Transpose:+0;-0}")
-                + (s.HoldTimeIndex == sheet.Slot.HoldTimeIndex ? "" : $", hold {s.HoldTimeLabel}")));
+                + (s.Transpose == sheet.Slot?.Transpose ? "" : $", transpose {s.Transpose:+0;-0}")
+                + (s.HoldTimeIndex == sheet.Slot?.HoldTimeIndex ? "" : $", hold {s.HoldTimeLabel}")));
     }
 
     private static double Heading(PdfWriter pdf, string text, double x, double top, double width)
@@ -321,10 +321,10 @@ public static class GigSheetPdf
     private static void Notes(PdfWriter pdf, GigSheet sheet, double top)
     {
         top = Heading(pdf, "NOTES", RightColumnX, top, ColumnW);
-        if (sheet.Slot.Description.Length > 0)
+        if (sheet.Notes.Length > 0)
         {
-            double size = 9 * NoteScale(sheet.Slot.CommentFont);
-            foreach (string paragraph in sheet.Slot.Description.Split('\n'))
+            double size = 9 * NoteScale(sheet.NotesFont);
+            foreach (string paragraph in sheet.Notes.Split('\n'))
                 foreach (string line in Wrap(paragraph, PdfFont.Helvetica, size, ColumnW))
                 {
                     if (top > PageH - Margin - 24) return;   // never write over the footer

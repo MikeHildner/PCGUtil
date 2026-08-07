@@ -132,6 +132,54 @@ public class GigSheetPdfTests
             }
     }
 
+    /// <summary>
+    /// A combi that no set list plays still prints. The page keeps everything that belongs to
+    /// the sound and drops what belongs to a song: no slot number, no slot colour, and no
+    /// volume/transpose/hold line, because a combi on its own genuinely has none of those.
+    /// </summary>
+    [Fact]
+    public void A_combi_prints_on_its_own_without_inventing_slot_settings()
+    {
+        if (GigFile.Parse() is not { } pcg) return;
+        var catalog = PcgCatalog.Build(pcg);
+        var combi = CombiReader.Read(pcg).First(c => !c.IsEmptyOrInit && c.Timbres.Any());
+
+        var sheet = GigSheet.BuildCombi(pcg, catalog, combi.Bank, combi.Index);
+
+        Assert.Null(sheet.Slot);
+        Assert.Null(sheet.List);
+        Assert.Null(sheet.SlotSettings);          // nothing invented
+        Assert.Null(sheet.Colour);
+        Assert.Equal("", sheet.Number);
+        Assert.Equal(combi.Name, sheet.Title);     // the sound names the page
+        Assert.Equal(combi.Name, sheet.TargetName);
+        Assert.Contains("Combi", sheet.Source, StringComparison.Ordinal);
+        Assert.Equal("", sheet.Notes);
+        Assert.Empty(sheet.AlsoAt);
+        Assert.Null(sheet.Unavailable);
+
+        // Everything that belongs to the sound is still there.
+        Assert.NotEmpty(sheet.Layers);
+        Assert.NotNull(sheet.GlobalMidiChannel);
+
+        string pdf = Content(GigSheetPdf.Render(sheet, "20260806a.PCG"));
+        Assert.Contains("/Type /Pages /Count 1", pdf, StringComparison.Ordinal);
+        Assert.Contains("/MediaBox [0 0 792 612]", pdf, StringComparison.Ordinal);
+        Assert.Contains($"({combi.Name})", pdf, StringComparison.Ordinal);
+        Assert.DoesNotContain("(Slot volume", pdf, StringComparison.Ordinal);
+        Assert.True(Occurrences(pdf, " re B\n") >= 52, "the keyboard should still be drawn");
+    }
+
+    [Fact]
+    public void A_combi_the_file_does_not_carry_says_so_rather_than_throwing()
+    {
+        var pcg = Sample.Parse();
+        var sheet = GigSheet.BuildCombi(pcg, PcgCatalog.Build(pcg), bank: 0, index: 9999);
+        Assert.NotNull(sheet.Unavailable);
+        Assert.Empty(sheet.Layers);
+        Assert.Contains("/MediaBox", Content(GigSheetPdf.Render(sheet)), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_same_songs_always_produce_the_same_file()
     {
